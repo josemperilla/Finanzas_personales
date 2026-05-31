@@ -32,6 +32,7 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /cine\s*colombia|cinecolombia/i, canonical: 'Cine Colombia' },
   { pattern: /\bcine\b/i, canonical: 'Cine' },
   { pattern: /adidas/i, canonical: 'Adidas' },
+  { pattern: /tienda\s+d1\b/i, canonical: 'Tiendas D1' },
   { pattern: /tembici/i, canonical: 'Tembici' },
   { pattern: /club\s*los\s*lagartos/i, canonical: 'Club Los Lagartos' },
   { pattern: /osaki/i, canonical: 'Osaki' },
@@ -49,7 +50,10 @@ export function cleanMerchant(raw: string | undefined | null): string {
   if (!raw) return '—';
   let s = raw.trim();
 
-  // Brand normalization first (before stripping noise that might remove the brand keyword)
+  // Strip payment aggregator prefixes: BOLD*, VAULT*, PYU*, PAYU*
+  s = s.replace(/^(?:bold|vault|pyu|payu)\*/i, '').trim();
+
+  // Brand normalization (before stripping noise that might remove the brand keyword)
   for (const { pattern, canonical } of BRAND_RULES) {
     if (pattern.test(s)) return canonical;
   }

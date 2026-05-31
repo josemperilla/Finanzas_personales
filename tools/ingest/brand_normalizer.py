@@ -35,6 +35,7 @@ BRAND_RULES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"cine\s*colombia|cinecolombia", re.I), "Cine Colombia"),
     (re.compile(r"\bcine\b",           re.I), "Cine"),
     (re.compile(r"adidas",             re.I), "Adidas"),
+    (re.compile(r"tienda\s+d1\b",      re.I), "Tiendas D1"),
     (re.compile(r"tembici",            re.I), "Tembici"),
     (re.compile(r"club\s*los\s*lagartos", re.I), "Club Los Lagartos"),
     (re.compile(r"osaki",              re.I), "Osaki"),

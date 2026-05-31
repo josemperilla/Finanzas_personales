@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from tools.ingest.parsers.bogota_parser import BogotaParser
 from tools.ingest.parsers.itau_parser import ItauParser
 from tools.ingest.parsers.base_parser import RawTransaction
+from tools.ingest.merchant_cleaner import clean_merchant
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ def raw_to_payload(tx: RawTransaction, bank: str) -> Optional[dict]:
         "fecha":     fecha_str,
         "tipo":      "Compra",
         "monto":     round(monto),
-        "comercio":  tx.description.strip(),
+        "comercio":  clean_merchant(tx.description, bank),
         "tarjeta":   "",
         "categoria": "",   # el webhook corre detectCategory() sobre el comercio
     }

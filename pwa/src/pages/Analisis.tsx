@@ -18,6 +18,7 @@ interface MonthStats {
   count: number;
   byCategory: { name: string; color: string; amount: number }[];
   topMerchants: { name: string; amount: number; count: number }[];
+  topByCount: { name: string; amount: number; count: number }[];
 }
 
 const BANKS = ['Todos', 'Bogotá', 'Itaú', 'Otro'];
@@ -66,18 +67,18 @@ function computeStats(txs: Transaction[], bank: string): MonthStats[] {
         merchantMap[name].amount += Number(tx['Monto (COP)'] || 0);
         merchantMap[name].count += 1;
       }
-      const topMerchants = Object.entries(merchantMap)
-        .map(([name, v]) => ({ name, ...v }))
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 5);
+      const merchantEntries = Object.entries(merchantMap).map(([name, v]) => ({ name, ...v }));
+      const topMerchants = [...merchantEntries].sort((a, b) => b.amount - a.amount).slice(0, 5);
+      const topByCount   = [...merchantEntries].sort((a, b) => b.count - a.count).slice(0, 5);
 
-      return { key, label: shortLabel(key), total, count, byCategory: byCat, topMerchants };
+      return { key, label: shortLabel(key), total, count, byCategory: byCat, topMerchants, topByCount };
     });
 }
 
 export function Analisis({ transactions, loading }: Props) {
   const [activeBank, setActiveBank] = useState('Todos');
   const [compareMode, setCompareMode] = useState(false);
+  const [merchantView, setMerchantView] = useState<'amount' | 'count'>('amount');
 
   const allStats = useMemo(() => computeStats(transactions, activeBank), [transactions, activeBank]);
   const last6 = allStats.slice(-6);
@@ -137,7 +138,18 @@ export function Analisis({ transactions, loading }: Props) {
               }}>{b}</motion.button>
             );
           })}
-          <motion.button whileTap={{ scale: 0.94 }} onClick={() => setCompareMode(c => !c)} style={{
+          <motion.button whileTap={{ scale: 0.94 }} onClick={() => {
+            if (compareMode) {
+              setCompareMode(false);
+              setCompareIdx(-1);
+            } else {
+              const auto = displayIdx > 0
+                ? displayIdx - 1
+                : last6.length > 1 ? last6.length - 1 : -1;
+              setCompareIdx(auto);
+              setCompareMode(true);
+            }
+          }} style={{
             flexShrink: 0, padding: '5px 14px', borderRadius: 999,
             border: `1.5px solid ${compareMode ? 'var(--orange-500)' : 'var(--line)'}`,
             background: compareMode ? 'var(--orange-50)' : '#fff',
@@ -199,7 +211,9 @@ export function Analisis({ transactions, loading }: Props) {
             transition={quickEase}
             style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
           >
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Comparar con:</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+              Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
+            </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {last6.map((s, i) => i !== displayIdx && (
                 <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
@@ -275,25 +289,62 @@ export function Analisis({ transactions, loading }: Props) {
             {/* Top merchants */}
             {displayStats.topMerchants.length > 0 && (
               <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
-                  Top comercios — {displayStats.label}
+                {/* Header with segmented control */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                    Top comercios — {displayStats.label}
+                  </div>
+                  <div style={{ display: 'flex', border: '1.5px solid var(--line)', borderRadius: 999, overflow: 'hidden' }}>
+                    {(['amount', 'count'] as const).map(v => (
+                      <button key={v} onClick={() => setMerchantView(v)} style={{
+                        padding: '4px 10px', border: 'none', cursor: 'pointer',
+                        background: merchantView === v ? 'var(--blue-600)' : 'transparent',
+                        color: merchantView === v ? '#fff' : 'var(--ink-2)',
+                        fontSize: 11.5, fontWeight: merchantView === v ? 600 : 400,
+                        fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+                        transition: 'background 0.15s ease, color 0.15s ease',
+                      }}>
+                        {v === 'amount' ? 'Monto' : 'Transacciones'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                {displayStats.topMerchants.map(({ name, amount, count }, i) => (
-                  <motion.div key={name} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ ...quickEase, delay: i * 0.04 }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < displayStats.topMerchants.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 10, background: 'var(--blue-50)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--blue-700)',
-                    }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{count} transacción{count !== 1 ? 'es' : ''}</div>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{formatCOP(amount)}</span>
-                  </motion.div>
-                ))}
+                {/* Merchant rows */}
+                {(() => {
+                  const activeList = merchantView === 'amount' ? displayStats.topMerchants : displayStats.topByCount;
+                  return activeList.map(({ name, amount, count }, i) => {
+                    const compareList = compareStats
+                      ? (merchantView === 'amount' ? compareStats.topMerchants : compareStats.topByCount)
+                      : null;
+                    const cm = compareList?.find(m => m.name === name);
+                    return (
+                      <motion.div key={name} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ ...quickEase, delay: i * 0.04 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < activeList.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--blue-700)' }}>
+                          {i + 1}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                            {merchantView === 'amount'
+                              ? `${count} transacción${count !== 1 ? 'es' : ''}`
+                              : formatCOP(amount)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>
+                            {merchantView === 'amount' ? formatCOP(amount) : `${count} tx`}
+                          </span>
+                          {cm && (
+                            <div style={{ fontSize: 10.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                              vs {merchantView === 'amount' ? formatCOP(cm.amount) : `${cm.count} tx`}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  });
+                })()}
               </motion.div>
             )}
           </>

@@ -102,6 +102,7 @@ function doPost(e) {
 }
 
 // ── Leer transacciones del Sheet ──────────────────────────────
+// Returns transactions from the last 12 months (or all if fewer).
 function getTransactions() {
   var ss    = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
@@ -113,8 +114,19 @@ function getTransactions() {
   var headers = rows[0];
   var result  = [];
 
+  // Find the "Fecha" column index for date filtering
+  var fechaCol = headers.indexOf("Fecha");
+  var cutoff   = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1); // 12 months back
+
   for (var i = rows.length - 1; i >= 1; i--) {
     var row = rows[i];
+    // Skip rows older than 12 months
+    if (fechaCol >= 0) {
+      var cell = row[fechaCol];
+      var d = cell instanceof Date ? cell : new Date(String(cell));
+      if (!isNaN(d.getTime()) && d < cutoff) continue;
+    }
     var obj = {};
     for (var j = 0; j < headers.length; j++) {
       obj[headers[j]] = row[j];
@@ -172,9 +184,9 @@ function handleChat(question, context) {
 
   var prompt = "Eres un asistente financiero personal amigable y conciso. " +
     "El usuario habla español colombiano. Responde siempre en español, de forma breve y útil (máximo 4 oraciones). " +
-    "Aquí está el resumen financiero del usuario:\n" +
-    JSON.stringify(context, null, 2) +
-    "\n\nPregunta del usuario: " + question;
+    "Resumen financiero del usuario: " +
+    JSON.stringify(context) +
+    " Pregunta: " + question;
 
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
@@ -211,7 +223,7 @@ function parseBogota(sms) {
     monto:    parseMonto(m[2]),
     tarjeta:  m[3].trim() + " " + m[4],
     fecha:    parseFechaBogota(m[5], m[6]),
-    comercio: m[7].trim()
+    comercio: normalizeComercio(m[7].trim())
   };
 }
 
@@ -236,7 +248,7 @@ function parseItau(sms) {
     return {
       banco:    "Itaú",
       tipo:     normalizeTipo(mp[1]),
-      comercio: mp[2].trim(),
+      comercio: normalizeComercio(mp[2].trim()),
       tarjeta:  mp[3].trim() + " ****" + mp[4],
       monto:    parseMonto(mp[5]),
       fecha:    parseFechaItau(mp[6], mp[7])
@@ -338,6 +350,23 @@ function appendToSheet(data) {
     data.categoria   || "",
     data.sms_original || ""
   ]);
+}
+
+// ── Normalización de nombre de comercio ───────────────────────
+function normalizeComercio(s) {
+  if (!s) return s;
+  s = s.trim();
+
+  // Strip payment aggregator prefixes: Bold*, Vault*, PayU*
+  s = s.replace(/^(?:BOLD|VAULT|PYU|PAYU)\*\s*/i, "");
+
+  // Tiendas D1
+  if (/TIENDA\s+D1\b/i.test(s)) return "Tiendas D1";
+
+  // Tembici (strip any preceding processor prefix like "Mercado Pago*")
+  if (/TEMBICI/i.test(s)) return "Tembici";
+
+  return s.trim();
 }
 
 // ── Response helper ───────────────────────────────────────────
