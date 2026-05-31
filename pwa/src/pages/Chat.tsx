@@ -131,7 +131,7 @@ export function Chat({ transactions }: Props) {
   })();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', fontFamily: 'var(--font-body)', background: 'var(--surface)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 48px - max(18px, env(safe-area-inset-bottom)))', fontFamily: 'var(--font-body)', background: 'var(--surface)' }}>
       {/* Header */}
       <div style={{
         background: '#fff', borderBottom: '1px solid var(--line)',

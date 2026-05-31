@@ -10,7 +10,7 @@ from unidecode import unidecode
 # Payment aggregator prefixes to strip (Bold, Vault, PayU variants)
 # e.g. "BOLD*Cafe De Madeleine" → "Cafe De Madeleine"
 _AGGREGATOR_PREFIX = re.compile(
-    r"^(?:BOLD|VAULT|PYU|PAYU)\*\s*",
+    r"^(?:BOLD|VAULT|PYU|PAYU|MERCADO\s*PAGO)\*\s*",
     re.IGNORECASE,
 )
 

@@ -51,7 +51,7 @@ export function cleanMerchant(raw: string | undefined | null): string {
   let s = raw.trim();
 
   // Strip payment aggregator prefixes: BOLD*, VAULT*, PYU*, PAYU*
-  s = s.replace(/^(?:bold|vault|pyu|payu)\*/i, '').trim();
+  s = s.replace(/^(?:bold|vault|pyu|payu|mercado\s*pago)\*/i, '').trim();
 
   // Brand normalization (before stripping noise that might remove the brand keyword)
   for (const { pattern, canonical } of BRAND_RULES) {
