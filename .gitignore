@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.*.local
+data/finance.db
+data/finance.db-*
+data/fx_cache/
+.tmp/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.egg-info/
+.pytest_cache/
+pwa/node_modules/
+pwa/dist/
+Extractos_lectura/
+*.pdf

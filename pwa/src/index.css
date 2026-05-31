@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --blue-700: #1d4ed8;
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-300: #bfd4fb;
+  --blue-100: #dbeafe;
+  --blue-50:  #eff6ff;
+
+  --orange-600: #ea580c;
+  --orange-500: #f97316;
+  --orange-400: #fb923c;
+  --orange-100: #ffedd5;
+  --orange-50:  #fff7ed;
+
+  --ink:      #0f172a;
+  --ink-2:    #1e293b;
+  --muted:    #64748b;
+  --muted-2:  #94a3b8;
+  --line:     #e9eef5;
+  --surface:  #f6f8fc;
+  --white:    #ffffff;
+
+  --font-display: 'Syne', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-2xl:  24px;
+  --r-pill: 999px;
+
+  --shadow-card:   0 10px 30px rgba(15,23,42,0.05);
+  --shadow-blue:   0 8px 20px rgba(29,78,216,0.28);
+  --shadow-orange: 0 8px 20px rgba(249,115,22,0.30);
+  --shadow-float:  0 24px 50px rgba(15,23,42,0.16);
+
+  --grad-brand:  linear-gradient(150deg, #1d4ed8, #2563eb 60%, #1e40af);
+  --grad-card:   linear-gradient(125deg, #1d4ed8 0%, #2563eb 45%, #f97316 130%);
+  --grad-accent: linear-gradient(90deg, #2563eb, #f97316);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.4;
+  color-scheme: light;
+}
+
+select option {
+  background: #ffffff;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
