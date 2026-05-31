@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { Transaction } from '../lib/api';
 import { formatCOP, currentMonthLabel, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -58,14 +59,7 @@ export function Home({ transactions, loading, onViewAll }: Props) {
         padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
         marginBottom: 20, position: 'relative',
       }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: '50%',
-          background: 'var(--grad-brand)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
-        }}>
-          {monthLabel.charAt(0).toUpperCase()}
-        </div>
+        <ProfileAvatar fallback={monthLabel.charAt(0).toUpperCase()} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Finanzas Personales</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
@@ -140,6 +134,36 @@ export function Home({ transactions, loading, onViewAll }: Props) {
           )}
         </motion.div>
       </motion.div>
+    </div>
+  );
+}
+
+function ProfileAvatar({ fallback }: { fallback: string }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div style={{
+      width: 42, height: 42, borderRadius: '50%',
+      background: failed ? 'var(--grad-brand)' : '#fff',
+      border: '2px solid #fff',
+      boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden', flexShrink: 0,
+      color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
+    }}>
+      {failed ? fallback : (
+        <img
+          src="/profile-avatar.jpg"
+          alt="Perfil"
+          onError={() => setFailed(true)}
+          style={{
+            width: '100%', height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            display: 'block',
+          }}
+        />
+      )}
     </div>
   );
 }
