@@ -1,5 +1,11 @@
 import { WEBHOOK_URL } from './config';
 
+function assertWebhookUrl() {
+  if (!WEBHOOK_URL) {
+    throw new Error('Falta configurar VITE_WEBHOOK_URL en Netlify');
+  }
+}
+
 export interface Transaction {
   Timestamp: string;
   Fecha: string;
@@ -30,6 +36,7 @@ export interface VoiceParsed {
 }
 
 export async function fetchTransactions(): Promise<Transaction[]> {
+  assertWebhookUrl();
   const res = await fetch(`${WEBHOOK_URL}?action=transactions`);
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
@@ -37,6 +44,7 @@ export async function fetchTransactions(): Promise<Transaction[]> {
 }
 
 export async function saveTransaction(data: ManualTransaction): Promise<void> {
+  assertWebhookUrl();
   const res = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -47,6 +55,7 @@ export async function saveTransaction(data: ManualTransaction): Promise<void> {
 }
 
 export async function parseVoice(text: string): Promise<VoiceParsed> {
+  assertWebhookUrl();
   const res = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -58,6 +67,7 @@ export async function parseVoice(text: string): Promise<VoiceParsed> {
 }
 
 export async function askChat(question: string, context: object): Promise<string> {
+  assertWebhookUrl();
   const res = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },

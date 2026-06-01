@@ -2,14 +2,16 @@ import { useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { saveTransaction, parseVoice, ManualTransaction } from '../lib/api';
 import { CATEGORIES } from '../lib/config';
+import { SuccessCheck } from '../components/ui/SuccessCheck';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
 interface Props {
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 type Mode = 'form' | 'voice';
 type VoiceState = 'idle' | 'recording' | 'processing' | 'prefilled';
+type SaveState = 'idle' | 'saving' | 'success';
 
 interface FormData {
   monto: string;
@@ -49,7 +51,7 @@ export function Agregar({ onSaved }: Props) {
   const [form, setForm] = useState<FormData>(defaultForm);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const recognitionRef = useRef<any>(null);
   const [prefillGlow, setPrefillGlow] = useState(false);
@@ -73,11 +75,13 @@ export function Agregar({ onSaved }: Props) {
   }
 
   async function handleSubmit() {
+    if (saveState !== 'idle') return;
     if (!form.monto || !form.comercio) {
       showToast('Monto y comercio son requeridos', false);
       return;
     }
-    setSaving(true);
+    setSaveState('saving');
+    let succeeded = false;
     try {
       const data: ManualTransaction = {
         banco: form.banco, tipo: form.tipo,
@@ -86,12 +90,16 @@ export function Agregar({ onSaved }: Props) {
       };
       await saveTransaction(data);
       setForm(defaultForm);
+      succeeded = true;
+      setSaveState('success');
       showToast('Transacción guardada', true);
-      onSaved();
-    } catch {
-      showToast('Error al guardar. Intenta de nuevo.', false);
+      await new Promise(resolve => window.setTimeout(resolve, 650));
+      await onSaved();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al guardar. Intenta de nuevo.', false);
+      setSaveState('idle');
     } finally {
-      setSaving(false);
+      if (!succeeded) setSaveState('idle');
     }
   }
 
@@ -255,14 +263,30 @@ export function Agregar({ onSaved }: Props) {
             />
           </motion.div>
 
-          <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saving ? 1 : 0.98 }} onClick={handleSubmit} disabled={saving} style={{
-            width: '100%', height: 54, background: saving ? 'var(--blue-300)' : 'var(--blue-700)',
+          <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }} onClick={handleSubmit} disabled={saveState !== 'idle'} style={{
+            width: '100%', height: 54,
+            background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue-700)',
             border: 'none', borderRadius: 'var(--r-lg)', color: '#fff', fontSize: 16, fontWeight: 600,
-            cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)',
-            boxShadow: saving ? 'none' : 'var(--shadow-blue)',
+            cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)',
+            boxShadow: saveState === 'idle' ? 'var(--shadow-blue)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
             transition: 'all 0.15s ease', marginTop: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
           }}>
-            {saving ? 'Guardando...' : 'Guardar transacción'}
+            <AnimatePresence mode="wait" initial={false}>
+              {saveState === 'success' ? (
+                <motion.span key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SuccessCheck size={20} /> Guardada
+                </motion.span>
+              ) : saveState === 'saving' ? (
+                <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  Guardando...
+                </motion.span>
+              ) : (
+                <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  Guardar transacción
+                </motion.span>
+              )}
+            </AnimatePresence>
           </motion.button>
         </motion.div>
       )}

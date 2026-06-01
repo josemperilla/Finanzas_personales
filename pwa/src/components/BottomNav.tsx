@@ -18,6 +18,7 @@ export function BottomNav({ active, onChange }: Props) {
       paddingTop: '10px',
       paddingBottom: 'max(18px, env(safe-area-inset-bottom))',
       zIndex: 100,
+      boxShadow: '0 -10px 30px rgba(15,23,42,0.06)',
     }}>
       <NavTab label="Inicio" icon={<HomeIcon active={active === 'home'} />} active={active === 'home'} onClick={() => onChange('home')} />
       <NavTab label="Historial" icon={<ListIcon active={active === 'historial'} />} active={active === 'historial'} onClick={() => onChange('historial')} />
@@ -39,18 +40,18 @@ function NavTab({ label, icon, active, onClick }: {
     }}>
       {active && (
         <motion.span
-          layoutId="nav-active-dot"
+          layoutId="nav-active-pill"
           transition={softSpring}
           style={{
-            position: 'absolute', top: -6, width: 4, height: 4,
-            borderRadius: '50%', background: 'var(--blue-700)',
+            position: 'absolute', top: 0, width: 38, height: 26,
+            borderRadius: 999, background: 'var(--blue-50)',
           }}
         />
       )}
       <motion.span
         animate={{ scale: active ? 1.08 : 1, opacity: active ? 1 : 0.45 }}
         transition={softSpring}
-        style={{ display: 'flex' }}
+        style={{ display: 'flex', position: 'relative' }}
       >
         {icon}
       </motion.span>
@@ -77,7 +78,7 @@ function AddTab({ active, onClick }: { active: boolean; onClick: () => void }) {
         transition={softSpring}
         style={{
         width: '50px', height: '50px', borderRadius: '16px',
-        background: 'var(--blue-700)',
+        background: active ? 'var(--grad-accent)' : 'var(--blue-700)',
         boxShadow: active ? 'var(--shadow-blue)' : '0 4px 14px rgba(29,78,216,0.22)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 0.2s ease',

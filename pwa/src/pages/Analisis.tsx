@@ -4,6 +4,7 @@ import { Transaction } from '../lib/api';
 import { formatCOP } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
+import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 
 interface Props {
@@ -101,7 +102,16 @@ export function Analisis({ transactions, loading }: Props) {
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 100px', fontFamily: 'var(--font-body)' }}>
         <p style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 2px' }}>Estadísticas</p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Análisis</h1>
-        <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--muted)' }}>Cargando datos...</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          {[1,2,3,4].map(i => (
+            <div key={i} style={{
+              height: 78, borderRadius: 'var(--r-xl)',
+              background: 'linear-gradient(90deg, var(--line) 25%, #e2e8f0 50%, var(--line) 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.8s ease-in-out infinite',
+            }} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -111,7 +121,10 @@ export function Analisis({ transactions, loading }: Props) {
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 100px', fontFamily: 'var(--font-body)' }}>
         <p style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 2px' }}>Estadísticas</p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Análisis</h1>
-        <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--muted)', fontSize: 13 }}>Sin datos para analizar aún.</div>
+        <FriendlyEmptyState
+          title="Aún no hay análisis"
+          message="Con unas cuantas transacciones podré mostrar tendencias, categorías top y comercios frecuentes."
+        />
       </div>
     );
   }

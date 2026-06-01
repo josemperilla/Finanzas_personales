@@ -1,20 +1,27 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { Transaction } from '../lib/api';
 import { formatCOP, currentMonthLabel, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
 import { Blobs } from '../components/ui/Blobs';
+import { ConnectionNotice } from '../components/ui/ConnectionNotice';
+import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
 interface Props {
   transactions: Transaction[];
   loading: boolean;
+  error?: string | null;
+  missingConfig?: boolean;
+  highlightLatest?: boolean;
+  onRetry?: () => void;
+  onAdd: () => void;
   onViewAll: () => void;
 }
 
-export function Home({ transactions, loading, onViewAll }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll }: Props) {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -83,6 +90,15 @@ export function Home({ transactions, loading, onViewAll }: Props) {
         )}
       </motion.div>
 
+      <AnimatePresence>
+        {missingConfig && (
+          <ConnectionNotice message="Falta configurar VITE_WEBHOOK_URL en Netlify para conectar con Google Sheets." />
+        )}
+        {!missingConfig && error && (
+          <ConnectionNotice message={error || 'No pude conectar con Google Sheets.'} onRetry={onRetry} />
+        )}
+      </AnimatePresence>
+
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
         {/* Donut chart card */}
         <motion.div variants={riseItem} transition={quickEase} style={{
@@ -121,13 +137,18 @@ export function Home({ transactions, loading, onViewAll }: Props) {
           {loading ? (
             [1,2,3].map(i => <SkeletonCard key={i} />)
           ) : recent.length === 0 ? (
-            <EmptyState />
+            <FriendlyEmptyState
+              title="Todavía no hay movimientos"
+              message="Agrega una transacción manual o conecta tus SMS para empezar a ver tu mes en vivo."
+              actionLabel="Agregar transacción"
+              onAction={onAdd}
+            />
           ) : (
             <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}>
               {recent.map((tx, i) => (
                 <motion.div key={i} variants={riseItem} transition={quickEase}>
                   {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
-                  <TxRow tx={tx} />
+                  <TxRow tx={tx} highlighted={Boolean(highlightLatest && i === 0)} />
                 </motion.div>
               ))}
             </motion.div>
@@ -168,13 +189,23 @@ function ProfileAvatar({ fallback }: { fallback: string }) {
   );
 }
 
-function TxRow({ tx }: { tx: Transaction }) {
+function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
   const color = getCategoryColor(tx.Categoría);
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || tx.Tipo;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0' }}>
+    <motion.div
+      animate={{
+        backgroundColor: highlighted ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0)',
+        scale: highlighted ? 1.01 : 1,
+      }}
+      transition={softSpring}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '13px 8px', margin: '0 -8px', borderRadius: 14,
+      }}
+    >
       <div style={{
         width: 38, height: 38, borderRadius: 11, background: color,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -192,7 +223,7 @@ function TxRow({ tx }: { tx: Transaction }) {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14.5, color: 'var(--ink)', flexShrink: 0 }}>
         −{formatCOP(Number(tx['Monto (COP)']))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -215,13 +246,5 @@ function Spinner() {
       borderTopColor: 'var(--blue-600)',
       animation: 'spin 0.9s linear infinite',
     }} />
-  );
-}
-
-function EmptyState() {
-  return (
-    <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--muted)' }}>
-      <p style={{ margin: 0, fontSize: 13 }}>Sin transacciones aún</p>
-    </div>
   );
 }

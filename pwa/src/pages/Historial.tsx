@@ -4,6 +4,7 @@ import { Transaction } from '../lib/api';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
+import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
 interface Props {
@@ -223,13 +224,23 @@ function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
 }
 
 function SkeletonCard() {
-  return <div style={{ height: 52, borderRadius: 12, marginBottom: 6, background: 'var(--line)' }} />;
+  return (
+    <div style={{
+      height: 52,
+      borderRadius: 12,
+      marginBottom: 8,
+      background: 'linear-gradient(90deg, var(--line) 25%, #e2e8f0 50%, var(--line) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.8s ease-in-out infinite',
+    }} />
+  );
 }
 
 function EmptyState() {
   return (
-    <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
-      <p style={{ fontSize: 13, margin: 0 }}>Aún no hay transacciones registradas</p>
-    </div>
+    <FriendlyEmptyState
+      title="Sin historial todavía"
+      message="Cuando entren transacciones desde SMS o manuales, aparecerán agrupadas por día aquí."
+    />
   );
 }

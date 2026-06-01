@@ -7,20 +7,24 @@ import { Agregar } from './pages/Agregar';
 import { Analisis } from './pages/Analisis';
 import { Chat } from './pages/Chat';
 import { fetchTransactions, Transaction } from './lib/api';
+import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase } from './lib/motion';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [highlightLatest, setHighlightLatest] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await fetchTransactions();
       setTransactions(data);
-    } catch {
-      // fail silently — empty state shown
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'No pude conectar con Google Sheets');
     } finally {
       setLoading(false);
     }
@@ -40,13 +44,27 @@ export default function App() {
           transition={quickEase}
         >
           {tab === 'home' && (
-            <Home transactions={transactions} loading={loading} onViewAll={() => setTab('historial')} />
+            <Home
+              transactions={transactions}
+              loading={loading}
+              error={loadError}
+              missingConfig={!HAS_WEBHOOK_URL}
+              highlightLatest={highlightLatest}
+              onRetry={load}
+              onAdd={() => setTab('agregar')}
+              onViewAll={() => setTab('historial')}
+            />
           )}
           {tab === 'historial' && (
             <Historial transactions={transactions} loading={loading} />
           )}
           {tab === 'agregar' && (
-            <Agregar onSaved={() => { load(); setTab('home'); }} />
+            <Agregar onSaved={async () => {
+              await load();
+              setTab('home');
+              setHighlightLatest(true);
+              window.setTimeout(() => setHighlightLatest(false), 1600);
+            }} />
           )}
           {tab === 'analisis' && (
             <Analisis transactions={transactions} loading={loading} />
