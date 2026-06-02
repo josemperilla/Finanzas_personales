@@ -33,6 +33,8 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /google/i, canonical: 'Google' },
   { pattern: /\bclaude\b/i, canonical: 'Claude' },
   { pattern: /openai/i, canonical: 'OpenAI' },
+  { pattern: /deepseek/i, canonical: 'DeepSeek' },
+  { pattern: /mistral/i, canonical: 'Mistral' },
 
   // Viajes
   { pattern: /latam/i, canonical: 'LATAM Airlines' },
