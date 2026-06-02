@@ -79,6 +79,7 @@ const DOMAINS: Record<string, string> = {
   flamingo: 'flamingo.com.co',
 
   // ── Moda & Ropa ─────────────────────────────────────────────────────────
+  'arturo calle': 'arturocalle.com',
   zara: 'zara.com',
   'h&m': 'hm.com',
   'studio f': 'studiof.com',
@@ -109,6 +110,10 @@ const DOMAINS: Record<string, string> = {
   'crepes waffles': 'crepesywaffles.com',
   wok: 'wok.com.co',
   osaki: 'osaki.com.co',
+  'la palma y el tucan': 'lapalmayeltucan.com',
+  'la palma y el tucán': 'lapalmayeltucan.com',
+  'central cevicheria': 'centralcevicheria.com',
+  'el bandido bistro': 'elbandido.com.co',
 
   // ── Telecomunicaciones Colombia ──────────────────────────────────────────
   claro: 'claro.com.co',
