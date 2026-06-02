@@ -62,6 +62,7 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /\bcine\b/i, canonical: 'Cine' },
 
   // Restaurantes & cafés
+  { pattern: /mc\s*donalds?|mcdonald's/i, canonical: "McDonald's" },
   { pattern: /osaki/i, canonical: 'Osaki' },
   { pattern: /\bonza\b/i, canonical: 'Onza' },
   { pattern: /central\s*cevicher[ií]a/i, canonical: 'Central Cevichería' },
