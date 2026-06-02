@@ -8,6 +8,7 @@ import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 import { getBudgets, setBudget, clearBudget } from '../lib/budgets';
+import { CategorySheet } from '../components/CategorySheet';
 
 interface Props {
   transactions: Transaction[];
@@ -101,6 +102,7 @@ export function Analisis({ transactions, loading }: Props) {
   const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets());
   const [editingBudget, setEditingBudget] = useState<string | null>(null);
   const [budgetDraft, setBudgetDraft] = useState('');
+  const [drillCategory, setDrillCategory] = useState<string | null>(null);
 
   const displayIdx = selectedIdx >= 0 && selectedIdx < last6.length
     ? selectedIdx
@@ -367,7 +369,12 @@ export function Analisis({ transactions, loading }: Props) {
                   const barPct = displayStats.total > 0 ? (amount / displayStats.total) * 100 : 0;
                   const compareAmount = compareStats?.byCategory.find(c => c.name === name)?.amount;
                   return (
-                    <div key={name} style={{ marginBottom: 12 }}>
+                    <motion.div
+                      key={name}
+                      whileTap={{ scale: 0.985 }}
+                      onClick={() => setDrillCategory(name)}
+                      style={{ marginBottom: 12, cursor: 'pointer' }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
@@ -411,7 +418,7 @@ export function Analisis({ transactions, loading }: Props) {
                           />
                         ) : (
                           <button
-                            onClick={() => { setEditingBudget(name); setBudgetDraft(budgets[name] ? String(budgets[name]) : ''); }}
+                            onClick={e => { e.stopPropagation(); setEditingBudget(name); setBudgetDraft(budgets[name] ? String(budgets[name]) : ''); }}
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
                               fontSize: 10.5, color: budgets[name] ? 'var(--blue-700)' : 'var(--muted)',
@@ -422,7 +429,7 @@ export function Analisis({ transactions, loading }: Props) {
                           </button>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </motion.div>
@@ -500,6 +507,16 @@ export function Analisis({ transactions, loading }: Props) {
           </>
         )}
       </motion.div>
+
+      <AnimatePresence>
+        {drillCategory && (
+          <CategorySheet
+            category={drillCategory}
+            transactions={transactions}
+            onClose={() => setDrillCategory(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

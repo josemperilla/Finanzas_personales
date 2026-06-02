@@ -4,6 +4,7 @@ import { Transaction } from '../lib/api';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
+import { CategorySheet } from '../components/CategorySheet';
 import { Blobs } from '../components/ui/Blobs';
 import { ConnectionNotice } from '../components/ui/ConnectionNotice';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
@@ -35,6 +36,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [drillCategory, setDrillCategory] = useState<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -249,7 +251,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 exit="exit"
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <DonutChart slices={byCategory} total={totalMonth} />
+                <DonutChart slices={byCategory} total={totalMonth} onSliceClick={setDrillCategory} />
               </motion.div>
             </AnimatePresence>
           )}
@@ -346,6 +348,16 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           )}
         </motion.div>
       </motion.div>
+
+      <AnimatePresence>
+        {drillCategory && (
+          <CategorySheet
+            category={drillCategory}
+            transactions={transactions}
+            onClose={() => setDrillCategory(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

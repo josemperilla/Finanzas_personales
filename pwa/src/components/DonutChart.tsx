@@ -11,9 +11,10 @@ interface Slice {
 interface Props {
   slices: Slice[];
   total: number;
+  onSliceClick?: (category: string) => void;
 }
 
-export function DonutChart({ slices, total }: Props) {
+export function DonutChart({ slices, total, onSliceClick }: Props) {
   const SIZE = 180;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
@@ -72,7 +73,9 @@ export function DonutChart({ slices, total }: Props) {
               initial={{ opacity: 0, scale: 0.94, rotate: -3 }}
               animate={{ opacity: 0.9, scale: 1, rotate: 0 }}
               transition={{ ...quickEase, delay: i * 0.045 }}
-              style={{ transformOrigin: `${CX}px ${CY}px` }}
+              style={{ transformOrigin: `${CX}px ${CY}px`, cursor: onSliceClick ? 'pointer' : 'default' }}
+              whileTap={onSliceClick ? { scale: 0.96 } : undefined}
+              onClick={() => onSliceClick?.(p.category)}
             />
           ))}
 
@@ -101,9 +104,18 @@ export function DonutChart({ slices, total }: Props) {
       {/* Legend */}
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
         {nonZero.slice(0, 6).map(s => (
-          <motion.div key={s.category} variants={riseItem} transition={quickEase} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
+          <motion.div
+            key={s.category}
+            variants={riseItem}
+            transition={quickEase}
+            whileTap={onSliceClick ? { scale: 0.97 } : undefined}
+            onClick={() => onSliceClick?.(s.category)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: onSliceClick ? 'pointer' : 'default',
+              padding: '2px 4px', margin: '0 -4px', borderRadius: 8,
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{
                 width: '7px', height: '7px', borderRadius: '50%',
