@@ -31,6 +31,8 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /new\s*york\s*times/i, canonical: 'New York Times' },
   { pattern: /youtube/i, canonical: 'YouTube' },
   { pattern: /google/i, canonical: 'Google' },
+  { pattern: /\bclaude\b/i, canonical: 'Claude' },
+  { pattern: /openai/i, canonical: 'OpenAI' },
 
   // Viajes
   { pattern: /latam/i, canonical: 'LATAM Airlines' },
@@ -73,11 +75,18 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /panaderia\s*arbol/i, canonical: 'Panadería Árbol del Pan' },
   { pattern: /cafe\s*18\b/i, canonical: 'Café 18' },
   { pattern: /el\s*mar\s*res/i, canonical: 'El Mar' },
+  { pattern: /izakaya/i, canonical: 'Wok Izakaya' },
+  { pattern: /restaurante\s*wok/i, canonical: 'Wok' },
+  { pattern: /orso/i, canonical: 'Orso Heladería' },
 
-  // Servicios
+  // Servicios & fitness
+  { pattern: /bodytech/i, canonical: 'Bodytech' },
   { pattern: /club\s*los\s*lagartos/i, canonical: 'Club Los Lagartos' },
   { pattern: /park\s*elite/i, canonical: 'Park Elite' },
   { pattern: /hf\s*peluquer[ií]a/i, canonical: 'HF Peluquería' },
+
+  // Libros & cultura
+  { pattern: /librer[ií]a\s*nacional/i, canonical: 'Librería Nacional' },
 ];
 
 function toTitleCase(s: string): string {

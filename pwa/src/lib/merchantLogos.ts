@@ -34,6 +34,7 @@ const DOMAINS: Record<string, string> = {
   amazon: 'amazon.com',
   meta: 'meta.com',
   anthropic: 'anthropic.com',
+  claude: 'claude.ai',
   openai: 'openai.com',
   chatgpt: 'openai.com',
   samsung: 'samsung.com',
@@ -109,7 +110,10 @@ const DOMAINS: Record<string, string> = {
   'crepes & waffles': 'crepesywaffles.com',
   'crepes waffles': 'crepesywaffles.com',
   wok: 'wok.com.co',
+  'wok izakaya': 'wok.com.co',
   osaki: 'osaki.com.co',
+  'orso heladería': 'orso.com.co',
+  orso: 'orso.com.co',
   'la palma y el tucan': 'lapalmayeltucan.com',
   'la palma y el tucán': 'lapalmayeltucan.com',
   'central cevicheria': 'centralcevicheria.com',
@@ -142,6 +146,13 @@ const DOMAINS: Record<string, string> = {
   cinecolombia: 'cinecolombia.com',
   'new york times': 'nytimes.com',
   nytimes: 'nytimes.com',
+
+  // ── Fitness ──────────────────────────────────────────────────────────────
+  bodytech: 'bodytech.com.co',
+
+  // ── Libros & cultura ────────────────────────────────────────────────────
+  'librería nacional': 'librerianacional.com',
+  'libreria nacional': 'librerianacional.com',
 
   // ── Otros ───────────────────────────────────────────────────────────────
   transmilenio: 'transmilenio.gov.co',
