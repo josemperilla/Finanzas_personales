@@ -11,6 +11,7 @@ interface Props {
 export function PinLock({ onUnlock }: Props) {
   const [digits, setDigits] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const handleDigit = useCallback((d: string) => {
     if (status !== 'idle') return;
@@ -35,6 +36,8 @@ export function PinLock({ onUnlock }: Props) {
 
   const rows = [['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']];
 
+  const dotColor = status === 'success' ? '#22c55e' : status === 'error' ? '#ef4444' : 'var(--blue-700)';
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -43,44 +46,55 @@ export function PinLock({ onUnlock }: Props) {
       transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'linear-gradient(160deg, #0f172a 0%, #1a3055 55%, #0f172a 100%)',
+        background: 'var(--surface)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'space-between',
         padding: 'max(56px, env(safe-area-inset-top)) 32px max(48px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* Icon + title */}
+      {/* Avatar + title */}
       <motion.div
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...quickEase, delay: 0.12 }}
         style={{ textAlign: 'center' }}
       >
+        {/* Profile photo */}
         <div style={{
-          width: 68, height: 68, borderRadius: 20,
-          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-          boxShadow: '0 12px 36px rgba(59,130,246,0.35)',
+          width: 82, height: 82, borderRadius: '50%',
           margin: '0 auto 18px',
+          background: avatarFailed ? 'var(--grad-brand)' : '#fff',
+          border: '3px solid #fff',
+          boxShadow: '0 8px 28px rgba(15,23,42,0.14)',
+          overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 34,
+          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
         }}>
-          💳
+          {avatarFailed ? 'J' : (
+            <img
+              src="/profile-avatar.jpg"
+              alt="Perfil"
+              onError={() => setAvatarFailed(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+            />
+          )}
         </div>
+
         <div style={{
           fontFamily: 'var(--font-display)', fontWeight: 700,
-          fontSize: 22, color: '#fff', letterSpacing: '-0.01em', marginBottom: 5,
+          fontSize: 22, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 5,
         }}>
           Finanzas
         </div>
         <div style={{
           fontFamily: 'var(--font-body)', fontSize: 14,
-          color: 'rgba(255,255,255,0.48)',
+          color: 'var(--muted)',
         }}>
           Ingresa tu contraseña
         </div>
       </motion.div>
 
-      {/* Dots + error message */}
+      {/* Dots + error */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <motion.div
           animate={status === 'error'
@@ -94,19 +108,13 @@ export function PinLock({ onUnlock }: Props) {
               key={i}
               animate={{
                 scale: digits.length > i ? 1.18 : 1,
-                backgroundColor:
-                  status === 'success' ? '#22c55e' :
-                  status === 'error' ? '#ef4444' :
-                  digits.length > i ? '#fff' : 'rgba(255,255,255,0)',
-                borderColor:
-                  status === 'error' ? '#ef4444' :
-                  status === 'success' ? '#22c55e' :
-                  digits.length > i ? '#fff' : 'rgba(255,255,255,0.32)',
+                backgroundColor: digits.length > i ? dotColor : 'rgba(0,0,0,0)',
+                borderColor: digits.length > i ? dotColor : 'rgba(15,23,42,0.22)',
               }}
               transition={softSpring}
               style={{
-                width: 14, height: 14, borderRadius: '50%',
-                border: '2.5px solid rgba(255,255,255,0.32)',
+                width: 13, height: 13, borderRadius: '50%',
+                border: '2.5px solid rgba(15,23,42,0.22)',
               }}
             />
           ))}
@@ -141,15 +149,16 @@ export function PinLock({ onUnlock }: Props) {
           key === '' ? <div key={idx} /> : (
             <motion.button
               key={idx}
-              whileTap={{ scale: 0.87, opacity: 0.65 }}
+              whileTap={{ scale: 0.88 }}
               onClick={() => key === '⌫' ? handleDelete() : handleDigit(key)}
               style={{
-                height: 78, borderRadius: 9999,
-                background: key === '⌫' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-                border: '1.5px solid rgba(255,255,255,0.1)',
-                color: '#fff',
+                height: 76, borderRadius: 9999,
+                background: key === '⌫' ? 'transparent' : '#fff',
+                border: key === '⌫' ? 'none' : '1px solid rgba(15,23,42,0.06)',
+                boxShadow: key === '⌫' ? 'none' : 'var(--shadow-card)',
+                color: key === '⌫' ? 'var(--muted)' : 'var(--ink)',
                 fontFamily: key === '⌫' ? 'var(--font-body)' : 'var(--font-display)',
-                fontSize: key === '⌫' ? 22 : 30,
+                fontSize: key === '⌫' ? 22 : 28,
                 fontWeight: key === '⌫' ? 400 : 600,
                 cursor: 'pointer', letterSpacing: '-0.02em',
                 WebkitTapHighlightColor: 'transparent',
