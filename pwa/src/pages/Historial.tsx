@@ -5,6 +5,7 @@ import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
+import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
@@ -131,7 +132,6 @@ function TxRow({ tx, onClick }: { tx: Transaction; onClick: () => void }) {
   const color = getCategoryColor(tx.Categoría);
   const name = cleanMerchant(tx.Comercio) || tx.Tipo;
   const domain = getMerchantDomain(name);
-  const [logoFailed, setLogoFailed] = useState(false);
 
   return (
     <motion.button
@@ -142,23 +142,7 @@ function TxRow({ tx, onClick }: { tx: Transaction; onClick: () => void }) {
         padding: '13px 0', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
       }}
     >
-      <div style={{
-        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-        background: domain && !logoFailed ? '#fff' : color,
-        border: domain && !logoFailed ? '1px solid var(--line)' : 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
-        overflow: 'hidden',
-      }}>
-        {domain && !logoFailed ? (
-          <img
-            src={`https://logo.clearbit.com/${domain}?size=80`}
-            alt={name}
-            onError={() => setLogoFailed(true)}
-            style={{ width: '76%', height: '76%', objectFit: 'contain' }}
-          />
-        ) : name.charAt(0).toUpperCase()}
-      </div>
+      <MerchantLogo domain={domain} name={name} size={38} color={color} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
