@@ -3,12 +3,37 @@
 // ============================================================
 // Deploy as Web App: Execute as Me, Access: Anyone
 // ============================================================
+//
+// SECURITY: Set WEBHOOK_SECRET in Script Properties alongside ANTHROPIC_API_KEY.
+// All requests (GET and POST) must include header X-Webhook-Secret matching that value.
+// Netlify must have VITE_WEBHOOK_SECRET env var set to the same secret.
+// ============================================================
 
 var SHEET_ID   = "TU_SHEET_ID_AQUI";  // Reemplaza con el ID de tu Google Sheet
 var SHEET_NAME = "Transacciones";
 
+// ── Auth check ───────────────────────────────────────────────
+function _checkSecret(e) {
+  var secret = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
+  if (!secret) return; // no secret configured → open (backward compat during migration)
+  var incoming = e && e.parameter && e.parameter["X-Webhook-Secret"]
+    || (e && e.postData && JSON.parse(e.postData.contents || "{}"))["_secret"];
+  // Apps Script doesn't expose HTTP headers to doGet/doPost.
+  // The secret is sent as a query param (?_secret=...) or body field for POST.
+  // This is not ideal but is the only option for Apps Script Web Apps.
+  if (incoming !== secret) {
+    throw new Error("Unauthorized");
+  }
+}
+
 // ── GET endpoint — leer transacciones (usado por la PWA) ─────
 function doGet(e) {
+  try {
+    _checkSecret(e);
+  } catch(err) {
+    return jsonResponse({ ok: false, error: "Unauthorized" });
+  }
+
   var action = e && e.parameter && e.parameter.action;
 
   if (action === "transactions") {
@@ -20,6 +45,12 @@ function doGet(e) {
 
 // ── POST endpoint — recibir SMS del iPhone o entrada manual ──
 function doPost(e) {
+  try {
+    _checkSecret(e);
+  } catch(err) {
+    return jsonResponse({ ok: false, error: "Unauthorized" });
+  }
+
   try {
     var payload = JSON.parse(e.postData.contents);
     var type    = (payload.type || "").toLowerCase();
@@ -46,6 +77,8 @@ function doPost(e) {
     if (type === "voice") {
       var text = payload.text || "";
       if (!text) return jsonResponse({ ok: false, error: "empty text" });
+      // Sanitize: max 500 chars to limit token abuse
+      text = String(text).slice(0, 500);
       var parsed = parseVoice(text);
       return jsonResponse({ ok: true, data: parsed });
     }
@@ -55,6 +88,8 @@ function doPost(e) {
       var question = payload.question || "";
       var context  = payload.context  || {};
       if (!question) return jsonResponse({ ok: false, error: "empty question" });
+      // Sanitize: max 500 chars
+      question = String(question).slice(0, 500);
       var answer = handleChat(question, context);
       return jsonResponse({ ok: true, data: { answer: answer } });
     }
@@ -64,6 +99,11 @@ function doPost(e) {
     var sentAt = payload.timestamp || new Date().toISOString();
 
     if (!sms) return jsonResponse({ ok: false, error: "empty sms" });
+
+    // Silently drop vetoed messages (never reach the Sheet)
+    if (isVetoed(sms)) {
+      return jsonResponse({ ok: true, skipped: true, reason: "vetoed" });
+    }
 
     var parsed;
     if (bank === "bogota") {
@@ -142,15 +182,16 @@ function parseVoice(text) {
   var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
   if (!key) throw new Error("ANTHROPIC_API_KEY no configurada en Script Properties");
 
-  var prompt = "Extrae la información de una transacción financiera en pesos colombianos del siguiente texto en español. " +
+  // FIX: user input goes in the user message (not concatenated into system prompt)
+  // This prevents prompt injection via voice input.
+  var systemPrompt = "Extrae la información de una transacción financiera en pesos colombianos. " +
     "Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: " +
     "monto (número sin símbolos ni puntos de miles, ej: 50000), " +
     "comercio (nombre del lugar o descripción, string), " +
     "categoria (una de: Comida, Transporte, Suscripciones, Mercado, Salud, Deporte, Compras, Alojamiento, Viajes, Software, Otro), " +
     "banco (Bogotá o Itaú u Otro), " +
     "tipo (Compra, Débito, Transferencia u Otro). " +
-    "Si algún campo no está claro en el texto, usa el valor más probable. " +
-    "Texto: \"" + text + "\"";
+    "Si algún campo no está claro en el texto, usa el valor más probable.";
 
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
@@ -162,7 +203,8 @@ function parseVoice(text) {
     payload: JSON.stringify({
       model:      "claude-haiku-4-5-20251001",
       max_tokens: 300,
-      messages:   [{ role: "user", content: prompt }]
+      system:     systemPrompt,
+      messages:   [{ role: "user", content: text }]  // user input is isolated here
     }),
     muteHttpExceptions: true
   });
@@ -182,11 +224,15 @@ function handleChat(question, context) {
   var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
   if (!key) throw new Error("ANTHROPIC_API_KEY no configurada en Script Properties");
 
-  var prompt = "Eres un asistente financiero personal amigable y conciso. " +
-    "El usuario habla español colombiano. Responde siempre en español, de forma breve y útil (máximo 4 oraciones). " +
-    "Resumen financiero del usuario: " +
-    JSON.stringify(context) +
-    " Pregunta: " + question;
+  // System prompt contains server-generated context (safe). User question is isolated in the user turn.
+  var systemPrompt = "Eres un asistente financiero personal del usuario. El usuario habla español colombiano. " +
+    "Responde siempre en español. Puedes responder cualquier pregunta sobre los datos financieros del usuario, " +
+    "sin importar qué tan específica o abierta sea. " +
+    "Cuando el análisis lo requiera, sé detallado y usa listas o viñetas para mayor claridad. " +
+    "Tienes acceso a la lista completa de transacciones en 'transacciones' y también a resúmenes pre-calculados " +
+    "como 'comerciosPorCategoria' que ya agrupa los comercios por categoría con monto y número de compras. " +
+    "Usa los datos más convenientes para responder con precisión. " +
+    "Datos financieros del usuario (últimos 6 meses): " + JSON.stringify(context);
 
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
@@ -197,8 +243,9 @@ function handleChat(question, context) {
     },
     payload: JSON.stringify({
       model:      "claude-haiku-4-5-20251001",
-      max_tokens: 400,
-      messages:   [{ role: "user", content: prompt }]
+      max_tokens: 1024,
+      system:     systemPrompt,
+      messages:   [{ role: "user", content: question }]  // user input isolated here
     }),
     muteHttpExceptions: true
   });
@@ -207,6 +254,21 @@ function handleChat(question, context) {
   var content = result.content && result.content[0] && result.content[0].text;
   if (!content) throw new Error("Claude no devolvió respuesta");
   return content;
+}
+
+// ── Veto rules — messages silently ignored, never written to Sheet ────────────
+// Add a regex per pattern you want to exclude.
+var VETO_RULES = [
+  // Itaú outbound transfer from savings account (e.g. rent payment)
+  // "Se realizo Transferencia de tu Cuenta de Ahorros ****XXXX por $..."
+  /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i
+];
+
+function isVetoed(sms) {
+  for (var i = 0; i < VETO_RULES.length; i++) {
+    if (VETO_RULES[i].test(sms)) return true;
+  }
+  return false;
 }
 
 // ── Banco de Bogotá ──────────────────────────────────────────

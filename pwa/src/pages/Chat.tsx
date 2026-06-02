@@ -26,50 +26,53 @@ const SUGGESTED = [
 function buildContext(txs: Transaction[]) {
   if (txs.length === 0) return { message: 'No hay transacciones disponibles.' };
 
-  // Limit to last 6 months to keep the context compact
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 6);
-  const recent = txs.filter(tx => {
+  const base = txs.filter(tx => {
     const d = new Date((tx.Fecha || tx.Timestamp || '').replace(' ', 'T'));
     return !isNaN(d.getTime()) && d >= cutoff;
   });
-  const base = recent.length > 0 ? recent : txs;
+  const used = base.length > 0 ? base : txs;
 
-  // Gasto por mes (últimos 6 meses)
-  const byMonth: Record<string, number> = {};
-  for (const tx of base) {
-    const key = (tx.Fecha || tx.Timestamp || '').slice(0, 7);
-    if (key) byMonth[key] = (byMonth[key] || 0) + Number(tx['Monto (COP)'] || 0);
-  }
+  const total = used.reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
 
-  // Gasto por categoría
-  const byCat: Record<string, number> = {};
-  for (const tx of base) {
+  // Resumen por categoría
+  const byCat: Record<string, { total: number; count: number }> = {};
+  for (const tx of used) {
     const cat = tx.Categoría || 'Otro';
-    byCat[cat] = (byCat[cat] || 0) + Number(tx['Monto (COP)'] || 0);
+    if (!byCat[cat]) byCat[cat] = { total: 0, count: 0 };
+    byCat[cat].total += Number(tx['Monto (COP)'] || 0);
+    byCat[cat].count += 1;
   }
 
-  // Top 5 comercios por monto
-  const byMerchant: Record<string, { amount: number; count: number }> = {};
-  for (const tx of base) {
-    const name = cleanMerchant(tx.Comercio) || tx.Tipo;
-    if (!byMerchant[name]) byMerchant[name] = { amount: 0, count: 0 };
-    byMerchant[name].amount += Number(tx['Monto (COP)'] || 0);
-    byMerchant[name].count += 1;
+  // Comercios por categoría (para responder preguntas cruzadas)
+  const byMerchantPerCat: Record<string, Record<string, { monto: number; count: number }>> = {};
+  for (const tx of used) {
+    const cat = tx.Categoría || 'Otro';
+    const name = cleanMerchant(tx.Comercio) || tx.Tipo || 'Sin nombre';
+    if (!byMerchantPerCat[cat]) byMerchantPerCat[cat] = {};
+    if (!byMerchantPerCat[cat][name]) byMerchantPerCat[cat][name] = { monto: 0, count: 0 };
+    byMerchantPerCat[cat][name].monto += Number(tx['Monto (COP)'] || 0);
+    byMerchantPerCat[cat][name].count += 1;
   }
-  const topMerchants = Object.entries(byMerchant)
-    .sort(([, a], [, b]) => b.amount - a.amount)
-    .slice(0, 5)
-    .map(([name, { amount, count }]) => ({ name, amount: Math.round(amount), count }));
+  const comerciosPorCategoria: Record<string, { comercio: string; monto: number; compras: number }[]> = {};
+  for (const cat of Object.keys(byMerchantPerCat)) {
+    comerciosPorCategoria[cat] = Object.entries(byMerchantPerCat[cat])
+      .sort(([, a], [, b]) => b.monto - a.monto)
+      .map(([comercio, { monto, count }]) => ({ comercio, monto: Math.round(monto), compras: count }));
+  }
 
-  // Ticket promedio
-  const total = base.reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
-  const avgTicket = base.length > 0 ? Math.round(total / base.length) : 0;
+  // Lista completa de transacciones para análisis ad-hoc
+  const transacciones = used.map(tx => ({
+    fecha: (tx.Fecha || tx.Timestamp || '').slice(0, 10),
+    categoria: tx.Categoría || 'Otro',
+    comercio: cleanMerchant(tx.Comercio) || tx.Tipo || 'Sin nombre',
+    monto: Math.round(Number(tx['Monto (COP)'] || 0)),
+  }));
 
-  // Gasto por día de semana
-  const byDow: Record<string, number> = {};
   const dows = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  for (const tx of base) {
+  const byDow: Record<string, number> = {};
+  for (const tx of used) {
     const d = new Date((tx.Fecha || tx.Timestamp || '').replace(' ', 'T'));
     if (!isNaN(d.getTime())) {
       const dow = dows[d.getDay()];
@@ -79,16 +82,16 @@ function buildContext(txs: Transaction[]) {
 
   return {
     periodo: '6 meses recientes',
-    totalTransacciones: base.length,
+    totalTransacciones: used.length,
     totalGastado: Math.round(total),
-    ticketPromedio: avgTicket,
-    gastoPorMes: Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
-      .map(([mes, monto]) => ({ mes, monto: Math.round(monto) })),
-    gastoPorCategoria: Object.entries(byCat).sort(([, a], [, b]) => b - a)
-      .map(([categoria, monto]) => ({ categoria, monto: Math.round(monto) })),
-    topComercios: topMerchants,
+    ticketPromedio: used.length > 0 ? Math.round(total / used.length) : 0,
+    resumenCategorias: Object.entries(byCat)
+      .sort(([, a], [, b]) => b.total - a.total)
+      .map(([cat, { total: t, count: c }]) => ({ categoria: cat, total: Math.round(t), compras: c })),
+    comerciosPorCategoria,
     gastoPorDiaSemana: Object.entries(byDow).sort(([, a], [, b]) => b - a)
       .map(([dia, monto]) => ({ dia, monto: Math.round(monto) })),
+    transacciones,
   };
 }
 
@@ -200,6 +203,7 @@ export function Chat({ transactions }: Props) {
               color: m.role === 'user' ? '#fff' : 'var(--ink)',
               fontSize: 14, lineHeight: 1.55,
               boxShadow: m.role === 'assistant' ? 'var(--shadow-card)' : 'none',
+              whiteSpace: 'pre-wrap',
             }}>
               {m.text}
             </div>
