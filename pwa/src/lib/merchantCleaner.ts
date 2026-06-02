@@ -46,15 +46,16 @@ function toTitleCase(s: string): string {
 }
 
 export function cleanMerchant(raw: string | undefined | null): string {
-  if (!raw) return '—';
+  // Return '' (not '—') so callers can do: cleanMerchant(x) || tx.Tipo
+  if (!raw) return '';
   let s = raw.trim();
 
-  // Strip payment aggregator prefixes (BOLD*, VAULT*, PayU*, Mercado Pago)
-  // Mercado Pago is an acquirer in Colombia, not a merchant — strip it regardless of separator
+  // Strip payment aggregator prefixes — these are acquirers, not merchants.
+  // Mercado Pago: strip regardless of separator (*, space, or end-of-string)
   s = s.replace(/^(?:bold|vault|pyu|payu)\*\s*/i, '').trim();
   s = s.replace(/^mercado\s*pago[\s*]*/i, '').trim();
 
-  // Brand normalization (before stripping noise that might remove the brand keyword)
+  // Brand normalization (run before noise stripping to preserve brand keywords)
   for (const { pattern, canonical } of BRAND_RULES) {
     if (pattern.test(s)) return canonical;
   }
@@ -65,5 +66,8 @@ export function cleanMerchant(raw: string | undefined | null): string {
   }
   s = s.replace(/\s+/g, ' ').trim();
 
-  return toTitleCase(s).slice(0, 40) || raw.slice(0, 40);
+  // Do NOT fall back to raw — if nothing meaningful survived stripping
+  // (e.g. input was just "MERCADO PAGO"), return '' so the caller can
+  // fall back to tx.Tipo ("Compra", "Débito", etc.)
+  return toTitleCase(s).slice(0, 40);
 }
