@@ -94,6 +94,14 @@ function buildContext(txs: Transaction[]) {
     }
   }
 
+  const transacciones = used.map(tx => ({
+    fecha: (tx.Fecha || tx.Timestamp || '').slice(0, 10),
+    comercio: cleanMerchant(tx.Comercio) || tx.Tipo || '',
+    monto: Math.round(Number(tx['Monto (COP)'] || 0)),
+    categoria: tx.Categoría || 'Otro',
+    banco: tx.Banco || '',
+  }));
+
   return {
     periodo: '6 meses recientes',
     totalTransacciones: used.length,
@@ -108,6 +116,7 @@ function buildContext(txs: Transaction[]) {
     topComerciosFrecuencia,
     gastoPorDiaSemana: Object.entries(byDow).sort(([, a], [, b]) => b - a)
       .map(([dia, monto]) => ({ dia, monto: Math.round(monto) })),
+    transacciones,
   };
 }
 
