@@ -26,9 +26,9 @@ interface Props {
 }
 
 const slideVariants = {
-  enter: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
+  enter: (dir: number) => ({ x: dir < 0 ? -64 : 64, opacity: 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir < 0 ? -64 : 64, opacity: 0 }),
+  exit: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
 };
 
 export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll }: Props) {
@@ -114,7 +114,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
     if (Math.abs(dx) > dy && Math.abs(dx) > 44) {
-      navigate(dx < 0 ? -1 : 1);
+      navigate(dx < 0 ? 1 : -1);
     }
   };
 
