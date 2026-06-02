@@ -419,13 +419,16 @@ function normalizeComercio(s) {
   if (!s) return s;
   s = s.trim();
 
-  // Strip payment aggregator prefixes: Bold*, Vault*, PayU*
-  s = s.replace(/^(?:BOLD|VAULT|PYU|PAYU|MERCADO\s*PAGO)\*\s*/i, "");
+  // Strip payment aggregator prefixes — these are acquirers, not the actual merchant.
+  // Mercado Pago format: "MERCADO PAGO*COMERCIO" or "MERCADOPAGO*COMERCIO"
+  // Bold / Vault / PayU format: "BOLD*COMERCIO"
+  s = s.replace(/^(?:BOLD|VAULT|PYU|PAYU)\*\s*/i, "");
+  s = s.replace(/^MERCADO\s*PAGO[\s*]*/i, "").trim();  // handles *, space, or nothing after
 
   // Tiendas D1
   if (/TIENDA\s+D1\b/i.test(s)) return "Tiendas D1";
 
-  // Tembici (strip any preceding processor prefix like "Mercado Pago*")
+  // Tembici
   if (/TEMBICI/i.test(s)) return "Tembici";
 
   return s.trim();

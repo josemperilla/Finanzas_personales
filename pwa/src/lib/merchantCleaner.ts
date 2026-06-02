@@ -12,7 +12,6 @@ const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   { pattern: /\buber\b/i, canonical: 'Uber' },
   { pattern: /\bdidi\b/i, canonical: 'DiDi' },
   { pattern: /amazon/i, canonical: 'Amazon' },
-  { pattern: /mercado\s*pago|compra\s+mercado\s*pago/i, canonical: 'Mercado Pago' },
   { pattern: /mercado\s*libre/i, canonical: 'MercadoLibre' },
   { pattern: /apple\.com/i, canonical: 'Apple' },
   { pattern: /netflix/i, canonical: 'Netflix' },
@@ -50,8 +49,10 @@ export function cleanMerchant(raw: string | undefined | null): string {
   if (!raw) return '—';
   let s = raw.trim();
 
-  // Strip payment aggregator prefixes: BOLD*, VAULT*, PYU*, PAYU*
-  s = s.replace(/^(?:bold|vault|pyu|payu|mercado\s*pago)\*/i, '').trim();
+  // Strip payment aggregator prefixes (BOLD*, VAULT*, PayU*, Mercado Pago)
+  // Mercado Pago is an acquirer in Colombia, not a merchant — strip it regardless of separator
+  s = s.replace(/^(?:bold|vault|pyu|payu)\*\s*/i, '').trim();
+  s = s.replace(/^mercado\s*pago[\s*]*/i, '').trim();
 
   // Brand normalization (before stripping noise that might remove the brand keyword)
   for (const { pattern, canonical } of BRAND_RULES) {
