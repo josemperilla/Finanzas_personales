@@ -6,11 +6,13 @@ import { Historial } from './pages/Historial';
 import { Agregar } from './pages/Agregar';
 import { Analisis } from './pages/Analisis';
 import { Chat } from './pages/Chat';
+import { PinLock } from './components/PinLock';
 import { fetchTransactions, Transaction } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase } from './lib/motion';
 
 export default function App() {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('fm_unlocked') === '1');
   const [tab, setTab] = useState<Tab>('home');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,11 @@ export default function App() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleUnlock = useCallback(() => {
+    sessionStorage.setItem('fm_unlocked', '1');
+    setUnlocked(true);
+  }, []);
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--surface)', overflowY: 'auto' }}>
@@ -76,6 +83,10 @@ export default function App() {
       </AnimatePresence>
 
       <BottomNav active={tab} onChange={setTab} />
+
+      <AnimatePresence>
+        {!unlocked && <PinLock onUnlock={handleUnlock} />}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Transaction } from '../lib/api';
-import { formatCOP, currentMonthLabel, formatDateShort } from '../lib/utils';
+import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
 import { Blobs } from '../components/ui/Blobs';
@@ -21,27 +21,47 @@ interface Props {
   onViewAll: () => void;
 }
 
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir < 0 ? -64 : 64, opacity: 0 }),
+};
+
 export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll }: Props) {
   const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const [selectedOffset, setSelectedOffset] = useState(0);
+  const [direction, setDirection] = useState(0);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
+  // Derive the selected month's date
+  const selDate = new Date(now.getFullYear(), now.getMonth() + selectedOffset, 1);
+  const selMonth = selDate.getMonth();
+  const selYear = selDate.getFullYear();
+
+  // Header always shows current month
+  const currentMonthStr = now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  // Card shows selected month label
+  const selMonthStr = selDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
+  // Transactions for selected month
   const monthTx = transactions.filter(tx => {
     const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    return d.getMonth() === selMonth && d.getFullYear() === selYear;
   });
-
   const totalMonth = monthTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0);
 
-  const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  // Previous month for comparison (only shown in header badge when selectedOffset === 0)
+  const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   const prevTx = transactions.filter(tx => {
     const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
-    return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    return d.getMonth() === prevMonthIdx && d.getFullYear() === prevYear;
   });
   const totalPrev = prevTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0);
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
 
+  // Category breakdown for selected month
   const byCategory = CATEGORIES.map(cat => ({
     category: cat.name,
     amount: monthTx
@@ -49,8 +69,35 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       .reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
   })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount);
 
-  const recent = [...transactions].slice(0, 5);
-  const monthLabel = currentMonthLabel();
+  // Recent transactions for selected month
+  const recent = [...monthTx]
+    .sort((a, b) => {
+      const da = new Date((a.Fecha || a.Timestamp).replace(' ', 'T'));
+      const db = new Date((b.Fecha || b.Timestamp).replace(' ', 'T'));
+      return db.getTime() - da.getTime();
+    })
+    .slice(0, 5);
+
+  const navigate = (delta: number) => {
+    const next = Math.min(0, Math.max(-11, selectedOffset + delta));
+    if (next !== selectedOffset) {
+      setDirection(delta);
+      setSelectedOffset(next);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    if (Math.abs(dx) > dy && Math.abs(dx) > 44) {
+      navigate(dx < 0 ? -1 : 1);
+    }
+  };
 
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: '100px', position: 'relative', overflow: 'hidden' }}>
@@ -62,29 +109,31 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         animate={{ opacity: 1, y: 0 }}
         transition={quickEase}
         style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
-        marginBottom: 20, position: 'relative',
-      }}>
-        <ProfileAvatar fallback={monthLabel.charAt(0).toUpperCase()} />
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
+          marginBottom: 20, position: 'relative',
+        }}
+      >
+        <ProfileAvatar fallback={currentMonthStr.charAt(0).toUpperCase()} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Finanzas Personales</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
-            {monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}
+            {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
           </div>
         </div>
-        {!loading && totalPrev > 0 && (
+        {!loading && totalPrev > 0 && selectedOffset === 0 && (
           <motion.span
             initial={{ opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={softSpring}
             style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            padding: '4px 10px', borderRadius: 999,
-            background: diff <= 0 ? '#dcfce7' : '#fee2e2',
-            color: diff <= 0 ? '#15803d' : '#b91c1c',
-            fontSize: 11.5, fontWeight: 600,
-          }}>
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', borderRadius: 999,
+              background: diff <= 0 ? '#dcfce7' : '#fee2e2',
+              color: diff <= 0 ? '#15803d' : '#b91c1c',
+              fontSize: 11.5, fontWeight: 600,
+            }}
+          >
             {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
           </motion.span>
         )}
@@ -101,23 +150,89 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
         {/* Donut chart card */}
-        <motion.div variants={riseItem} transition={quickEase} style={{
-          background: '#fff', borderRadius: 'var(--r-2xl)',
-          padding: 22, boxShadow: 'var(--shadow-card)',
-          marginBottom: 14,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ fontSize: 13.5, color: 'var(--muted)' }}>Gastado este mes</span>
+        <motion.div
+          variants={riseItem}
+          transition={quickEase}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            background: '#fff', borderRadius: 'var(--r-2xl)',
+            padding: 22, boxShadow: 'var(--shadow-card)',
+            marginBottom: 14, overflow: 'hidden',
+            touchAction: 'pan-y',
+          }}
+        >
+          {/* Month navigation header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => navigate(-1)}
+                disabled={selectedOffset <= -11}
+                style={{
+                  background: 'none', border: 'none',
+                  cursor: selectedOffset <= -11 ? 'default' : 'pointer',
+                  color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)',
+                  fontSize: 22, padding: '0 6px',
+                  display: 'flex', alignItems: 'center', lineHeight: 1,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                ‹
+              </motion.button>
+              <motion.span
+                key={selectedOffset}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={quickEase}
+                style={{
+                  fontSize: 13.5, color: 'var(--muted)',
+                  minWidth: 86, textAlign: 'center',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {selectedOffset === 0 ? 'Este mes' : selMonthStr}
+              </motion.span>
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => navigate(1)}
+                disabled={selectedOffset >= 0}
+                style={{
+                  background: 'none', border: 'none',
+                  cursor: selectedOffset >= 0 ? 'default' : 'pointer',
+                  color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)',
+                  fontSize: 22, padding: '0 6px',
+                  display: 'flex', alignItems: 'center', lineHeight: 1,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                ›
+              </motion.button>
+            </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
               {loading ? '—' : formatCOP(totalMonth)}
             </span>
           </div>
+
+          {/* Animated chart */}
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <Spinner />
             </div>
           ) : (
-            <DonutChart slices={byCategory} total={totalMonth} />
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={selectedOffset}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <DonutChart slices={byCategory} total={totalMonth} />
+              </motion.div>
+            </AnimatePresence>
           )}
         </motion.div>
 
@@ -138,20 +253,33 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             [1,2,3].map(i => <SkeletonCard key={i} />)
           ) : recent.length === 0 ? (
             <FriendlyEmptyState
-              title="Todavía no hay movimientos"
-              message="Agrega una transacción manual o conecta tus SMS para empezar a ver tu mes en vivo."
-              actionLabel="Agregar transacción"
-              onAction={onAdd}
+              title="Sin movimientos"
+              message={selectedOffset === 0
+                ? 'Agrega una transacción manual o conecta tus SMS para empezar a ver tu mes en vivo.'
+                : `No hay transacciones registradas en ${selMonthStr}.`}
+              actionLabel={selectedOffset === 0 ? 'Agregar transacción' : undefined}
+              onAction={selectedOffset === 0 ? onAdd : undefined}
             />
           ) : (
-            <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}>
-              {recent.map((tx, i) => (
-                <motion.div key={i} variants={riseItem} transition={quickEase}>
-                  {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
-                  <TxRow tx={tx} highlighted={Boolean(highlightLatest && i === 0)} />
-                </motion.div>
-              ))}
-            </motion.div>
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={`txs-${selectedOffset}`}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}
+              >
+                {recent.map((tx, i) => (
+                  <div key={i}>
+                    {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
+                    <TxRow tx={tx} highlighted={Boolean(highlightLatest && i === 0 && selectedOffset === 0)} />
+                  </div>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           )}
         </motion.div>
       </motion.div>
@@ -177,12 +305,7 @@ function ProfileAvatar({ fallback }: { fallback: string }) {
           src="/profile-avatar.jpg"
           alt="Perfil"
           onError={() => setFailed(true)}
-          style={{
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center',
-            display: 'block',
-          }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
         />
       )}
     </div>
@@ -201,10 +324,7 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
         scale: highlighted ? 1.01 : 1,
       }}
       transition={softSpring}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '13px 8px', margin: '0 -8px', borderRadius: 14,
-      }}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 8px', margin: '0 -8px', borderRadius: 14 }}
     >
       <div style={{
         width: 38, height: 38, borderRadius: 11, background: color,
