@@ -1,4 +1,5 @@
 export const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL || "";
+export const WEBHOOK_SECRET = import.meta.env.VITE_WEBHOOK_SECRET || "";
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
 export const CATEGORIES = [
