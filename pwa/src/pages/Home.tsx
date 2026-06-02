@@ -12,6 +12,7 @@ import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
+import { getBudgets } from '../lib/budgets';
 
 interface Props {
   transactions: Transaction[];
@@ -71,6 +72,19 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       .filter(tx => tx.Categoría === cat.name)
       .reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
   })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount);
+
+  // Budget alerts — categories ≥ 80% of monthly budget
+  const budgets = getBudgets();
+  const alerts = byCategory
+    .filter(s => budgets[s.category] > 0 && s.amount / budgets[s.category] >= 0.8)
+    .map(s => ({
+      cat: s.category,
+      budget: budgets[s.category],
+      spent: s.amount,
+      pct: s.amount / budgets[s.category],
+      color: getCategoryColor(s.category),
+    }))
+    .sort((a, b) => b.pct - a.pct);
 
   // Recent transactions for selected month
   const recent = [...monthTx]
@@ -240,6 +254,50 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             </AnimatePresence>
           )}
         </motion.div>
+
+        {/* Budget alerts */}
+        {!loading && alerts.length > 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 8 }}>
+              Alertas
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {alerts.map(({ cat, budget, spent, pct, color }) => {
+                const exceeded = pct >= 1;
+                const accent = exceeded ? '#dc2626' : '#d97706';
+                const bg = exceeded ? '#fef2f2' : '#fffbeb';
+                const border = exceeded ? '#fecaca' : '#fde68a';
+                return (
+                  <div key={cat} style={{ background: bg, borderRadius: 'var(--r-xl)', padding: '12px 14px', border: `1.5px solid ${border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{cat}</span>
+                      <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: accent, fontWeight: 700 }}>
+                        {Math.round(pct * 100)}%
+                      </span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 999, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(pct * 100, 100)}%` }}
+                        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                        style={{ height: '100%', borderRadius: 999, background: accent }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                        {exceeded ? 'Presupuesto superado' : 'Cerca del límite'}
+                      </span>
+                      <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
+                        {formatCOP(spent)} / {formatCOP(budget)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* Recent transactions */}
         <motion.div variants={riseItem} transition={quickEase}>

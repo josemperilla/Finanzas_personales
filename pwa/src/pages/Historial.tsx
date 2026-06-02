@@ -18,12 +18,17 @@ interface Props {
 export function Historial({ transactions, loading, onCategoryChange }: Props) {
   const [activeFilter, setActiveFilter] = useState<string>('Todas');
   const [selected, setSelected] = useState<Transaction | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filters = ['Todas', ...CATEGORIES.map(c => c.name)];
 
-  const filtered = activeFilter === 'Todas'
+  const filtered = (activeFilter === 'Todas'
     ? transactions
-    : transactions.filter(tx => tx.Categoría === activeFilter);
+    : transactions.filter(tx => tx.Categoría === activeFilter)
+  ).filter(tx => !searchQuery ||
+    cleanMerchant(tx.Comercio).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tx.Comercio.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const grouped = filtered.reduce<Record<string, Transaction[]>>((acc, tx) => {
     const key = getDateKey(tx.Fecha || tx.Timestamp);
@@ -45,6 +50,34 @@ export function Historial({ transactions, loading, onCategoryChange }: Props) {
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
             Historial
           </h1>
+        </div>
+
+        {/* Search input */}
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Buscar comercio..."
+            style={{
+              width: '100%', padding: '9px 36px 9px 14px', borderRadius: 999,
+              border: '1.5px solid var(--line)', background: 'var(--surface)',
+              color: 'var(--ink)', fontSize: 13.5, fontFamily: 'var(--font-body)',
+              outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{
+                position: 'absolute', right: 12, top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--muted)', fontSize: 15, padding: 2,
+                display: 'flex', alignItems: 'center', lineHeight: 1,
+              }}
+            >✕</button>
+          )}
         </div>
 
         {/* Filter chips with sliding indicator */}
@@ -91,7 +124,9 @@ export function Historial({ transactions, loading, onCategoryChange }: Props) {
         {loading ? (
           [1,2,3,4,5].map(i => <SkeletonCard key={i} />)
         ) : sortedKeys.length === 0 ? (
-          <EmptyState />
+          searchQuery
+            ? <FriendlyEmptyState title="Sin resultados" message={`No hay transacciones que coincidan con "${searchQuery}".`} />
+            : <EmptyState />
         ) : (
           <motion.div variants={staggerContainer} initial="initial" animate="animate">
           {sortedKeys.map(dateKey => {

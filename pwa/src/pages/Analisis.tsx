@@ -7,6 +7,7 @@ import { cleanMerchant } from '../lib/merchantCleaner';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
+import { getBudgets, setBudget, clearBudget } from '../lib/budgets';
 
 interface Props {
   transactions: Transaction[];
@@ -97,6 +98,9 @@ export function Analisis({ transactions, loading }: Props) {
 
   const [selectedIdx, setSelectedIdx] = useState<number>(-1);
   const [compareIdx, setCompareIdx] = useState<number>(-1);
+  const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets());
+  const [editingBudget, setEditingBudget] = useState<string | null>(null);
+  const [budgetDraft, setBudgetDraft] = useState('');
 
   const displayIdx = selectedIdx >= 0 && selectedIdx < last6.length
     ? selectedIdx
@@ -205,9 +209,64 @@ export function Analisis({ transactions, loading }: Props) {
             cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
           }}>Comparar</motion.button>
         </div>
+
+        {/* Compare banner — visible when both months selected */}
+        <AnimatePresence>
+          {compareMode && displayStats && compareStats && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={quickEase}
+              style={{
+                overflow: 'hidden', marginTop: 10,
+                padding: '8px 14px', borderRadius: 999,
+                background: 'linear-gradient(to right, var(--blue-50), var(--orange-50))',
+                border: '1.5px solid var(--line)',
+                fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)',
+                textAlign: 'center',
+              }}
+            >
+              Comparando{' '}
+              <span style={{ fontWeight: 700, color: 'var(--blue-700)' }}>{displayStats.label}</span>
+              {' '}con{' '}
+              <span style={{ fontWeight: 700, color: 'var(--orange-600)' }}>{compareStats.label}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px' }}>
+        {/* Compare month selector — shown above chart so it's easy to find */}
+        <AnimatePresence>
+          {compareMode && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={quickEase}
+              style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
+            >
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {last6.map((s, i) => i !== displayIdx && (
+                  <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
+                    padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
+                    border: `1.5px solid ${compareIdx === i ? 'var(--orange-500)' : 'var(--line)'}`,
+                    background: compareIdx === i ? 'var(--orange-50)' : '#fff',
+                    color: compareIdx === i ? 'var(--orange-600)' : 'var(--ink-2)',
+                    cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  }}>
+                    {s.label}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Bar chart */}
         <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 12px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Últimos {last6.length} meses</div>
@@ -244,32 +303,26 @@ export function Analisis({ transactions, loading }: Props) {
           </div>
         </motion.div>
 
-        {/* Compare month selector */}
+        {/* Chart legend — shows when comparing */}
         <AnimatePresence>
-          {compareMode && (
+          {compareMode && displayStats && (
             <motion.div
-              initial={{ opacity: 0, height: 0, y: -8 }}
-              animate={{ opacity: 1, height: 'auto', y: 0 }}
-              exit={{ opacity: 0, height: 0, y: -8 }}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
               transition={quickEase}
-              style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
+              style={{ overflow: 'hidden', display: 'flex', gap: 16, justifyContent: 'center', padding: '4px 0 10px' }}
             >
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-                Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)' }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--blue-600)', flexShrink: 0 }} />
+                {displayStats.label}
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {last6.map((s, i) => i !== displayIdx && (
-                  <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
-                    padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
-                    border: `1.5px solid ${compareIdx === i ? 'var(--orange-500)' : 'var(--line)'}`,
-                    background: compareIdx === i ? 'var(--orange-50)' : '#fff',
-                    color: compareIdx === i ? 'var(--orange-600)' : 'var(--ink-2)',
-                    cursor: 'pointer', fontFamily: 'var(--font-body)',
-                  }}>
-                    {s.label}
-                  </motion.button>
-                ))}
-              </div>
+              {compareStats && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(249,115,22,0.7)', flexShrink: 0 }} />
+                  {compareStats.label}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -332,6 +385,42 @@ export function Analisis({ transactions, loading }: Props) {
                       </div>
                       <div style={{ height: 4, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
                         <motion.div initial={{ width: 0 }} animate={{ width: `${barPct}%` }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} style={{ height: '100%', borderRadius: 999, background: color }} />
+                      </div>
+                      {/* Budget editor */}
+                      <div style={{ marginTop: 5, display: 'flex', justifyContent: 'flex-end' }}>
+                        {editingBudget === name ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            value={budgetDraft}
+                            onChange={e => setBudgetDraft(e.target.value)}
+                            onBlur={() => {
+                              const val = parseInt(budgetDraft, 10);
+                              if (!isNaN(val) && val > 0) { setBudget(name, val); } else { clearBudget(name); }
+                              setBudgetsState(getBudgets());
+                              setEditingBudget(null);
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                            placeholder="Presupuesto mensual"
+                            style={{
+                              width: 140, fontSize: 11.5, padding: '3px 8px',
+                              border: '1.5px solid var(--blue-600)', borderRadius: 8,
+                              background: 'var(--surface)', color: 'var(--ink)',
+                              fontFamily: 'var(--font-body)', outline: 'none',
+                            }}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => { setEditingBudget(name); setBudgetDraft(budgets[name] ? String(budgets[name]) : ''); }}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              fontSize: 10.5, color: budgets[name] ? 'var(--blue-700)' : 'var(--muted)',
+                              padding: 0, fontFamily: 'var(--font-body)',
+                            }}
+                          >
+                            {budgets[name] ? `✏ ${formatCOP(budgets[name])}` : '+ Presupuesto'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
