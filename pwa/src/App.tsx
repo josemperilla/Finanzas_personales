@@ -19,6 +19,12 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
 
+  const handleCategoryChange = useCallback((timestamp: string, categoria: string) => {
+    setTransactions(prev => prev.map(tx =>
+      tx.Timestamp === timestamp ? { ...tx, Categoría: categoria } : tx
+    ));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -63,7 +69,7 @@ export default function App() {
             />
           )}
           {tab === 'historial' && (
-            <Historial transactions={transactions} loading={loading} />
+            <Historial transactions={transactions} loading={loading} onCategoryChange={handleCategoryChange} />
           )}
           {tab === 'agregar' && (
             <Agregar onSaved={async () => {

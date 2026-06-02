@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction } from '../lib/api';
+import { Transaction, updateCategory } from '../lib/api';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
@@ -12,9 +12,10 @@ import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion
 interface Props {
   transactions: Transaction[];
   loading: boolean;
+  onCategoryChange?: (timestamp: string, categoria: string) => void;
 }
 
-export function Historial({ transactions, loading }: Props) {
+export function Historial({ transactions, loading, onCategoryChange }: Props) {
   const [activeFilter, setActiveFilter] = useState<string>('Todas');
   const [selected, setSelected] = useState<Transaction | null>(null);
 
@@ -122,7 +123,7 @@ export function Historial({ transactions, loading }: Props) {
       </div>
 
       <AnimatePresence>
-        {selected && <BottomSheet tx={selected} onClose={() => setSelected(null)} />}
+        {selected && <BottomSheet tx={selected} onClose={() => setSelected(null)} onCategoryChange={onCategoryChange} />}
       </AnimatePresence>
     </div>
   );
@@ -165,13 +166,37 @@ function TxRow({ tx, onClick }: { tx: Transaction; onClick: () => void }) {
   );
 }
 
-function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
+function BottomSheet({ tx, onClose, onCategoryChange }: {
+  tx: Transaction;
+  onClose: () => void;
+  onCategoryChange?: (timestamp: string, categoria: string) => void;
+}) {
   const cleanName = cleanMerchant(tx.Comercio);
-  const rows = [
+  const [localCategory, setLocalCategory] = useState(tx.Categoría);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function handleCategorySelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newCat = e.target.value;
+    setLocalCategory(newCat);
+    setSaving(true);
+    setSaved(false);
+    try {
+      await updateCategory(tx.Timestamp, newCat);
+      onCategoryChange?.(tx.Timestamp, newCat);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch {
+      setLocalCategory(tx.Categoría);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const staticRows = [
     { label: 'Banco', value: tx.Banco },
     { label: 'Tipo', value: tx.Tipo },
     { label: 'Monto', value: formatCOP(Number(tx['Monto (COP)'])) },
-    { label: 'Categoría', value: tx.Categoría },
     { label: 'Tarjeta / Cuenta', value: tx['Tarjeta/Cuenta'] },
     { label: 'Fecha', value: tx.Fecha },
     { label: 'Descripción original', value: tx.Comercio !== cleanName ? tx.Comercio : undefined },
@@ -214,7 +239,41 @@ function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--ink)', margin: '0 0 18px', letterSpacing: '-0.02em' }}>
           {cleanName || tx.Tipo}
         </p>
-        {rows.map(r => (
+
+        {/* Categoría — editable */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
+          <span style={{ color: 'var(--muted)', fontSize: 13 }}>Categoría</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {saving && (
+              <div style={{
+                width: 12, height: 12, borderRadius: '50%',
+                border: '1.5px solid var(--line)', borderTopColor: 'var(--blue-600)',
+                animation: 'spin 0.8s linear infinite', flexShrink: 0,
+              }} />
+            )}
+            {saved && <span style={{ color: '#16a34a', fontSize: 13, fontWeight: 700 }}>✓</span>}
+            <select
+              value={localCategory}
+              onChange={handleCategorySelect}
+              disabled={saving}
+              style={{
+                border: 'none', background: 'transparent',
+                color: 'var(--blue-700)', fontSize: 13, fontWeight: 600,
+                cursor: saving ? 'default' : 'pointer',
+                outline: 'none', fontFamily: 'var(--font-body)',
+                WebkitAppearance: 'none', appearance: 'none',
+                paddingRight: 16,
+              }}
+            >
+              {CATEGORIES.map(c => (
+                <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+            <span style={{ color: 'var(--blue-700)', fontSize: 10, pointerEvents: 'none', marginLeft: -14 }}>▾</span>
+          </div>
+        </div>
+
+        {staticRows.map(r => (
           <div key={r.label} style={{
             display: 'flex', justifyContent: 'space-between',
             padding: '10px 0', borderBottom: '1px solid var(--line)',
@@ -231,6 +290,7 @@ function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
             </span>
           </div>
         ))}
+
         <motion.button whileTap={{ scale: 0.98 }} onClick={onClose} style={{
           marginTop: 18, width: '100%', padding: 14,
           background: 'var(--surface)', border: '1px solid var(--line)',

@@ -83,6 +83,15 @@ function doPost(e) {
       return jsonResponse({ ok: true, data: parsed });
     }
 
+    // Actualizar categoría de una transacción existente
+    if (type === "updateCategory") {
+      var ts  = payload.timestamp || "";
+      var cat = payload.categoria  || "";
+      if (!ts || !cat) return jsonResponse({ ok: false, error: "Faltan timestamp y categoria" });
+      updateCategoryInSheet(ts, cat);
+      return jsonResponse({ ok: true });
+    }
+
     // Chat con el asistente financiero
     if (type === "chat") {
       var question = payload.question || "";
@@ -382,6 +391,28 @@ function detectCategory(merchant) {
     }
   }
   return "";
+}
+
+// ── Actualizar categoría de una fila existente ────────────────
+function updateCategoryInSheet(timestamp, categoria) {
+  var ss    = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var tsCol  = hdrs.indexOf("Timestamp");
+  var catCol = hdrs.indexOf("Categoría");
+  if (tsCol === -1 || catCol === -1) throw new Error("Columnas Timestamp/Categoría no encontradas");
+
+  var targetMs = new Date(timestamp).getTime();
+  for (var i = 1; i < data.length; i++) {
+    var cell   = data[i][tsCol];
+    var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
+    if (Math.abs(cellMs - targetMs) < 2000) {
+      sheet.getRange(i + 1, catCol + 1).setValue(categoria);
+      return;
+    }
+  }
+  throw new Error("Transacción no encontrada: " + timestamp);
 }
 
 // ── Google Sheets writer ──────────────────────────────────────
