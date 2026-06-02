@@ -38,7 +38,6 @@ const DOMAINS: Record<string, string> = {
   openai: 'openai.com',
   chatgpt: 'openai.com',
   deepseek: 'deepseek.com',
-  mistral: 'mistral.ai',
   samsung: 'samsung.com',
   adobe: 'adobe.com',
   canva: 'canva.com',
