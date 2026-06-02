@@ -5,6 +5,7 @@ import { formatCOP } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
+import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 
 interface Props {
@@ -13,8 +14,8 @@ interface Props {
 }
 
 interface MonthStats {
-  key: string;       // "2026-05"
-  label: string;     // "may. 26"
+  key: string;
+  label: string;
   total: number;
   count: number;
   byCategory: { name: string; color: string; amount: number }[];
@@ -76,6 +77,16 @@ function computeStats(txs: Transaction[], bank: string): MonthStats[] {
     });
 }
 
+// Animated COP amount — uses countup hook inside a component so it can be used in map()
+function AnimatedAmount({ value, size = 15 }: { value: number; size?: number }) {
+  const animated = useCountUp(value);
+  return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: size, color: 'var(--ink)' }}>
+      {formatCOP(animated)}
+    </span>
+  );
+}
+
 export function Analisis({ transactions, loading }: Props) {
   const [activeBank, setActiveBank] = useState('Todos');
   const [compareMode, setCompareMode] = useState(false);
@@ -129,6 +140,10 @@ export function Analisis({ transactions, loading }: Props) {
     );
   }
 
+  const activeList = displayStats
+    ? (merchantView === 'amount' ? displayStats.topMerchants : displayStats.topByCount)
+    : [];
+
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 100 }}>
       {/* Header */}
@@ -136,19 +151,38 @@ export function Analisis({ transactions, loading }: Props) {
         <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Estadísticas</p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 14px', letterSpacing: '-0.02em' }}>Análisis</h1>
 
-        {/* Bank filter */}
+        {/* Bank filter chips — sliding indicator */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {BANKS.map(b => {
             const active = b === activeBank;
             return (
-              <motion.button key={b} whileTap={{ scale: 0.94 }} onClick={() => setActiveBank(b)} style={{
-                flexShrink: 0, padding: '5px 14px', borderRadius: 999,
-                border: `1.5px solid ${active ? 'var(--blue-600)' : 'var(--line)'}`,
-                background: active ? 'var(--blue-50)' : '#fff',
-                color: active ? 'var(--blue-700)' : 'var(--ink-2)',
-                fontSize: 13, fontWeight: active ? 600 : 400,
-                cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
-              }}>{b}</motion.button>
+              <motion.button
+                key={b}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => setActiveBank(b)}
+                style={{
+                  position: 'relative',
+                  flexShrink: 0, padding: '5px 14px', borderRadius: 999,
+                  border: `1.5px solid ${active ? 'transparent' : 'var(--line)'}`,
+                  background: 'transparent',
+                  color: active ? 'var(--blue-700)' : 'var(--ink-2)',
+                  fontSize: 13, fontWeight: active ? 600 : 400,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+                }}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="analisis-bank-chip-bg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
+                    style={{
+                      position: 'absolute', inset: 0, borderRadius: 999,
+                      background: 'var(--blue-50)',
+                      border: '1.5px solid var(--blue-600)',
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{b}</span>
+              </motion.button>
             );
           })}
           <motion.button whileTap={{ scale: 0.94 }} onClick={() => {
@@ -196,15 +230,11 @@ export function Analisis({ transactions, loading }: Props) {
                     animate={{ height: `${Math.max(heightPct, 4)}%` }}
                     transition={{ ...quickEase, delay: i * 0.035 }}
                     style={{
-                    width: '100%', borderRadius: '6px 6px 0 0',
-                    background: isSelected
-                      ? 'var(--grad-accent)'
-                      : isCompare
-                        ? 'rgba(249,115,22,0.35)'
-                        : 'var(--line)',
-                    transition: 'all 0.2s ease',
-                    minHeight: 4,
-                  }} />
+                      width: '100%', borderRadius: '6px 6px 0 0',
+                      background: isSelected ? 'var(--grad-accent)' : isCompare ? 'rgba(249,115,22,0.35)' : 'var(--line)',
+                      transition: 'all 0.2s ease', minHeight: 4,
+                    }}
+                  />
                   <span style={{ fontSize: 9.5, color: isSelected ? 'var(--blue-700)' : 'var(--muted-2)', fontWeight: isSelected ? 700 : 400, whiteSpace: 'nowrap' }}>
                     {s.label}
                   </span>
@@ -216,54 +246,64 @@ export function Analisis({ transactions, loading }: Props) {
 
         {/* Compare month selector */}
         <AnimatePresence>
-        {compareMode && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, y: -8 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -8 }}
-            transition={quickEase}
-            style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
-          >
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-              Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {last6.map((s, i) => i !== displayIdx && (
-                <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
-                  padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
-                  border: `1.5px solid ${compareIdx === i ? 'var(--orange-500)' : 'var(--line)'}`,
-                  background: compareIdx === i ? 'var(--orange-50)' : '#fff',
-                  color: compareIdx === i ? 'var(--orange-600)' : 'var(--ink-2)',
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
-                }}>
-                  {s.label}
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        )}
+          {compareMode && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={quickEase}
+              style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
+            >
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {last6.map((s, i) => i !== displayIdx && (
+                  <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
+                    padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
+                    border: `1.5px solid ${compareIdx === i ? 'var(--orange-500)' : 'var(--line)'}`,
+                    background: compareIdx === i ? 'var(--orange-50)' : '#fff',
+                    color: compareIdx === i ? 'var(--orange-600)' : 'var(--ink-2)',
+                    cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  }}>
+                    {s.label}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* KPI cards */}
+        {/* KPI cards with animated amounts */}
         {displayStats && (
           <>
             <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              {[
-                { label: 'Total gastado', value: formatCOP(displayStats.total), compare: compareStats ? formatCOP(compareStats.total) : null, mono: true },
-                { label: 'Transacciones', value: String(displayStats.count), compare: compareStats ? String(compareStats.count) : null, mono: false },
-                { label: 'Ticket promedio', value: displayStats.count > 0 ? formatCOP(displayStats.total / displayStats.count) : '—', compare: compareStats && compareStats.count > 0 ? formatCOP(compareStats.total / compareStats.count) : null, mono: true },
-                { label: 'Categoría top', value: displayStats.byCategory[0]?.name || '—', compare: compareStats ? compareStats.byCategory[0]?.name || '—' : null, mono: false },
-              ].map(({ label, value, compare, mono }) => (
-                <motion.div key={label} variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>{label}</div>
-                  <div style={{ fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{value}</div>
-                  {compare && (
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>
-                      vs {compare}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Total gastado</div>
+                <AnimatedAmount value={displayStats.total} />
+                {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>vs {formatCOP(compareStats.total)}</div>}
+              </motion.div>
+
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Transacciones</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{displayStats.count}</div>
+                {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>vs {compareStats.count}</div>}
+              </motion.div>
+
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Ticket promedio</div>
+                {displayStats.count > 0
+                  ? <AnimatedAmount value={Math.round(displayStats.total / displayStats.count)} />
+                  : <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>—</span>
+                }
+                {compareStats && compareStats.count > 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>vs {formatCOP(compareStats.total / compareStats.count)}</div>}
+              </motion.div>
+
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Categoría top</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{displayStats.byCategory[0]?.name || '—'}</div>
+                {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{compareStats.byCategory[0]?.name || '—'}</div>}
+              </motion.div>
             </motion.div>
 
             {/* Category breakdown */}
@@ -299,10 +339,9 @@ export function Analisis({ transactions, loading }: Props) {
               </motion.div>
             )}
 
-            {/* Top merchants */}
+            {/* Top merchants — animated reorder */}
             {displayStats.topMerchants.length > 0 && (
               <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)' }}>
-                {/* Header with segmented control */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
                     Top comercios — {displayStats.label}
@@ -322,42 +361,51 @@ export function Analisis({ transactions, loading }: Props) {
                     ))}
                   </div>
                 </div>
-                {/* Merchant rows */}
-                {(() => {
-                  const activeList = merchantView === 'amount' ? displayStats.topMerchants : displayStats.topByCount;
-                  return activeList.map(({ name, amount, count }, i) => {
+
+                {/* Rows with layout reorder animation */}
+                <AnimatePresence mode="popLayout">
+                  {activeList.map(({ name, amount, count }, i) => {
                     const compareList = compareStats
                       ? (merchantView === 'amount' ? compareStats.topMerchants : compareStats.topByCount)
                       : null;
                     const cm = compareList?.find(m => m.name === name);
                     return (
-                      <motion.div key={name} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ ...quickEase, delay: i * 0.04 }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < activeList.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--blue-700)' }}>
-                          {i + 1}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                            {merchantView === 'amount'
-                              ? `${count} transacción${count !== 1 ? 'es' : ''}`
-                              : formatCOP(amount)}
+                      <motion.div
+                        key={name}
+                        layout
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ ...quickEase, delay: i * 0.03 }}
+                        style={{ borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'var(--blue-700)', flexShrink: 0 }}>
+                            {i + 1}
                           </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>
-                            {merchantView === 'amount' ? formatCOP(amount) : `${count} tx`}
-                          </span>
-                          {cm && (
-                            <div style={{ fontSize: 10.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                              vs {merchantView === 'amount' ? formatCOP(cm.amount) : `${cm.count} tx`}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              {merchantView === 'amount'
+                                ? `${count} transacción${count !== 1 ? 'es' : ''}`
+                                : formatCOP(amount)}
                             </div>
-                          )}
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>
+                              {merchantView === 'amount' ? formatCOP(amount) : `${count} tx`}
+                            </span>
+                            {cm && (
+                              <div style={{ fontSize: 10.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                                vs {merchantView === 'amount' ? formatCOP(cm.amount) : `${cm.count} tx`}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     );
-                  });
-                })()}
+                  })}
+                </AnimatePresence>
               </motion.div>
             )}
           </>

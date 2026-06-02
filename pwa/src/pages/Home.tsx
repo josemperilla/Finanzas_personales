@@ -8,6 +8,8 @@ import { Blobs } from '../components/ui/Blobs';
 import { ConnectionNotice } from '../components/ui/ConnectionNotice';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { cleanMerchant } from '../lib/merchantCleaner';
+import { getMerchantDomain } from '../lib/merchantLogos';
+import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
 interface Props {
@@ -77,6 +79,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       return db.getTime() - da.getTime();
     })
     .slice(0, 5);
+
+  const animatedTotal = useCountUp(loading ? 0 : totalMonth);
 
   const navigate = (delta: number) => {
     const next = Math.min(0, Math.max(-11, selectedOffset + delta));
@@ -210,7 +214,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               </motion.button>
             </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
-              {loading ? '—' : formatCOP(totalMonth)}
+              {loading ? '—' : formatCOP(animatedTotal)}
             </span>
           </div>
 
@@ -316,6 +320,8 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
   const color = getCategoryColor(tx.Categoría);
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || tx.Tipo;
+  const domain = getMerchantDomain(name);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   return (
     <motion.div
@@ -327,12 +333,18 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 8px', margin: '0 -8px', borderRadius: 14 }}
     >
       <div style={{
-        width: 38, height: 38, borderRadius: 11, background: color,
+        width: 38, height: 38, borderRadius: 11,
+        background: domain && !logoFailed ? '#fff' : color,
+        border: domain && !logoFailed ? '1px solid var(--line)' : 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
-        flexShrink: 0,
+        flexShrink: 0, overflow: 'hidden',
       }}>
-        {name.charAt(0).toUpperCase()}
+        {domain && !logoFailed ? (
+          <img src={`https://logo.clearbit.com/${domain}?size=80`} alt={name}
+            onError={() => setLogoFailed(true)}
+            style={{ width: '76%', height: '76%', objectFit: 'contain' }} />
+        ) : name.charAt(0).toUpperCase()}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

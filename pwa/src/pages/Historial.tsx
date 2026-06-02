@@ -4,6 +4,7 @@ import { Transaction } from '../lib/api';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
+import { getMerchantDomain } from '../lib/merchantLogos';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
@@ -44,22 +45,39 @@ export function Historial({ transactions, loading }: Props) {
           </h1>
         </div>
 
-        {/* Filter chips */}
+        {/* Filter chips with sliding indicator */}
         <div style={{ overflowX: 'auto', display: 'flex', gap: 6, paddingBottom: 4, scrollbarWidth: 'none' }}>
           {filters.map(f => {
             const isActive = f === activeFilter;
             return (
-              <motion.button key={f} whileTap={{ scale: 0.94 }} onClick={() => setActiveFilter(f)} style={{
-                flexShrink: 0, padding: '5px 14px', borderRadius: 999,
-                border: `1.5px solid ${isActive ? 'var(--blue-600)' : 'var(--line)'}`,
-                background: isActive ? 'var(--blue-50)' : '#fff',
-                color: isActive ? 'var(--blue-700)' : 'var(--ink-2)',
-                fontSize: 13, fontWeight: isActive ? 600 : 400,
-                cursor: 'pointer', transition: 'all 0.15s ease',
-                whiteSpace: 'nowrap', letterSpacing: '0.01em',
-                fontFamily: 'var(--font-body)',
-              }}>
-                {f}
+              <motion.button
+                key={f}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => setActiveFilter(f)}
+                style={{
+                  position: 'relative',
+                  flexShrink: 0, padding: '5px 14px', borderRadius: 999,
+                  border: `1.5px solid ${isActive ? 'transparent' : 'var(--line)'}`,
+                  background: 'transparent',
+                  color: isActive ? 'var(--blue-700)' : 'var(--ink-2)',
+                  fontSize: 13, fontWeight: isActive ? 600 : 400,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap', letterSpacing: '0.01em',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="historial-chip-bg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
+                    style={{
+                      position: 'absolute', inset: 0, borderRadius: 999,
+                      background: 'var(--blue-50)',
+                      border: '1.5px solid var(--blue-600)',
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1 }}>{f}</span>
               </motion.button>
             );
           })}
@@ -112,17 +130,34 @@ export function Historial({ transactions, loading }: Props) {
 function TxRow({ tx, onClick }: { tx: Transaction; onClick: () => void }) {
   const color = getCategoryColor(tx.Categoría);
   const name = cleanMerchant(tx.Comercio) || tx.Tipo;
+  const domain = getMerchantDomain(name);
+  const [logoFailed, setLogoFailed] = useState(false);
+
   return (
-    <motion.button whileTap={{ scale: 0.985 }} onClick={onClick} style={{
-      width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-      padding: '13px 0', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
-    }}>
+    <motion.button
+      whileTap={{ scale: 0.985 }}
+      onClick={onClick}
+      style={{
+        width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+        padding: '13px 0', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+      }}
+    >
       <div style={{
-        width: 38, height: 38, borderRadius: 11, background: color, flexShrink: 0,
+        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+        background: domain && !logoFailed ? '#fff' : color,
+        border: domain && !logoFailed ? '1px solid var(--line)' : 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
+        overflow: 'hidden',
       }}>
-        {name.charAt(0).toUpperCase()}
+        {domain && !logoFailed ? (
+          <img
+            src={`https://logo.clearbit.com/${domain}?size=80`}
+            alt={name}
+            onError={() => setLogoFailed(true)}
+            style={{ width: '76%', height: '76%', objectFit: 'contain' }}
+          />
+        ) : name.charAt(0).toUpperCase()}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -167,9 +202,10 @@ function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
         exit={{ opacity: 0 }}
         transition={quickEase}
         style={{
-        position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', zIndex: 200,
-        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-      }} />
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.35)', zIndex: 200,
+          backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+        }}
+      />
       <motion.div
         initial={{ y: '100%', opacity: 0.98 }}
         animate={{ y: 0, opacity: 1 }}
@@ -182,13 +218,14 @@ function BottomSheet({ tx, onClose }: { tx: Transaction; onClose: () => void }) 
           if (info.offset.y > 90 || info.velocity.y > 650) onClose();
         }}
         style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#fff',
-        borderRadius: '20px 20px 0 0',
-        padding: '16px 20px max(20px, env(safe-area-inset-bottom))',
-        zIndex: 201,
-        boxShadow: '0 -4px 30px rgba(15,23,42,0.12)',
-      }}>
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: '#fff',
+          borderRadius: '20px 20px 0 0',
+          padding: '16px 20px max(20px, env(safe-area-inset-bottom))',
+          zIndex: 201,
+          boxShadow: '0 -4px 30px rgba(15,23,42,0.12)',
+        }}
+      >
         <div style={{ width: 36, height: 3, borderRadius: 2, background: 'var(--line)', margin: '0 auto 20px' }} />
         <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--ink)', margin: '0 0 18px', letterSpacing: '-0.02em' }}>
           {cleanName || tx.Tipo}

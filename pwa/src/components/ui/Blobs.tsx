@@ -5,20 +5,21 @@ interface BlobDef {
   l: number;
   s: number;
   c: string;
+  anim: string;
 }
 
 const BLOB_SETS: Record<BlobVariant, BlobDef[]> = {
   a: [
-    { t: -60, l: -50, s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #93c5fd00)' },
-    { t: 280, l: 230, s: 200, c: 'radial-gradient(circle at 30% 30%, #ffedd5, #fdba7400)' },
+    { t: -60, l: -50,  s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #93c5fd00)', anim: 'blobFloat1 7s ease-in-out infinite' },
+    { t: 280, l: 230,  s: 200, c: 'radial-gradient(circle at 30% 30%, #ffedd5, #fdba7400)', anim: 'blobFloat2 9s ease-in-out infinite' },
   ],
   b: [
-    { t: -40, l: 200, s: 200, c: 'radial-gradient(circle at 30% 30%, #fde3c4, #fb923c00)' },
-    { t: 420, l: -70, s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #60a5fa00)' },
+    { t: -40, l: 200,  s: 200, c: 'radial-gradient(circle at 30% 30%, #fde3c4, #fb923c00)', anim: 'blobFloat2 8s ease-in-out infinite' },
+    { t: 420, l: -70,  s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #60a5fa00)', anim: 'blobFloat1 10s ease-in-out infinite' },
   ],
   blue: [
-    { t: -80, l: -60, s: 300, c: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 70%)' },
-    { t: 300, l: 180, s: 260, c: 'radial-gradient(circle at 30% 30%, rgba(249,115,22,0.45), transparent 70%)' },
+    { t: -80, l: -60,  s: 300, c: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 70%)', anim: 'blobFloat1 8s ease-in-out infinite' },
+    { t: 300, l: 180,  s: 260, c: 'radial-gradient(circle at 30% 30%, rgba(249,115,22,0.45), transparent 70%)',  anim: 'blobFloat2 10s ease-in-out infinite' },
   ],
 };
 
@@ -29,6 +30,8 @@ export function Blobs({ variant = 'a' }: { variant?: BlobVariant }) {
         <div key={i} style={{
           position: 'absolute', top: b.t, left: b.l, width: b.s, height: b.s,
           borderRadius: '50%', background: b.c, filter: 'blur(8px)',
+          animation: b.anim,
+          willChange: 'transform',
         }} />
       ))}
     </div>
