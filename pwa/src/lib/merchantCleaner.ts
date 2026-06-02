@@ -10,6 +10,7 @@ const NOISE_PATTERNS: RegExp[] = [
 const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   // Pagos genéricos sin comercio identificable
   { pattern: /^payu\s+pagosonline$/i, canonical: '' },
+  { pattern: /bre-?b/i, canonical: 'Transferencia por Bre-B' },
 
   // Apps de domicilios y transporte
   { pattern: /rappi/i, canonical: 'Rappi' },

@@ -320,7 +320,7 @@ function ProfileAvatar({ fallback }: { fallback: string }) {
 function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
   const color = getCategoryColor(tx.Categoría);
   const fecha = tx.Fecha || tx.Timestamp;
-  const name = cleanMerchant(tx.Comercio) || tx.Tipo;
+  const name = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain = getMerchantDomain(name);
 
   return (
