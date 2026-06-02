@@ -62,13 +62,27 @@ function buildContext(txs: Transaction[]) {
       .map(([comercio, { monto, count }]) => ({ comercio, monto: Math.round(monto), compras: count }));
   }
 
-  // Lista completa de transacciones para análisis ad-hoc
-  const transacciones = used.map(tx => ({
-    fecha: (tx.Fecha || tx.Timestamp || '').slice(0, 10),
-    categoria: tx.Categoría || 'Otro',
-    comercio: cleanMerchant(tx.Comercio) || tx.Tipo || 'Sin nombre',
-    monto: Math.round(Number(tx['Monto (COP)'] || 0)),
-  }));
+  // Top 15 comercios globales por monto y por frecuencia
+  const byMerchant: Record<string, { amount: number; count: number }> = {};
+  for (const tx of used) {
+    const name = cleanMerchant(tx.Comercio) || tx.Tipo;
+    if (!byMerchant[name]) byMerchant[name] = { amount: 0, count: 0 };
+    byMerchant[name].amount += Number(tx['Monto (COP)'] || 0);
+    byMerchant[name].count += 1;
+  }
+  const topComerciosMonto = Object.entries(byMerchant)
+    .sort(([, a], [, b]) => b.amount - a.amount).slice(0, 15)
+    .map(([nombre, { amount, count }]) => ({ nombre, monto: Math.round(amount), compras: count }));
+  const topComerciosFrecuencia = Object.entries(byMerchant)
+    .sort(([, a], [, b]) => b.count - a.count).slice(0, 15)
+    .map(([nombre, { amount, count }]) => ({ nombre, monto: Math.round(amount), compras: count }));
+
+  // Gasto por mes
+  const byMonth: Record<string, number> = {};
+  for (const tx of used) {
+    const key = (tx.Fecha || tx.Timestamp || '').slice(0, 7);
+    if (key) byMonth[key] = (byMonth[key] || 0) + Number(tx['Monto (COP)'] || 0);
+  }
 
   const dows = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const byDow: Record<string, number> = {};
@@ -85,13 +99,15 @@ function buildContext(txs: Transaction[]) {
     totalTransacciones: used.length,
     totalGastado: Math.round(total),
     ticketPromedio: used.length > 0 ? Math.round(total / used.length) : 0,
-    resumenCategorias: Object.entries(byCat)
-      .sort(([, a], [, b]) => b.total - a.total)
+    gastoPorMes: Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
+      .map(([mes, monto]) => ({ mes, monto: Math.round(monto) })),
+    gastoPorCategoria: Object.entries(byCat).sort(([, a], [, b]) => b.total - a.total)
       .map(([cat, { total: t, count: c }]) => ({ categoria: cat, total: Math.round(t), compras: c })),
     comerciosPorCategoria,
+    topComerciosMonto,
+    topComerciosFrecuencia,
     gastoPorDiaSemana: Object.entries(byDow).sort(([, a], [, b]) => b - a)
       .map(([dia, monto]) => ({ dia, monto: Math.round(monto) })),
-    transacciones,
   };
 }
 
