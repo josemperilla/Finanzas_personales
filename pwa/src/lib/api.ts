@@ -101,12 +101,15 @@ export async function updateCategory(timestamp: string, categoria: string): Prom
   if (!json.ok) throw new Error(json.error || 'Error al actualizar categoría');
 }
 
-export async function validatePin(pin: string): Promise<boolean> {
+export async function validatePin(pin: string, userId?: string): Promise<boolean> {
   assertWebhookUrl();
+  const uid = userId || _activeUserId || localStorage.getItem('fm_profile');
+  const body: Record<string, unknown> = { type: 'validatePin', pin };
+  if (uid) body.userId = uid;
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(withUser({ type: 'validatePin', pin })),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   return json.ok === true;

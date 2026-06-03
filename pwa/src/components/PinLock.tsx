@@ -67,7 +67,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
 
     if (next.length === 4) {
       setStatus('validating');
-      validatePin(next.join('')).then(ok => {
+      validatePin(next.join(''), userId).then(ok => {
         if (ok) {
           // Reset lockout on success
           saveLockoutState(userId, { attempts: 0, lockedUntil: 0 });
