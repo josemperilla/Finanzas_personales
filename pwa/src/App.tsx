@@ -137,6 +137,7 @@ export default function App() {
               onRetry={load}
               onAdd={() => setTab('agregar')}
               onViewAll={() => setTab('historial')}
+              onLogout={handleSwitchProfile}
               userId={userId}
             />
           )}

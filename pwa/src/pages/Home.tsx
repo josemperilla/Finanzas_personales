@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef } from 'react';
 import { Transaction } from '../lib/api';
+import { getProfile } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
@@ -24,6 +25,7 @@ interface Props {
   onRetry?: () => void;
   onAdd: () => void;
   onViewAll: () => void;
+  onLogout?: () => void;
   userId: string;
 }
 
@@ -33,7 +35,7 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
 };
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, userId }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, userId }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -155,7 +157,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           marginBottom: 20, position: 'relative',
         }}
       >
-        <ProfileAvatar fallback={currentMonthStr.charAt(0).toUpperCase()} />
+        <ProfileAvatar userId={userId} onLogout={onLogout} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Finanzas Personales</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
@@ -416,27 +418,80 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 }
 
-function ProfileAvatar({ fallback }: { fallback: string }) {
-  const [failed, setFailed] = useState(false);
+function ProfileAvatar({ userId, onLogout }: { userId: string; onLogout?: () => void }) {
+  const profile  = getProfile(userId);
+  const [failed, setFailed]     = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{
-      width: 42, height: 42, borderRadius: '50%',
-      background: failed ? 'var(--grad-brand)' : '#fff',
-      border: '2px solid #fff',
-      boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', flexShrink: 0,
-      color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
-    }}>
-      {failed ? fallback : (
-        <img
-          src="/profile-avatar.jpg"
-          alt="Perfil"
-          onError={() => setFailed(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-        />
-      )}
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <motion.button
+        whileTap={{ scale: 0.92 }}
+        onClick={() => setMenuOpen(v => !v)}
+        style={{
+          width: 42, height: 42, borderRadius: '50%',
+          background: failed ? 'var(--grad-brand)' : '#fff',
+          border: '2px solid #fff',
+          boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', cursor: 'pointer', padding: 0,
+          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
+        }}
+      >
+        {failed || !profile?.avatar ? (
+          profile?.initial ?? '?'
+        ) : (
+          <img
+            src={profile.avatar}
+            alt={profile.name ?? 'Perfil'}
+            onError={() => setFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+          />
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {menuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => setMenuOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -6 }}
+              transition={quickEase}
+              style={{
+                position: 'absolute', top: 50, left: 0, zIndex: 51,
+                background: '#fff', borderRadius: 14, overflow: 'hidden',
+                boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
+                border: '1px solid var(--line)', minWidth: 160,
+              }}
+            >
+              <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{profile?.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
+              </div>
+              {onLogout && (
+                <button
+                  onClick={() => { setMenuOpen(false); onLogout(); }}
+                  style={{
+                    width: '100%', padding: '11px 14px', background: 'none', border: 'none',
+                    textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500,
+                    color: '#b91c1c', fontFamily: 'var(--font-body)',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 15 }}>↩</span> Cerrar sesión
+                </button>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
