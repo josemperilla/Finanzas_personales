@@ -41,6 +41,24 @@ export default function App() {
     ));
   }, []);
 
+  const handleDeleteTransaction = useCallback((timestamp: string) => {
+    setTransactions(prev => prev.filter(tx => tx.Timestamp !== timestamp));
+  }, []);
+
+  const handleTransactionUpdate = useCallback((timestamp: string, data: Record<string, unknown>) => {
+    setTransactions(prev => prev.map(tx =>
+      tx.Timestamp === timestamp ? {
+        ...tx,
+        ...(data.comercio  !== undefined && { Comercio: data.comercio as string }),
+        ...(data.banco     !== undefined && { Banco: data.banco as string }),
+        ...(data.tipo      !== undefined && { Tipo: data.tipo as string }),
+        ...(data.monto     !== undefined && { 'Monto (COP)': data.monto as number }),
+        ...(data.categoria !== undefined && { Categoría: data.categoria as string }),
+        ...(data.fecha     !== undefined && { Fecha: data.fecha as string }),
+      } : tx
+    ));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -106,10 +124,19 @@ export default function App() {
             />
           )}
           {tab === 'historial' && (
-            <Historial transactions={transactions} loading={loading} onCategoryChange={handleCategoryChange} />
+            <Historial
+              transactions={transactions}
+              loading={loading}
+              onCategoryChange={handleCategoryChange}
+              onDelete={handleDeleteTransaction}
+              onTransactionUpdate={handleTransactionUpdate}
+            />
           )}
-          {tab === 'agregar' && (
-            <Agregar onSaved={async () => {
+          {tab === 'agregar' && userId && (
+            <Agregar
+              transactions={transactions}
+              userId={userId}
+              onSaved={async () => {
               await load();
               setTab('home');
               setHighlightLatest(true);

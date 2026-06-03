@@ -115,6 +115,28 @@ export async function validatePin(pin: string, userId?: string): Promise<{ ok: b
   return { ok: json.ok === true, error: json.error };
 }
 
+export async function deleteTransaction(timestamp: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteTransaction', timestamp })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar transacción');
+}
+
+export async function updateTransaction(timestamp: string, data: Partial<ManualTransaction>): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'updateTransaction', timestamp, ...data })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al actualizar transacción');
+}
+
 export async function askChat(question: string, context: object): Promise<string> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {

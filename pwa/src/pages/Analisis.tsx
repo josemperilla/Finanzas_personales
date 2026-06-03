@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { formatCOP } from '../lib/utils';
@@ -9,6 +9,7 @@ import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 import { getBudgets, setBudget, clearBudget } from '../lib/budgets';
 import { CategorySheet } from '../components/CategorySheet';
+import { detectRecurring, RecurringItem } from '../lib/recurring';
 
 interface Props {
   transactions: Transaction[];
@@ -507,6 +508,9 @@ export function Analisis({ transactions, loading, userId }: Props) {
             )}
           </>
         )}
+        {/* Recurring / subscriptions section */}
+        <RecurringSection transactions={transactions} />
+
       </motion.div>
 
       <AnimatePresence>
@@ -518,6 +522,109 @@ export function Analisis({ transactions, loading, userId }: Props) {
           />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+type RecurringView = 'suscripciones' | 'recurrentes';
+
+function RecurringSection({ transactions }: { transactions: Transaction[] }) {
+  const [view, setView] = useState<RecurringView>('suscripciones');
+
+  const all = useMemo(() => detectRecurring(transactions), [transactions]);
+  const subs = useMemo(() => all.filter(r => r.isSubscription), [all]);
+  const recurring = useMemo(() => all.filter(r => !r.isSubscription), [all]);
+  const list = view === 'suscripciones' ? subs : recurring;
+
+  const totalMonthly = useMemo(() => list.reduce((s, r) => s + r.monthlyAmount, 0), [list]);
+
+  if (all.length === 0) return null;
+
+  return (
+    <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 10px', boxShadow: 'var(--shadow-card)', marginTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+          Pagos recurrentes
+        </div>
+        <div style={{ display: 'flex', border: '1.5px solid var(--line)', borderRadius: 999, overflow: 'hidden' }}>
+          {(['suscripciones', 'recurrentes'] as RecurringView[]).map(v => (
+            <button key={v} onClick={() => setView(v)} style={{
+              padding: '4px 10px', border: 'none', cursor: 'pointer',
+              background: view === v ? 'var(--blue-600)' : 'transparent',
+              color: view === v ? '#fff' : 'var(--ink-2)',
+              fontSize: 11.5, fontWeight: view === v ? 600 : 400,
+              fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+              transition: 'background 0.15s ease, color 0.15s ease',
+              textTransform: 'capitalize',
+            }}>{v}</button>
+          ))}
+        </div>
+      </div>
+
+      {list.length === 0 ? (
+        <div style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
+          No se detectaron {view} con los datos actuales.
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
+            Total mensual estimado:{' '}
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--ink)', fontSize: 12 }}>
+              {formatCOP(totalMonthly)}
+            </span>
+            {' '}· {formatCOP(totalMonthly * 12)}/año
+          </div>
+
+          {list.map((item) => (
+            <RecurringRow key={item.comercio} item={item} />
+          ))}
+        </>
+      )}
+    </motion.div>
+  );
+}
+
+function RecurringRow({ item }: { item: RecurringItem }) {
+  const initial = (item.comercio[0] || '?').toUpperCase();
+  const color   = getCategoryColor(item.categoria);
+
+  return (
+    <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: color + '22', border: `1.5px solid ${color}44`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color,
+        }}>
+          {initial}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {item.comercio}
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.months} meses</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.categoria}</span>
+            {item.missedRecentMonth && (
+              <span style={{
+                fontSize: 10.5, fontWeight: 600, color: '#b45309',
+                background: '#fef3c7', border: '1px solid #fde68a',
+                borderRadius: 6, padding: '1px 6px',
+              }}>⚠ Sin cobro reciente</span>
+            )}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
+            {formatCOP(item.monthlyAmount)}
+          </div>
+          <div style={{ fontSize: 10.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+            /mes
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

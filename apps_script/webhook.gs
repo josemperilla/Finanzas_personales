@@ -149,6 +149,22 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "PIN incorrecto" });
     }
 
+    // Eliminar una transacción
+    if (type === "deleteTransaction") {
+      var ts = payload.timestamp || "";
+      if (!ts) return jsonResponse({ ok: false, error: "timestamp requerido" });
+      deleteTransactionFromSheet(ts, userId);
+      return jsonResponse({ ok: true });
+    }
+
+    // Actualizar campos de una transacción
+    if (type === "updateTransaction") {
+      var ts = payload.timestamp || "";
+      if (!ts) return jsonResponse({ ok: false, error: "timestamp requerido" });
+      updateTransactionFields(ts, payload, userId);
+      return jsonResponse({ ok: true });
+    }
+
     // Chat con el asistente financiero
     if (type === "chat") {
       var question = payload.question || "";
@@ -627,6 +643,63 @@ function updateCategoryInSheet(timestamp, categoria, userId) {
     var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
     if (Math.abs(cellMs - targetMs) < 2000) {
       sheet.getRange(i + 1, catCol + 1).setValue(categoria);
+      return;
+    }
+  }
+  throw new Error("Transacción no encontrada: " + timestamp);
+}
+
+// ── Eliminar una transacción por Timestamp ───────────────────
+function deleteTransactionFromSheet(timestamp, userId) {
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
+  if (!sheet) throw new Error("Hoja no encontrada para usuario: " + userId);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var tsCol = hdrs.indexOf("Timestamp");
+  if (tsCol === -1) throw new Error("Columna Timestamp no encontrada");
+  var targetMs = new Date(timestamp).getTime();
+  for (var i = 1; i < data.length; i++) {
+    var cell   = data[i][tsCol];
+    var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
+    if (Math.abs(cellMs - targetMs) < 2000) {
+      sheet.deleteRow(i + 1);
+      return;
+    }
+  }
+  throw new Error("Transacción no encontrada: " + timestamp);
+}
+
+// ── Actualizar campos de una transacción por Timestamp ────────
+function updateTransactionFields(timestamp, payload, userId) {
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
+  if (!sheet) throw new Error("Hoja no encontrada para usuario: " + userId);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var tsCol = hdrs.indexOf("Timestamp");
+  if (tsCol === -1) throw new Error("Columna Timestamp no encontrada");
+  var targetMs = new Date(timestamp).getTime();
+  for (var i = 1; i < data.length; i++) {
+    var cell   = data[i][tsCol];
+    var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
+    if (Math.abs(cellMs - targetMs) < 2000) {
+      var row  = i + 1;
+      var cols = {
+        banco:     hdrs.indexOf("Banco"),
+        tipo:      hdrs.indexOf("Tipo"),
+        monto:     hdrs.indexOf("Monto (COP)"),
+        comercio:  hdrs.indexOf("Comercio"),
+        categoria: hdrs.indexOf("Categoría"),
+        fecha:     hdrs.indexOf("Fecha"),
+      };
+      if (payload.banco     !== undefined && cols.banco     >= 0) sheet.getRange(row, cols.banco     + 1).setValue(payload.banco);
+      if (payload.tipo      !== undefined && cols.tipo      >= 0) sheet.getRange(row, cols.tipo      + 1).setValue(payload.tipo);
+      if (payload.monto     !== undefined && cols.monto     >= 0) sheet.getRange(row, cols.monto     + 1).setValue(parseFloat(payload.monto) || 0);
+      if (payload.comercio  !== undefined && cols.comercio  >= 0) sheet.getRange(row, cols.comercio  + 1).setValue(payload.comercio);
+      if (payload.fecha     !== undefined && cols.fecha     >= 0) sheet.getRange(row, cols.fecha     + 1).setValue(payload.fecha);
+      if (payload.categoria !== undefined && ALLOWED_CATEGORIES.indexOf(payload.categoria) !== -1 && cols.categoria >= 0)
+        sheet.getRange(row, cols.categoria + 1).setValue(payload.categoria);
       return;
     }
   }

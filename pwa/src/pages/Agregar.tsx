@@ -1,25 +1,29 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { saveTransaction, parseVoice, ManualTransaction } from '../lib/api';
+import { saveTransaction, parseVoice, ManualTransaction, Transaction } from '../lib/api';
 import { CATEGORIES } from '../lib/config';
+import { getBudgets } from '../lib/budgets';
+import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 
 interface Props {
   onSaved: () => void | Promise<void>;
+  transactions: Transaction[];
+  userId: string;
 }
 
-type Mode = 'form' | 'voice';
+type Mode       = 'form' | 'voice';
 type VoiceState = 'idle' | 'recording' | 'processing' | 'prefilled';
-type SaveState = 'idle' | 'saving' | 'success';
+type SaveState  = 'idle' | 'saving' | 'success';
 
 interface FormData {
-  monto: string;
-  comercio: string;
-  banco: string;
+  monto:     string;
+  comercio:  string;
+  banco:     string;
   categoria: string;
-  tipo: string;
-  fecha: string;
+  tipo:      string;
+  fecha:     string;
 }
 
 const defaultForm: FormData = {
@@ -28,32 +32,28 @@ const defaultForm: FormData = {
 };
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box',
-  height: 54, padding: '0 16px',
-  background: '#fff',
-  border: '1.5px solid var(--line)',
-  borderRadius: 'var(--r-md)',
-  color: 'var(--ink)', fontSize: 16,
-  fontFamily: 'var(--font-body)',
-  outline: 'none',
-  appearance: 'none' as const,
-  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  width: '100%', boxSizing: 'border-box', height: 54, padding: '0 16px',
+  background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)',
+  color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)',
+  outline: 'none', appearance: 'none' as const, transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
 };
 
 const labelStyle: React.CSSProperties = {
-  display: 'block', marginBottom: 8,
-  color: 'var(--ink-2)', fontSize: 13, fontWeight: 600,
-  letterSpacing: '-0.01em',
+  display: 'block', marginBottom: 8, color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em',
 };
 
-export function Agregar({ onSaved }: Props) {
-  const [mode, setMode] = useState<Mode>('form');
-  const [form, setForm] = useState<FormData>(defaultForm);
+export function Agregar({ onSaved, transactions, userId }: Props) {
+  const [mode, setMode]         = useState<Mode>('form');
+  const [form, setForm]         = useState<FormData>(defaultForm);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
-  const [saveState, setSaveState] = useState<SaveState>('idle');
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  // L-05: typed SpeechRecognition (not in standard lib; declare locally)
+  const [saveState, setSaveState]   = useState<SaveState>('idle');
+  const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null);
+  const [budgetAlert, setBudgetAlert] = useState<{ cat: string; pct: number } | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSugg, setShowSugg]       = useState(false);
+  const suggRef = useRef<boolean>(false); // true while touching suggestion list
+
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
     start(): void; stop(): void;
@@ -64,6 +64,23 @@ export function Agregar({ onSaved }: Props) {
   };
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const [prefillGlow, setPrefillGlow] = useState(false);
+
+  // Build known merchants map from transaction history
+  const knownMerchants = useMemo(() => {
+    const map: Record<string, { banco: string; categoria: string; count: number }> = {};
+    for (const tx of transactions) {
+      const name = cleanMerchant(tx.Comercio);
+      if (!name || name.length < 2) continue;
+      const prev = map[name];
+      if (!prev) {
+        map[name] = { banco: tx.Banco || '', categoria: tx.Categoría || '', count: 1 };
+      } else {
+        prev.count++;
+        // keep most recent banco/categoria (transactions are sorted newest-first)
+      }
+    }
+    return map;
+  }, [transactions]);
 
   function focusStyle(el: HTMLInputElement | HTMLSelectElement) {
     el.style.borderColor = 'var(--blue-600)';
@@ -81,16 +98,55 @@ export function Agregar({ onSaved }: Props) {
 
   function handleMontoInput(raw: string) {
     const digits = raw.replace(/\D/g, '');
-    if (digits && Number(digits) > 100_000_000) return; // M-05: 100M COP cap
+    if (digits && Number(digits) > 100_000_000) return;
     setForm(f => ({ ...f, monto: digits }));
+  }
+
+  function handleComercioChange(value: string) {
+    setForm(f => ({ ...f, comercio: value }));
+    if (value.length >= 1) {
+      const lower = value.toLowerCase();
+      const matches = Object.keys(knownMerchants)
+        .filter(m => m.toLowerCase().includes(lower) && m.toLowerCase() !== lower)
+        .slice(0, 5);
+      setSuggestions(matches);
+      setShowSugg(matches.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSugg(false);
+    }
+  }
+
+  function selectSuggestion(name: string) {
+    const info = knownMerchants[name];
+    setForm(f => ({
+      ...f,
+      comercio:  name,
+      banco:     info?.banco    || f.banco,
+      categoria: info?.categoria || f.categoria,
+    }));
+    setSuggestions([]);
+    setShowSugg(false);
+  }
+
+  function checkBudgetAlert(cat: string, monto: number) {
+    const budgets = getBudgets(userId);
+    const budget  = budgets[cat];
+    if (!budget || budget <= 0) return;
+    const now = new Date();
+    const monthTotal = transactions
+      .filter(tx => {
+        const d = new Date(tx.Fecha || tx.Timestamp);
+        return !isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && tx.Categoría === cat;
+      })
+      .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+    const pct = (monthTotal + monto) / budget;
+    if (pct >= 0.8) setBudgetAlert({ cat, pct });
   }
 
   async function handleSubmit() {
     if (saveState !== 'idle') return;
-    if (!form.monto || !form.comercio) {
-      showToast('Monto y comercio son requeridos', false);
-      return;
-    }
+    if (!form.monto || !form.comercio) { showToast('Monto y comercio son requeridos', false); return; }
     setSaveState('saving');
     let succeeded = false;
     try {
@@ -104,6 +160,7 @@ export function Agregar({ onSaved }: Props) {
       succeeded = true;
       setSaveState('success');
       showToast('Transacción guardada', true);
+      checkBudgetAlert(data.categoria, data.monto);
       await new Promise(resolve => window.setTimeout(resolve, 650));
       await onSaved();
     } catch (err) {
@@ -124,9 +181,7 @@ export function Agregar({ onSaved }: Props) {
     rec.lang = 'es-CO'; rec.continuous = false; rec.interimResults = true;
     recognitionRef.current = rec;
     rec.onstart = () => setVoiceState('recording');
-    rec.onresult = (e) => {
-      setTranscript(Array.from(e.results).map(r => r[0].transcript).join(''));
-    };
+    rec.onresult = (e) => setTranscript(Array.from(e.results).map(r => r[0].transcript).join(''));
     rec.onend = async () => {
       const t = transcript;
       if (!t.trim()) { setVoiceState('idle'); return; }
@@ -134,10 +189,12 @@ export function Agregar({ onSaved }: Props) {
       try {
         const parsed = await parseVoice(t);
         setForm({
-          monto: String(Math.round(parsed.monto || 0)),
-          comercio: parsed.comercio || '', banco: parsed.banco || 'Otro',
-          categoria: parsed.categoria || 'Otro', tipo: parsed.tipo || 'Compra',
-          fecha: new Date().toISOString().slice(0, 10),
+          monto:     String(Math.round(parsed.monto || 0)),
+          comercio:  parsed.comercio || '',
+          banco:     parsed.banco || 'Otro',
+          categoria: parsed.categoria || 'Otro',
+          tipo:      parsed.tipo || 'Compra',
+          fecha:     new Date().toISOString().slice(0, 10),
         });
         setMode('form'); setVoiceState('prefilled');
         setPrefillGlow(true); setTimeout(() => setPrefillGlow(false), 1500);
@@ -157,19 +214,12 @@ export function Agregar({ onSaved }: Props) {
     <div style={{ padding: '0 20px 100px', fontFamily: 'var(--font-body)' }}>
       {/* Header */}
       <div style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', marginBottom: 22 }}>
-        <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Nueva entrada
-        </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
-          Agregar
-        </h1>
+        <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nueva entrada</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>Agregar</h1>
       </div>
 
       {/* Mode toggle */}
-      <motion.div style={{
-        display: 'flex', background: '#fff', border: '1.5px solid var(--line)',
-        borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20,
-      }}>
+      <motion.div style={{ display: 'flex', background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20 }}>
         {(['form', 'voice'] as Mode[]).map(m => (
           <motion.button key={m} whileTap={{ scale: 0.96 }} onClick={() => setMode(m)} style={{
             flex: 1, padding: '9px', borderRadius: 13, border: 'none', cursor: 'pointer',
@@ -186,52 +236,64 @@ export function Agregar({ onSaved }: Props) {
       {/* FORM */}
       <AnimatePresence mode="wait">
       {mode === 'form' && (
-        <motion.div
-          key="form"
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          exit={{ opacity: 0, y: -8 }}
-          transition={quickEase}
-          style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 16 }}
-        >
+        <motion.div key="form" variants={staggerContainer} initial="initial" animate="animate"
+          exit={{ opacity: 0, y: -8 }} transition={quickEase}
+          style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
           {/* Monto */}
           <motion.div variants={riseItem} transition={quickEase}>
             <label style={labelStyle}>Monto (COP)</label>
             <div style={{ position: 'relative' }}>
-              <span style={{
-                position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
-                color: form.monto ? 'var(--blue-600)' : 'var(--muted-2)',
-                fontSize: 14, fontWeight: 600, pointerEvents: 'none',
-              }}>$</span>
-              <input
-                type="text" inputMode="numeric" placeholder="0"
+              <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: form.monto ? 'var(--blue-600)' : 'var(--muted-2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none' }}>$</span>
+              <input type="text" inputMode="numeric" placeholder="0"
                 value={form.monto ? Number(form.monto).toLocaleString('es-CO') : ''}
                 onChange={e => handleMontoInput(e.target.value)}
-                style={{
-                  ...inputStyle, paddingLeft: 30,
-                  fontFamily: 'var(--font-mono)', fontWeight: 600,
+                style={{ ...inputStyle, paddingLeft: 30, fontFamily: 'var(--font-mono)', fontWeight: 600,
                   boxShadow: prefillGlow && form.monto ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                  borderColor: prefillGlow && form.monto ? 'var(--blue-600)' : undefined,
-                }}
-                onFocus={e => focusStyle(e.target)}
-                onBlur={e => blurStyle(e.target)}
-              />
+                  borderColor: prefillGlow && form.monto ? 'var(--blue-600)' : undefined }}
+                onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)} />
             </div>
           </motion.div>
 
-          {/* Comercio */}
-          <motion.div variants={riseItem} transition={quickEase}>
+          {/* Comercio with autocomplete */}
+          <motion.div variants={riseItem} transition={quickEase} style={{ position: 'relative' }}>
             <label style={labelStyle}>Comercio</label>
             <input type="text" placeholder="Nombre del lugar" value={form.comercio}
-              onChange={e => setForm(f => ({ ...f, comercio: e.target.value }))}
-              style={{
-                ...inputStyle,
+              onChange={e => handleComercioChange(e.target.value)}
+              onFocus={e => { focusStyle(e.target); if (suggestions.length > 0) setShowSugg(true); }}
+              onBlur={e => { blurStyle(e.target); if (!suggRef.current) setShowSugg(false); }}
+              style={{ ...inputStyle,
                 boxShadow: prefillGlow && form.comercio ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                borderColor: prefillGlow && form.comercio ? 'var(--blue-600)' : undefined,
-              }}
-              onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}
-            />
+                borderColor: prefillGlow && form.comercio ? 'var(--blue-600)' : undefined }} />
+            <AnimatePresence>
+              {showSugg && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  transition={quickEase}
+                  onMouseDown={() => { suggRef.current = true; }}
+                  onMouseUp={() => { suggRef.current = false; }}
+                  onTouchStart={() => { suggRef.current = true; }}
+                  onTouchEnd={() => { suggRef.current = false; }}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: '#fff', border: '1.5px solid var(--line)',
+                    borderRadius: 'var(--r-md)', boxShadow: 'var(--shadow-float)',
+                    overflow: 'hidden', marginTop: 4,
+                  }}>
+                  {suggestions.map((s, i) => (
+                    <div key={s} onMouseDown={() => selectSuggestion(s)} onTouchEnd={() => selectSuggestion(s)}
+                      style={{
+                        padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer',
+                        borderTop: i > 0 ? '1px solid var(--line)' : 'none',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}>
+                      <span>{s}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{knownMerchants[s]?.categoria}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
 
           {/* Banco */}
@@ -246,13 +308,10 @@ export function Agregar({ onSaved }: Props) {
           {/* Categoría */}
           <motion.div variants={riseItem} transition={quickEase}>
             <label style={labelStyle}>Categoría</label>
-            <select value={form.categoria}
-              onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
-              style={{
-                ...inputStyle,
+            <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
+              style={{ ...inputStyle,
                 boxShadow: prefillGlow && form.categoria ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                borderColor: prefillGlow && form.categoria ? 'var(--blue-600)' : undefined,
-              }}
+                borderColor: prefillGlow && form.categoria ? 'var(--blue-600)' : undefined }}
               onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}>
               <option value="">Seleccionar...</option>
               {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -273,33 +332,26 @@ export function Agregar({ onSaved }: Props) {
             <label style={labelStyle}>Fecha</label>
             <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
               style={{ ...inputStyle, colorScheme: 'light' }}
-              onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}
-            />
+              onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)} />
           </motion.div>
 
-          <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }} onClick={handleSubmit} disabled={saveState !== 'idle'} style={{
-            width: '100%', height: 54,
-            background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue-700)',
-            border: 'none', borderRadius: 'var(--r-lg)', color: '#fff', fontSize: 16, fontWeight: 600,
-            cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)',
-            boxShadow: saveState === 'idle' ? 'var(--shadow-blue)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
-            transition: 'all 0.15s ease', marginTop: 2,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-          }}>
+          <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }}
+            onClick={handleSubmit} disabled={saveState !== 'idle'} style={{
+              width: '100%', height: 54,
+              background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue-700)',
+              border: 'none', borderRadius: 'var(--r-lg)', color: '#fff', fontSize: 16, fontWeight: 600,
+              cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)',
+              boxShadow: saveState === 'idle' ? 'var(--shadow-blue)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
+              transition: 'all 0.15s ease', marginTop: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+            }}>
             <AnimatePresence mode="wait" initial={false}>
-              {saveState === 'success' ? (
-                <motion.span key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <SuccessCheck size={20} /> Guardada
-                </motion.span>
-              ) : saveState === 'saving' ? (
-                <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  Guardando...
-                </motion.span>
-              ) : (
-                <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  Guardar transacción
-                </motion.span>
-              )}
+              {saveState === 'success'
+                ? <motion.span key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}><SuccessCheck size={20} /> Guardada</motion.span>
+                : saveState === 'saving'
+                  ? <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardando...</motion.span>
+                  : <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardar transacción</motion.span>
+              }
             </AnimatePresence>
           </motion.button>
         </motion.div>
@@ -307,73 +359,46 @@ export function Agregar({ onSaved }: Props) {
 
       {/* VOICE */}
       {mode === 'voice' && (
-        <motion.div
-          key="voice"
-          initial={{ opacity: 0, y: 12, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={quickEase}
-          style={{
-          background: '#fff', borderRadius: 'var(--r-2xl)', padding: '44px 20px',
-          boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22,
-        }}>
+        <motion.div key="voice" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8 }} transition={quickEase}
+          style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '44px 20px', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
           {voiceState === 'processing' ? (
             <>
-              <div style={{
-                width: 56, height: 56, borderRadius: '50%',
-                border: '2.5px solid var(--line)', borderTopColor: 'var(--blue-600)',
-                animation: 'spin 0.9s linear infinite',
-              }} />
+              <div style={{ width: 56, height: 56, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }} />
               <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Analizando con IA...</p>
             </>
           ) : (
             <>
               <div style={{ position: 'relative' }}>
-              {voiceState === 'recording' && [0, 1, 2].map(i => (
-                <motion.span
-                  key={i}
-                  initial={{ scale: 0.85, opacity: 0.34 }}
-                  animate={{ scale: 1.75, opacity: 0 }}
-                  transition={{ duration: 1.25, repeat: Infinity, delay: i * 0.28, ease: 'easeOut' }}
+                {voiceState === 'recording' && [0,1,2].map(i => (
+                  <motion.span key={i} initial={{ scale: 0.85, opacity: 0.34 }} animate={{ scale: 1.75, opacity: 0 }}
+                    transition={{ duration: 1.25, repeat: Infinity, delay: i * 0.28, ease: 'easeOut' }}
+                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid #fca5a5', pointerEvents: 'none' }} />
+                ))}
+                <motion.button whileTap={{ scale: 0.92 }}
+                  onMouseDown={startVoice} onTouchStart={e => { e.preventDefault(); startVoice(); }}
+                  onMouseUp={stopVoice} onTouchEnd={e => { e.preventDefault(); stopVoice(); }}
                   style={{
-                    position: 'absolute', inset: 0, borderRadius: '50%',
-                    border: '1.5px solid #fca5a5', pointerEvents: 'none',
-                  }}
-                />
-              ))}
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onMouseDown={startVoice} onTouchStart={e => { e.preventDefault(); startVoice(); }}
-                onMouseUp={stopVoice} onTouchEnd={e => { e.preventDefault(); stopVoice(); }}
-                style={{
-                  width: 80, height: 80, borderRadius: '50%',
-                  background: voiceState === 'recording' ? '#fee2e2' : 'var(--blue-50)',
-                  border: `1.5px solid ${voiceState === 'recording' ? '#fca5a5' : 'var(--blue-300)'}`,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: voiceState === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
-                  transition: 'all 0.2s ease',
-                }}>
-                <MicIcon recording={voiceState === 'recording'} />
-              </motion.button>
+                    width: 80, height: 80, borderRadius: '50%',
+                    background: voiceState === 'recording' ? '#fee2e2' : 'var(--blue-50)',
+                    border: `1.5px solid ${voiceState === 'recording' ? '#fca5a5' : 'var(--blue-300)'}`,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    animation: voiceState === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}>
+                  <MicIcon recording={voiceState === 'recording'} />
+                </motion.button>
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>
                 {voiceState === 'recording' ? 'Escuchando...' : 'Mantén presionado para hablar'}
               </p>
               <AnimatePresence>
-              {transcript && (
-                <motion.p
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={quickEase}
-                  style={{
-                  color: 'var(--ink-2)', fontSize: 13, fontStyle: 'italic', textAlign: 'center', margin: 0,
-                  background: 'var(--surface)', borderRadius: 12, padding: '10px 14px',
-                  maxWidth: 280, lineHeight: 1.5, border: '1px solid var(--line)',
-                }}>
-                  "{transcript}"
-                </motion.p>
-              )}
+                {transcript && (
+                  <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={quickEase}
+                    style={{ color: 'var(--ink-2)', fontSize: 13, fontStyle: 'italic', textAlign: 'center', margin: 0, background: 'var(--surface)', borderRadius: 12, padding: '10px 14px', maxWidth: 280, lineHeight: 1.5, border: '1px solid var(--line)' }}>
+                    "{transcript}"
+                  </motion.p>
+                )}
               </AnimatePresence>
             </>
           )}
@@ -381,26 +406,40 @@ export function Agregar({ onSaved }: Props) {
       )}
       </AnimatePresence>
 
-      {/* Toast */}
+      {/* Regular toast */}
       <AnimatePresence>
-      {toast && (
-        <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 14, scale: 0.98 }}
-          transition={softSpring}
-          style={{
-          position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16,
-          padding: '13px 16px', borderRadius: 12,
-          background: '#fff', border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}`,
-          color: toast.ok ? '#15803d' : '#b91c1c',
-          fontSize: 13.5, fontWeight: 600, textAlign: 'center',
-          zIndex: 300, animation: 'slideUp 0.2s ease',
-          boxShadow: 'var(--shadow-float)',
-        }}>
-          {toast.msg}
-        </motion.div>
-      )}
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={softSpring}
+            style={{
+              position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              padding: '13px 16px', borderRadius: 12, background: '#fff',
+              border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}`,
+              color: toast.ok ? '#15803d' : '#b91c1c',
+              fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 300, boxShadow: 'var(--shadow-float)',
+            }}>
+            {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Budget alert toast */}
+      <AnimatePresence>
+        {budgetAlert && (
+          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={{ ...softSpring, delay: 0.8 }}
+            onClick={() => setBudgetAlert(null)}
+            style={{
+              position: 'fixed', bottom: 'calc(120px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              padding: '13px 16px', borderRadius: 12, background: '#fff',
+              border: '1px solid #fde68a',
+              color: budgetAlert.pct >= 1 ? '#b91c1c' : '#92400e',
+              fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
+            }}>
+            {budgetAlert.pct >= 1
+              ? `🚨 Presupuesto de ${budgetAlert.cat} superado`
+              : `⚠️ ${budgetAlert.cat} al ${Math.round(budgetAlert.pct * 100)}% del presupuesto mensual`
+            }
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
