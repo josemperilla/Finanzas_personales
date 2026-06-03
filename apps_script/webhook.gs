@@ -95,7 +95,7 @@ function doPost(e) {
 
   try {
     var payload = JSON.parse(e.postData.contents);
-    var type    = (payload.type || "").toLowerCase();
+    var type    = payload.type || "";
     var bank    = (payload.bank || "").toLowerCase();
     var userId  = (payload.userId || "").toLowerCase();
 
