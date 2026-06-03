@@ -204,18 +204,7 @@ function doPost(e) {
     }
 
     if (!parsed) {
-      appendToSheet({
-        timestamp:    new Date(),
-        fecha:        "",
-        banco:        resolvedBank,
-        tipo:         "NO RECONOCIDO",
-        monto:        "",
-        comercio:     "",
-        tarjeta:      "",
-        categoria:    "",
-        sms_original: sms
-      }, userId);
-      return jsonResponse({ ok: false, error: "parse failed" });
+      return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
     }
 
     // Reversal: find and delete the original transaction instead of adding a new row
