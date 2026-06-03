@@ -53,7 +53,16 @@ export function Agregar({ onSaved }: Props) {
   const [transcript, setTranscript] = useState('');
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const recognitionRef = useRef<any>(null);
+  // L-05: typed SpeechRecognition (not in standard lib; declare locally)
+  type SpeechRecognitionInstance = {
+    lang: string; continuous: boolean; interimResults: boolean;
+    start(): void; stop(): void;
+    onstart: (() => void) | null;
+    onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+    onend: (() => void | Promise<void>) | null;
+    onerror: (() => void) | null;
+  };
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const [prefillGlow, setPrefillGlow] = useState(false);
 
   function focusStyle(el: HTMLInputElement | HTMLSelectElement) {
@@ -71,7 +80,9 @@ export function Agregar({ onSaved }: Props) {
   }
 
   function handleMontoInput(raw: string) {
-    setForm(f => ({ ...f, monto: raw.replace(/\D/g, '') }));
+    const digits = raw.replace(/\D/g, '');
+    if (digits && Number(digits) > 100_000_000) return; // M-05: 100M COP cap
+    setForm(f => ({ ...f, monto: digits }));
   }
 
   async function handleSubmit() {
@@ -104,14 +115,17 @@ export function Agregar({ onSaved }: Props) {
   }
 
   function startVoice() {
-    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionCtor) { showToast('Tu navegador no soporta entrada de voz', false); return; }
-    const rec = new SpeechRecognitionCtor();
+    type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
+    const Ctor: SpeechRecognitionCtor | undefined =
+      (window as unknown as Record<string, unknown>)['SpeechRecognition'] as SpeechRecognitionCtor
+      ?? (window as unknown as Record<string, unknown>)['webkitSpeechRecognition'] as SpeechRecognitionCtor;
+    if (!Ctor) { showToast('Tu navegador no soporta entrada de voz', false); return; }
+    const rec = new Ctor();
     rec.lang = 'es-CO'; rec.continuous = false; rec.interimResults = true;
     recognitionRef.current = rec;
     rec.onstart = () => setVoiceState('recording');
-    rec.onresult = (e: any) => {
-      setTranscript(Array.from(e.results as any[]).map((r: any) => r[0].transcript).join(''));
+    rec.onresult = (e) => {
+      setTranscript(Array.from(e.results).map(r => r[0].transcript).join(''));
     };
     rec.onend = async () => {
       const t = transcript;

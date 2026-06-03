@@ -13,6 +13,7 @@ import { CategorySheet } from '../components/CategorySheet';
 interface Props {
   transactions: Transaction[];
   loading: boolean;
+  userId: string;
 }
 
 interface MonthStats {
@@ -89,7 +90,7 @@ function AnimatedAmount({ value, size = 15 }: { value: number; size?: number }) 
   );
 }
 
-export function Analisis({ transactions, loading }: Props) {
+export function Analisis({ transactions, loading, userId }: Props) {
   const [activeBank, setActiveBank] = useState('Todos');
   const [compareMode, setCompareMode] = useState(false);
   const [merchantView, setMerchantView] = useState<'amount' | 'count'>('amount');
@@ -99,7 +100,7 @@ export function Analisis({ transactions, loading }: Props) {
 
   const [selectedIdx, setSelectedIdx] = useState<number>(-1);
   const [compareIdx, setCompareIdx] = useState<number>(-1);
-  const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets());
+  const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets(userId));
   const [editingBudget, setEditingBudget] = useState<string | null>(null);
   const [budgetDraft, setBudgetDraft] = useState('');
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
@@ -403,8 +404,8 @@ export function Analisis({ transactions, loading }: Props) {
                             onChange={e => setBudgetDraft(e.target.value)}
                             onBlur={() => {
                               const val = parseInt(budgetDraft, 10);
-                              if (!isNaN(val) && val > 0) { setBudget(name, val); } else { clearBudget(name); }
-                              setBudgetsState(getBudgets());
+                              if (!isNaN(val) && val > 0) { setBudget(userId, name, val); } else { clearBudget(userId, name); }
+                              setBudgetsState(getBudgets(userId));
                               setEditingBudget(null);
                             }}
                             onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}

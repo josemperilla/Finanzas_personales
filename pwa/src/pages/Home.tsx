@@ -24,6 +24,7 @@ interface Props {
   onRetry?: () => void;
   onAdd: () => void;
   onViewAll: () => void;
+  userId: string;
 }
 
 const slideVariants = {
@@ -32,7 +33,7 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
 };
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, userId }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -76,7 +77,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount);
 
   // Budget alerts — categories ≥ 80% of monthly budget
-  const budgets = getBudgets();
+  const budgets = getBudgets(userId);
   const alerts = byCategory
     .filter(s => budgets[s.category] > 0 && s.amount / budgets[s.category] >= 0.8)
     .map(s => ({
@@ -98,6 +99,25 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     .slice(0, 5);
 
   const animatedTotal = useCountUp(loading ? 0 : totalMonth);
+
+  // End-of-month projection (current month only)
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysInPrevMonth = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  let projectedTotal: number | null = null;
+  let projectionBase: 'current' | 'prev' | null = null;
+  if (selectedOffset === 0 && !loading && dayOfMonth > 1) {
+    if (monthTx.length > 0) {
+      projectedTotal = Math.round((totalMonth / dayOfMonth) * daysInMonth);
+      projectionBase = 'current';
+    } else if (totalPrev > 0) {
+      projectedTotal = Math.round((totalPrev / daysInPrevMonth) * daysInMonth);
+      projectionBase = 'prev';
+    }
+  }
+  const projDiff = (projectedTotal !== null && totalPrev > 0)
+    ? ((projectedTotal - totalPrev) / totalPrev) * 100
+    : null;
 
   const navigate = (delta: number) => {
     const next = Math.min(0, Math.max(-11, selectedOffset + delta));
@@ -162,7 +182,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
       <AnimatePresence>
         {missingConfig && (
-          <ConnectionNotice message="Falta configurar VITE_WEBHOOK_URL en Netlify para conectar con Google Sheets." />
+          <ConnectionNotice message="Falta configurar WEBHOOK_URL en el servidor para conectar con Google Sheets." />
         )}
         {!missingConfig && error && (
           <ConnectionNotice message={error || 'No pude conectar con Google Sheets.'} onRetry={onRetry} />
@@ -256,6 +276,40 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             </AnimatePresence>
           )}
         </motion.div>
+
+        {/* End-of-month projection */}
+        {projectedTotal !== null && (
+          <motion.div
+            variants={riseItem}
+            transition={quickEase}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#fff', borderRadius: 'var(--r-xl)',
+              padding: '11px 14px', marginBottom: 14,
+              boxShadow: 'var(--shadow-card)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 2 }}>
+                {projectionBase === 'prev' ? 'Proyección (ritmo de mes anterior)' : 'Proyección fin de mes'}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                ~{formatCOP(projectedTotal)}
+              </div>
+            </div>
+            {projDiff !== null && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                padding: '4px 10px', borderRadius: 999,
+                background: projDiff <= 0 ? '#dcfce7' : '#fee2e2',
+                color: projDiff <= 0 ? '#15803d' : '#b91c1c',
+                fontSize: 11.5, fontWeight: 600,
+              }}>
+                {projDiff <= 0 ? '↓' : '↑'} {Math.abs(projDiff).toFixed(0)}% vs mes anterior
+              </span>
+            )}
+          </motion.div>
+        )}
 
         {/* Budget alerts */}
         {!loading && alerts.length > 0 && (

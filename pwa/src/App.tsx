@@ -7,17 +7,33 @@ import { Agregar } from './pages/Agregar';
 import { Analisis } from './pages/Analisis';
 import { Chat } from './pages/Chat';
 import { PinLock } from './components/PinLock';
-import { fetchTransactions, Transaction } from './lib/api';
+import { ProfileSelector } from './components/ProfileSelector';
+import { fetchTransactions, setActiveUser, Transaction } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
-import { pageVariants, quickEase } from './lib/motion';
+import { pageVariants, quickEase, softSpring } from './lib/motion';
 
 export default function App() {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('fm_unlocked') === '1');
+  const [userId, setUserId] = useState<string | null>(
+    () => localStorage.getItem('fm_profile')
+  );
+  const [unlocked, setUnlocked] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
+
+  // When userId changes, register it in api.ts and check session
+  useEffect(() => {
+    if (userId) {
+      setActiveUser(userId);
+      setUnlocked(sessionStorage.getItem(`fm_unlocked_${userId}`) === '1');
+    } else {
+      setActiveUser(null);
+      setUnlocked(false);
+      setTransactions([]);
+    }
+  }, [userId]);
 
   const handleCategoryChange = useCallback((timestamp: string, categoria: string) => {
     setTransactions(prev => prev.map(tx =>
@@ -38,15 +54,35 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // H-04: only fetch data after the user has authenticated
+  useEffect(() => { if (unlocked) load(); }, [load, unlocked]);
+
+  const handleSelectProfile = useCallback((id: string) => {
+    localStorage.setItem('fm_profile', id);
+    setUserId(id);
+  }, []);
 
   const handleUnlock = useCallback(() => {
-    sessionStorage.setItem('fm_unlocked', '1');
-    setUnlocked(true);
+    if (userId) {
+      sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+      setUnlocked(true);
+    }
+  }, [userId]);
+
+  const handleSwitchProfile = useCallback(() => {
+    localStorage.removeItem('fm_profile');
+    setUserId(null);
+    setUnlocked(false);
+    setTransactions([]);
   }, []);
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--surface)', overflowY: 'auto' }}>
+    <motion.div
+      initial={false}
+      animate={{ opacity: unlocked ? 1 : 0.88, y: unlocked ? 0 : 18 }}
+      transition={softSpring}
+      style={{ minHeight: '100dvh', background: 'var(--surface)', overflowY: 'auto' }}
+    >
       <AnimatePresence mode="wait">
         <motion.main
           key={tab}
@@ -56,7 +92,7 @@ export default function App() {
           exit="exit"
           transition={quickEase}
         >
-          {tab === 'home' && (
+          {tab === 'home' && userId && (
             <Home
               transactions={transactions}
               loading={loading}
@@ -66,6 +102,7 @@ export default function App() {
               onRetry={load}
               onAdd={() => setTab('agregar')}
               onViewAll={() => setTab('historial')}
+              userId={userId}
             />
           )}
           {tab === 'historial' && (
@@ -79,8 +116,8 @@ export default function App() {
               window.setTimeout(() => setHighlightLatest(false), 1600);
             }} />
           )}
-          {tab === 'analisis' && (
-            <Analisis transactions={transactions} loading={loading} />
+          {tab === 'analisis' && userId && (
+            <Analisis transactions={transactions} loading={loading} userId={userId} />
           )}
           {tab === 'chat' && (
             <Chat transactions={transactions} />
@@ -91,8 +128,13 @@ export default function App() {
       <BottomNav active={tab} onChange={setTab} />
 
       <AnimatePresence>
-        {!unlocked && <PinLock onUnlock={handleUnlock} />}
+        {!userId && (
+          <ProfileSelector key="profile" onSelect={handleSelectProfile} />
+        )}
+        {userId && !unlocked && (
+          <PinLock key="pin" userId={userId} onUnlock={handleUnlock} onSwitchProfile={handleSwitchProfile} />
+        )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

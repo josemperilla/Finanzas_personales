@@ -1,5 +1,14 @@
-export const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL || "";
-export const WEBHOOK_SECRET = import.meta.env.VITE_WEBHOOK_SECRET || "";
+// En producción la PWA llama al proxy de Cloudflare Pages (/api/proxy).
+// El proxy guarda WEBHOOK_URL + WEBHOOK_SECRET server-side — nunca viajan en el bundle JS.
+// En desarrollo (npm run dev), configura VITE_WEBHOOK_URL y VITE_WEBHOOK_SECRET en .env.
+export const WEBHOOK_URL = import.meta.env.PROD
+  ? '/api/proxy'
+  : (import.meta.env.VITE_WEBHOOK_URL || '');
+
+export const WEBHOOK_SECRET = import.meta.env.PROD
+  ? '' // proxy handles auth — never expose secret in client bundle
+  : (import.meta.env.VITE_WEBHOOK_SECRET || '');
+
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
 export const CATEGORIES = [

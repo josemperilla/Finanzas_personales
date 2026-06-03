@@ -86,6 +86,22 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
     return { total, count, avgTicket, periodicity, dowCount, maxDowCount, topDowName, topMerchants, maxMerchant, recentTxs };
   }, [catTxs]);
 
+  const monthlyTrend = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const m = d.getMonth(), y = d.getFullYear();
+      const total = catTxs
+        .filter(tx => { const td = parseDate(tx); return td.getMonth() === m && td.getFullYear() === y; })
+        .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+      const label = d.toLocaleDateString('es-CO', { month: 'short' }).slice(0, 3);
+      const isCurrent = i === 5;
+      return { label: label.charAt(0).toUpperCase() + label.slice(1), total, isCurrent };
+    });
+  }, [catTxs]);
+
+  const trendMax = Math.max(...monthlyTrend.map(m => m.total), 1);
+
   const card = {
     background: '#fff',
     borderRadius: 'var(--r-xl)' as const,
@@ -191,6 +207,45 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
                   </div>
                 ))}
               </div>
+
+              {/* Monthly trend */}
+              {monthlyTrend.some(m => m.total > 0) && (
+                <div style={card}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13.5, color: 'var(--ink)', marginBottom: 14 }}>
+                    Tendencia 6 meses
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 72 }}>
+                    {monthlyTrend.map(({ label, total, isCurrent }, i) => {
+                      const pct = total / trendMax;
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                          {isCurrent && total > 0 && (
+                            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: color, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              {formatCOP(total)}
+                            </span>
+                          )}
+                          <div style={{ width: '100%', borderRadius: 4, background: 'var(--line)', overflow: 'hidden', height: `${Math.max(pct * 52, total > 0 ? 4 : 0)}px` }}>
+                            <motion.div
+                              initial={{ scaleY: 0 }}
+                              animate={{ scaleY: 1 }}
+                              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: i * 0.06 }}
+                              style={{
+                                width: '100%', height: '100%',
+                                background: color,
+                                opacity: isCurrent ? 1 : 0.45,
+                                transformOrigin: 'bottom',
+                              }}
+                            />
+                          </div>
+                          <span style={{ fontSize: 9.5, color: isCurrent ? 'var(--ink)' : 'var(--muted)', fontWeight: isCurrent ? 700 : 400 }}>
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Top merchants */}
               {stats.topMerchants.length > 0 && (

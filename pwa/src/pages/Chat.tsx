@@ -94,13 +94,20 @@ function buildContext(txs: Transaction[]) {
     }
   }
 
-  const transacciones = used.map(tx => ({
-    fecha: (tx.Fecha || tx.Timestamp || '').slice(0, 10),
-    comercio: cleanMerchant(tx.Comercio) || tx.Tipo || '',
-    monto: Math.round(Number(tx['Monto (COP)'] || 0)),
-    categoria: tx.Categoría || 'Otro',
-    banco: tx.Banco || '',
-  }));
+  // H-02/M-02: limit to 30 most recent, drop banco (reduces PII sent to Anthropic)
+  const transacciones = [...used]
+    .sort((a, b) => {
+      const da = new Date((a.Fecha || a.Timestamp || '').replace(' ', 'T'));
+      const db = new Date((b.Fecha || b.Timestamp || '').replace(' ', 'T'));
+      return db.getTime() - da.getTime();
+    })
+    .slice(0, 30)
+    .map(tx => ({
+      fecha: (tx.Fecha || tx.Timestamp || '').slice(0, 10),
+      comercio: cleanMerchant(tx.Comercio) || tx.Tipo || '',
+      monto: Math.round(Number(tx['Monto (COP)'] || 0)),
+      categoria: tx.Categoría || 'Otro',
+    }));
 
   return {
     periodo: '6 meses recientes',
@@ -141,8 +148,9 @@ export function Chat({ transactions }: Props) {
       const context = buildContext(transactions);
       const answer = await askChat(question, context);
       setMessages(prev => [...prev, { role: 'assistant', text: answer }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', text: 'Lo siento, hubo un error al consultar el asistente. Intenta de nuevo.' }]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      setMessages(prev => [...prev, { role: 'assistant', text: msg + '\n\nIntenta de nuevo.' }]);
     } finally {
       setLoading(false);
     }

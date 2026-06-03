@@ -9,21 +9,58 @@
 // Netlify must have VITE_WEBHOOK_SECRET env var set to the same secret.
 // ============================================================
 
-var SHEET_ID   = "TU_SHEET_ID_AQUI";  // Reemplaza con el ID de tu Google Sheet
-var SHEET_NAME = "Transacciones";
+// Multi-user: single spreadsheet, one tab per user.
+// Script Properties needed:
+//   SHEET_ID      → Google Sheet ID (shared spreadsheet)
+//   APP_PIN_jose  → 4-digit PIN for Jose
+//   APP_PIN_dani  → 4-digit PIN for Dani
+var ALLOWED_USERS = ["jose", "dani"];
+
+// ── User validation ───────────────────────────────────────────
+function _validateUserId(userId) {
+  if (!userId || ALLOWED_USERS.indexOf(userId) === -1) {
+    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + ALLOWED_USERS.join(", "));
+  }
+}
+
+// ── Per-user Sheet accessor ───────────────────────────────────
+// Single spreadsheet; each user gets a tab named after them (e.g. "Jose", "Dani").
+function _getSheet(userId) {
+  var props   = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty("SHEET_ID");
+  if (!sheetId) throw new Error("SHEET_ID no configurado en Script Properties");
+  var ss       = SpreadsheetApp.openById(sheetId);
+  var tabName  = userId.charAt(0).toUpperCase() + userId.slice(1); // "jose" → "Jose"
+  var sheet    = ss.getSheetByName(tabName);
+  return { ss: ss, sheet: sheet, sheetId: sheetId, tabName: tabName };
+}
+
+// ── Rate limiting (per-user daily cap via CacheService) ───────
+function _checkRateLimit(action, userId) {
+  var cache = CacheService.getScriptCache();
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var key = "rate_" + action + "_" + (userId || "global") + "_" + today;
+  var count = parseInt(cache.get(key) || "0", 10);
+  var limits = { chat: 100, voice: 50 };
+  var limit = limits[action] !== undefined ? limits[action] : 100;
+  if (count >= limit) {
+    throw new Error("Límite diario de llamadas de IA alcanzado. Intenta mañana.");
+  }
+  cache.put(key, String(count + 1), 86400);
+}
 
 // ── Auth check ───────────────────────────────────────────────
 function _checkSecret(e) {
   var secret = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
-  if (!secret) return; // no secret configured → open (backward compat during migration)
-  var incoming = e && e.parameter && e.parameter["X-Webhook-Secret"]
-    || (e && e.postData && JSON.parse(e.postData.contents || "{}"))["_secret"];
-  // Apps Script doesn't expose HTTP headers to doGet/doPost.
-  // The secret is sent as a query param (?_secret=...) or body field for POST.
-  // This is not ideal but is the only option for Apps Script Web Apps.
-  if (incoming !== secret) {
-    throw new Error("Unauthorized");
+  if (!secret) throw new Error("WEBHOOK_SECRET no configurado en Script Properties");
+  // Secret travels as _secret query param (GET) or _secret body field (POST).
+  var fromParam = e && e.parameter && e.parameter["_secret"];
+  var fromBody = null;
+  if (!fromParam && e && e.postData) {
+    try { fromBody = JSON.parse(e.postData.contents || "{}")["_secret"]; } catch(err) {}
   }
+  var incoming = fromParam || fromBody;
+  if (incoming !== secret) throw new Error("Unauthorized");
 }
 
 // ── GET endpoint — leer transacciones (usado por la PWA) ─────
@@ -34,13 +71,18 @@ function doGet(e) {
     return jsonResponse({ ok: false, error: "Unauthorized" });
   }
 
+  var userId = (e && e.parameter && e.parameter.userId || "").toLowerCase();
+  try { _validateUserId(userId); } catch(err) {
+    return jsonResponse({ ok: false, error: err.message });
+  }
+
   var action = e && e.parameter && e.parameter.action;
 
   if (action === "transactions") {
-    return jsonResponse({ ok: true, data: getTransactions() });
+    return jsonResponse({ ok: true, data: getTransactions(userId) });
   }
 
-  return jsonResponse({ ok: true, message: "Finance Webhook v2 — usa ?action=transactions para leer datos" });
+  return jsonResponse({ ok: true, message: "Finance Webhook v2 — usa ?action=transactions&userId=jose para leer datos" });
 }
 
 // ── POST endpoint — recibir SMS del iPhone o entrada manual ──
@@ -55,6 +97,10 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents);
     var type    = (payload.type || "").toLowerCase();
     var bank    = (payload.bank || "").toLowerCase();
+    var userId  = (payload.userId || "").toLowerCase();
+
+    // Validate userId for all request types
+    _validateUserId(userId);
 
     // Entrada manual desde la PWA
     if (type === "manual") {
@@ -69,7 +115,7 @@ function doPost(e) {
         categoria:    payload.categoria || detectCategory(payload.comercio || ""),
         sms_original: "MANUAL"
       };
-      appendToSheet(data);
+      appendToSheet(data, userId);
       return jsonResponse({ ok: true, data: data });
     }
 
@@ -79,6 +125,7 @@ function doPost(e) {
       if (!text) return jsonResponse({ ok: false, error: "empty text" });
       // Sanitize: max 500 chars to limit token abuse
       text = String(text).slice(0, 500);
+      _checkRateLimit("voice", userId);
       var parsed = parseVoice(text);
       return jsonResponse({ ok: true, data: parsed });
     }
@@ -88,8 +135,18 @@ function doPost(e) {
       var ts  = payload.timestamp || "";
       var cat = payload.categoria  || "";
       if (!ts || !cat) return jsonResponse({ ok: false, error: "Faltan timestamp y categoria" });
-      updateCategoryInSheet(ts, cat);
+      updateCategoryInSheet(ts, cat, userId);
       return jsonResponse({ ok: true });
+    }
+
+    // Validar PIN del usuario
+    if (type === "validatePin") {
+      var pin = String(payload.pin || "");
+      if (!pin) return jsonResponse({ ok: false, error: "PIN requerido" });
+      var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
+      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado en Script Properties" });
+      if (pin === storedPin) return jsonResponse({ ok: true });
+      return jsonResponse({ ok: false, error: "PIN incorrecto" });
     }
 
     // Chat con el asistente financiero
@@ -99,6 +156,7 @@ function doPost(e) {
       if (!question) return jsonResponse({ ok: false, error: "empty question" });
       // Sanitize: max 500 chars
       question = String(question).slice(0, 500);
+      _checkRateLimit("chat", userId);
       var answer = handleChat(question, context);
       return jsonResponse({ ok: true, data: { answer: answer } });
     }
@@ -114,35 +172,47 @@ function doPost(e) {
       return jsonResponse({ ok: true, skipped: true, reason: "vetoed" });
     }
 
+    var resolvedBank = bank || detectBank(sms);
+
     var parsed;
-    if (bank === "bogota") {
+    if (resolvedBank === "bogota") {
       parsed = parseBogota(sms);
-    } else if (bank === "itau") {
+    } else if (resolvedBank === "itau") {
       parsed = parseItau(sms);
+    } else if (resolvedBank === "davivienda") {
+      parsed = parseDavivienda(sms);
+    } else if (resolvedBank === "bancolombia") {
+      parsed = parseBancolombia(sms);
     } else {
-      return jsonResponse({ ok: false, error: "unknown bank: " + bank });
+      return jsonResponse({ ok: false, error: "unknown bank: " + (bank || "could not detect") });
     }
 
     if (!parsed) {
       appendToSheet({
         timestamp:    new Date(),
         fecha:        "",
-        banco:        bank,
+        banco:        resolvedBank,
         tipo:         "NO RECONOCIDO",
         monto:        "",
         comercio:     "",
         tarjeta:      "",
         categoria:    "",
         sms_original: sms
-      });
-      return jsonResponse({ ok: false, error: "parse failed", sms: sms });
+      }, userId);
+      return jsonResponse({ ok: false, error: "parse failed" });
+    }
+
+    // Reversal: find and delete the original transaction instead of adding a new row
+    if (parsed.reversal) {
+      var removed = reverseTransaction(parsed, userId);
+      return jsonResponse({ ok: true, reversed: true, found: removed });
     }
 
     parsed.timestamp    = new Date();
     parsed.categoria    = detectCategory(parsed.comercio);
     parsed.sms_original = sms;
 
-    appendToSheet(parsed);
+    appendToSheet(parsed, userId);
     return jsonResponse({ ok: true, data: parsed });
 
   } catch (err) {
@@ -152,9 +222,9 @@ function doPost(e) {
 
 // ── Leer transacciones del Sheet ──────────────────────────────
 // Returns transactions from the last 12 months (or all if fewer).
-function getTransactions() {
-  var ss    = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(SHEET_NAME);
+function getTransactions(userId) {
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
   if (!sheet) return [];
 
   var rows = sheet.getDataRange().getValues();
@@ -254,14 +324,30 @@ function handleChat(question, context) {
       model:      "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       system:     systemPrompt,
-      messages:   [{ role: "user", content: question }]  // user input isolated here
+      messages:   [{ role: "user", content: question }]
     }),
     muteHttpExceptions: true
   });
 
-  var result  = JSON.parse(response.getContentText());
+  var code = response.getResponseCode();
+  var body = response.getContentText();
+
+  var result;
+  try {
+    result = JSON.parse(body);
+  } catch (parseErr) {
+    throw new Error("Anthropic devolvió respuesta no-JSON (HTTP " + code + "): " + body.slice(0, 120));
+  }
+
+  if (code !== 200) {
+    var apiErr = result.error && result.error.message
+      ? result.error.message
+      : JSON.stringify(result).slice(0, 150);
+    throw new Error("Anthropic API error " + code + ": " + apiErr);
+  }
+
   var content = result.content && result.content[0] && result.content[0].text;
-  if (!content) throw new Error("Claude no devolvió respuesta");
+  if (!content) throw new Error("Respuesta inesperada de Anthropic: " + JSON.stringify(result).slice(0, 100));
   return content;
 }
 
@@ -270,12 +356,136 @@ function handleChat(question, context) {
 var VETO_RULES = [
   // Itaú outbound transfer from savings account (e.g. rent payment)
   // "Se realizo Transferencia de tu Cuenta de Ahorros ****XXXX por $..."
-  /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i
+  /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i,
+  // Itaú deposit/income TO account — excluded until the app handles income
+  // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****XXXX por $..."
+  /Se realizo\s+u?n?\s+Deposito\s+en\s+Efectivo\s+a\s+tu\s+Cuenta/i
 ];
 
 function isVetoed(sms) {
   for (var i = 0; i < VETO_RULES.length; i++) {
     if (VETO_RULES[i].test(sms)) return true;
+  }
+  return false;
+}
+
+// ── Auto-detect bank from SMS content ────────────────────────
+function detectBank(sms) {
+  if (/^DAVIVIENDA:/i.test(sms))         return "davivienda";
+  if (/^Bancolombia:/i.test(sms))         return "bancolombia";
+  if (/^Banco\s+de\s+Bogot/i.test(sms)) return "bogota";
+  if (/\bITAU\b/i.test(sms))             return "itau";
+  return null;
+}
+
+// ── Davivienda ────────────────────────────────────────────────
+// Aprobado:  "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI"
+// Reversada: "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            ."
+function parseDavivienda(sms) {
+  var re = /Compra\s+(.+?)\s*,\s*\$([\d,.]+)\s*,\s*Tarjeta\s+(\*?\d+)\s*,\s*Hora\s+(\d{2}:\d{2})\s*,Lugar\s+(.+?)\.?\s*$/i;
+  var m = sms.match(re);
+  if (!m) return null;
+
+  var isReversal = /Revers/i.test(m[1]);
+  var monto      = parseMonto(m[2]);
+  var tarjeta    = m[3];
+  var hora       = m[4];
+  var lugar      = normalizeComercio(m[5].trim());
+
+  var now = new Date();
+  var hp = hora.split(":");
+  now.setHours(parseInt(hp[0]), parseInt(hp[1]), 0, 0);
+
+  return {
+    banco:    "Davivienda",
+    tipo:     isReversal ? "Reversada" : "Compra",
+    monto:    monto,
+    tarjeta:  "Tarjeta *" + tarjeta.replace(/^\*/, ""),
+    fecha:    now,
+    comercio: lugar,
+    reversal: isReversal
+  };
+}
+
+// ── Bancolombia ───────────────────────────────────────────────
+// PSE:   "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19."
+// Bre-B: "Bancolombia: DANIELA, transferiste $137,500.00 a la llave 3164707724 desde tu cuenta *0018 a Natalia Karaman Plata el 27/05/26 a las 14:27."
+function parseBancolombia(sms) {
+  // PSE / pago desde producto
+  var rePSE = /Pagaste\s+\$([\d,.]+)\s+a\s+(.+?)\s+desde\s+tu\s+producto\s+(\d+)\s+el\s+(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2}:\d{2})/i;
+  var mp = sms.match(rePSE);
+  if (mp) {
+    return {
+      banco:    "Bancolombia",
+      tipo:     "Pago PSE",
+      monto:    parseMontoUS(mp[1]),
+      comercio: normalizeComercio(mp[2].trim()),
+      tarjeta:  "Producto " + mp[3],
+      fecha:    parseFechaBancolombia(mp[4], mp[5])
+    };
+  }
+
+  // Bre-B transfer (date format DD/MM/YY)
+  var reBreb = /transferiste\s+\$([\d,.]+)\s+a\s+la\s+llave\s+[\d]+\s+desde\s+tu\s+cuenta\s+(\*?\d+)\s+a\s+(.+?)\s+el\s+(\d{2}\/\d{2}\/\d{2})\s+a\s+las\s+(\d{2}:\d{2})/i;
+  var mb = sms.match(reBreb);
+  if (mb) {
+    return {
+      banco:    "Bancolombia",
+      tipo:     "Transferencia",
+      monto:    parseMontoUS(mb[1]),
+      tarjeta:  "Cuenta *" + mb[2].replace(/^\*/, ""),
+      comercio: normalizeComercio(mb[3].trim()),
+      fecha:    parseFechaBancolombia(mb[4], mb[5])
+    };
+  }
+
+  return null;
+}
+
+function parseFechaBancolombia(fechaStr, horaStr) {
+  var p  = fechaStr.split("/");
+  var hp = horaStr.split(":");
+  var year = p[2].length === 2 ? 2000 + parseInt(p[2]) : parseInt(p[2]);
+  return new Date(year, parseInt(p[1]) - 1, parseInt(p[0]),
+                  parseInt(hp[0]), parseInt(hp[1]), 0);
+}
+
+// Bancolombia sends amounts in US format: 100,000.00 (comma=thousands, period=decimal)
+function parseMontoUS(str) {
+  return parseFloat(str.replace(/,/g, ""));
+}
+
+// ── Reversal — find and delete the matching original transaction ──
+// Matches on banco, tarjeta (last 4 digits), and monto within the last 30 days.
+function reverseTransaction(parsed, userId) {
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+
+  var bancoCol   = hdrs.indexOf("Banco");
+  var tipoCol    = hdrs.indexOf("Tipo");
+  var montoCol   = hdrs.indexOf("Monto (COP)");
+  var tarjetaCol = hdrs.indexOf("Tarjeta/Cuenta");
+  var fechaCol   = hdrs.indexOf("Fecha");
+
+  var last4match = parsed.tarjeta.match(/(\d{4})$/);
+  if (!last4match) return false;
+  var last4 = last4match[1];
+
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    if (String(row[bancoCol]).trim() !== parsed.banco) continue;
+    if (String(row[tipoCol]).trim() !== "Compra") continue;
+    if (parseFloat(row[montoCol]) !== parsed.monto) continue;
+    if (String(row[tarjetaCol]).indexOf(last4) === -1) continue;
+    var rowDate = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
+    if (!isNaN(rowDate.getTime()) && rowDate < cutoff) continue;
+    sheet.deleteRow(i + 1);
+    return true;
   }
   return false;
 }
@@ -394,9 +604,16 @@ function detectCategory(merchant) {
 }
 
 // ── Actualizar categoría de una fila existente ────────────────
-function updateCategoryInSheet(timestamp, categoria) {
-  var ss    = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(SHEET_NAME);
+var ALLOWED_CATEGORIES = ["Comida","Transporte","Suscripciones","Mercado","Salud","Deporte","Compras","Alojamiento","Viajes","Software","Otro"];
+
+function updateCategoryInSheet(timestamp, categoria, userId) {
+  // Allowlist check — prevents formula injection (H-03)
+  if (ALLOWED_CATEGORIES.indexOf(categoria) === -1) {
+    throw new Error("Categoría no válida: " + categoria);
+  }
+
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
   var data  = sheet.getDataRange().getValues();
   var hdrs  = data[0];
   var tsCol  = hdrs.indexOf("Timestamp");
@@ -416,12 +633,13 @@ function updateCategoryInSheet(timestamp, categoria) {
 }
 
 // ── Google Sheets writer ──────────────────────────────────────
-function appendToSheet(data) {
-  var ss    = SpreadsheetApp.openById(SHEET_ID);
-  var sheet = ss.getSheetByName(SHEET_NAME);
+function appendToSheet(data, userId) {
+  var ref   = _getSheet(userId);
+  var ss    = ref.ss;
+  var sheet = ref.sheet;
 
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
+    sheet = ss.insertSheet(ref.tabName);
     sheet.appendRow([
       "Timestamp", "Fecha", "Banco", "Tipo", "Monto (COP)",
       "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original"
@@ -474,11 +692,21 @@ function jsonResponse(obj) {
 
 // ── Test manual — ejecutar desde el editor de Apps Script ─────
 function testParsers() {
-  var smsBogota    = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
-  var smsItauCard  = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
-  var smsItauDebit = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
+  var smsBogota       = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
+  var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
+  var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
+  var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
+  var smsDaviReversed = "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            .";
+  var smsBancoPSE     = "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19. ¿Dudas? Llamanos al 6045109095. Estamos cerca";
+  var smsBancoBreb    = "Bancolombia: DANIELA, transferiste $137,500.00 a la llave 3164707724 desde tu cuenta *0018 a Natalia Karaman Plata el 27/05/26 a las 14:27. Con Bre-b es de una y gratis. Dudas al 018000912345";
 
-  Logger.log("Bogotá:     " + JSON.stringify(parseBogota(smsBogota)));
-  Logger.log("Itaú card:  " + JSON.stringify(parseItau(smsItauCard)));
-  Logger.log("Itaú debit: " + JSON.stringify(parseItau(smsItauDebit)));
+  Logger.log("Bogotá:           " + JSON.stringify(parseBogota(smsBogota)));
+  Logger.log("Itaú card:        " + JSON.stringify(parseItau(smsItauCard)));
+  Logger.log("Itaú debit:       " + JSON.stringify(parseItau(smsItauDebit)));
+  Logger.log("Davivienda compra:" + JSON.stringify(parseDavivienda(smsDaviApproved)));
+  Logger.log("Davivienda reversa:" + JSON.stringify(parseDavivienda(smsDaviReversed)));
+  Logger.log("Bancolombia PSE:  " + JSON.stringify(parseBancolombia(smsBancoPSE)));
+  Logger.log("Bancolombia Bre-B:" + JSON.stringify(parseBancolombia(smsBancoBreb)));
+  Logger.log("detectBank Davi:  " + detectBank(smsDaviApproved));
+  Logger.log("detectBank Banco: " + detectBank(smsBancoPSE));
 }

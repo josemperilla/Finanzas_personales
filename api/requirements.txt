@@ -1,0 +1,18 @@
+# Dependencias del servicio FastAPI (Fase 0). Separadas del stack pesado de ingesta.
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30
+SQLAlchemy>=2.0,<2.1
+alembic>=1.13
+pydantic[email]>=2.7,<3
+pydantic-settings>=2.3
+# Resuelve anotaciones PEP 604 (X | None) en Pydantic bajo Python 3.9.
+eval_type_backport>=0.2; python_version < "3.10"
+PyJWT>=2.8
+bcrypt>=4.1
+python-multipart>=0.0.9
+psycopg[binary]>=3.1
+anthropic>=0.40.0
+requests>=2.32
+# Dev/test
+httpx>=0.27
+pytest>=8.2
