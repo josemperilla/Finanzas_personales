@@ -75,6 +75,23 @@ export default function App() {
   // H-04: only fetch data after the user has authenticated
   useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
 
+  // Silent background refresh — runs without showing the loading skeleton
+  const silentLoad = useCallback(async () => {
+    try {
+      const data = await fetchTransactions();
+      setTransactions(data);
+    } catch { /* silently ignore */ }
+  }, []);
+
+  // Refresh when the app comes back to the foreground (e.g. after an iOS Shortcut runs)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && unlocked) silentLoad();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [silentLoad, unlocked]);
+
   const handleSelectProfile = useCallback((id: string) => {
     localStorage.setItem('fm_profile', id);
     setUserId(id);
