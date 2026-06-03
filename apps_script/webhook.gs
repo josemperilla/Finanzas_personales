@@ -382,7 +382,7 @@ function detectBank(sms) {
 // Aprobado:  "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI"
 // Reversada: "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            ."
 function parseDavivienda(sms) {
-  var re = /Compra\s+(.+?)\s*,\s*\$([\d,.]+)\s*,\s*Tarjeta\s+(\*?\d+)\s*,\s*Hora\s+(\d{2}:\d{2})\s*,Lugar\s+(.+?)\.?\s*$/i;
+  var re = /Compra\s+(.+?)\s*,\s*\$([\d,.]+)\s*,\s*Tarjeta\s+(\*?\d+)\s*,\s*Hora\s+(\d{2}:\d{2})\s*,\s*Lugar\s+(.+?)\.?\s*$/i;
   var m = sms.match(re);
   if (!m) return null;
 
@@ -460,6 +460,7 @@ function parseMontoUS(str) {
 function reverseTransaction(parsed, userId) {
   var ref   = _getSheet(userId);
   var sheet = ref.sheet;
+  if (!sheet) return false;
   var data  = sheet.getDataRange().getValues();
   var hdrs  = data[0];
 
@@ -480,7 +481,7 @@ function reverseTransaction(parsed, userId) {
     var row = data[i];
     if (String(row[bancoCol]).trim() !== parsed.banco) continue;
     if (String(row[tipoCol]).trim() !== "Compra") continue;
-    if (parseFloat(row[montoCol]) !== parsed.monto) continue;
+    if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;
     if (String(row[tarjetaCol]).indexOf(last4) === -1) continue;
     var rowDate = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
     if (!isNaN(rowDate.getTime()) && rowDate < cutoff) continue;

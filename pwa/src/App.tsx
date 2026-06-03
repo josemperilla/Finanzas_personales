@@ -55,7 +55,7 @@ export default function App() {
   }, []);
 
   // H-04: only fetch data after the user has authenticated
-  useEffect(() => { if (unlocked) load(); }, [load, unlocked]);
+  useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
 
   const handleSelectProfile = useCallback((id: string) => {
     localStorage.setItem('fm_profile', id);

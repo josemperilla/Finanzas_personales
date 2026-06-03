@@ -239,7 +239,7 @@ export function Agregar({ onSaved }: Props) {
             <label style={labelStyle}>Banco</label>
             <select value={form.banco} onChange={e => setForm(f => ({ ...f, banco: e.target.value }))}
               style={inputStyle} onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}>
-              {['Bogotá', 'Itaú', 'Otro'].map(b => <option key={b} value={b}>{b}</option>)}
+              {['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'].map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </motion.div>
 
