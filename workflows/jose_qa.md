@@ -38,7 +38,15 @@ var data = sheet.getDataRange().getValues();
 ```
 - **Error que produce si falta:** crash completo del webhook con 500 cuando llega una reversión y la pestaña no existe.
 
-### 1.5 ¿La comparación de montos usa tolerancia?
+### 1.5 ¿`type` en doPost NO está lowercased?
+```javascript
+var type = payload.type || "";  // ✓ — preserva el case original
+// NO: var type = (payload.type || "").toLowerCase();  // ✗ — rompe "validatePin" y "updateCategory"
+```
+- Los if-blocks usan `"validatePin"` y `"updateCategory"` con mayúsculas; si se lowercase el type nunca coinciden.
+- **Error que produce:** `"empty sms"` al intentar validar el PIN, o categorías que no se actualizan.
+
+### 1.6 ¿La comparación de montos usa tolerancia?
 ```javascript
 if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;  // ✓
 // NO: if (parseFloat(row[montoCol]) !== parsed.monto) continue;  // ✗
