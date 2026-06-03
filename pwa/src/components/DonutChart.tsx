@@ -91,9 +91,9 @@ export function DonutChart({ slices, total, onSliceClick }: Props) {
                 fontFamily='"DM Sans"' letterSpacing="0.06em">
                 {topCat.category.toUpperCase()}
               </text>
-              <text x={CX} y={CY + 12} textAnchor="middle"
-                fill="#1D1C1D" fontSize="12"
-                fontWeight="600" fontFamily='"JetBrains Mono"'>
+              <text x={CX} y={CY + 13} textAnchor="middle"
+                fill="#1D1C1D" fontSize="13"
+                fontWeight="600" fontFamily='"JetBrains Mono", monospace'>
                 {formatCOP(topCat.amount)}
               </text>
             </motion.g>
