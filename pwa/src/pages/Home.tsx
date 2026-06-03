@@ -35,6 +35,19 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
 };
 
+function buildDailyCumulative(txs: Transaction[], year: number, month: number, maxDays: number): number[] {
+  const daily = new Array<number>(maxDays).fill(0);
+  for (const tx of txs) {
+    const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
+    if (d.getMonth() === month && d.getFullYear() === year) {
+      const day = d.getDate() - 1;
+      if (day < maxDays) daily[day] += Number(tx['Monto (COP)'] || 0);
+    }
+  }
+  for (let i = 1; i < daily.length; i++) daily[i] += daily[i - 1];
+  return daily;
+}
+
 export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, userId }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
@@ -120,6 +133,18 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const projDiff = (projectedTotal !== null && totalPrev > 0)
     ? ((projectedTotal - totalPrev) / totalPrev) * 100
     : null;
+
+  // Daily cumulative spend chart
+  const daysInSelMonth = new Date(selYear, selMonth + 1, 0).getDate();
+  const selDays = selectedOffset === 0 ? dayOfMonth : daysInSelMonth;
+  const compDate = new Date(selYear, selMonth - 1, 1);
+  const compChartMonth = compDate.getMonth();
+  const compChartYear = compDate.getFullYear();
+  const daysInCompMonth = new Date(compChartYear, compChartMonth + 1, 0).getDate();
+  const compDays = selectedOffset === 0 ? Math.min(dayOfMonth, daysInCompMonth) : daysInCompMonth;
+  const selCumulative = buildDailyCumulative(transactions, selYear, selMonth, selDays);
+  const compCumulative = buildDailyCumulative(transactions, compChartYear, compChartMonth, compDays);
+  const showSpendLine = !loading && (selCumulative.some(v => v > 0) || compCumulative.some(v => v > 0));
 
   const navigate = (delta: number) => {
     const next = Math.min(0, Math.max(-11, selectedOffset + delta));
@@ -274,6 +299,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
                 <DonutChart slices={byCategory} total={totalMonth} onSliceClick={setDrillCategory} />
+                {showSpendLine && (
+                  <DailySpendLine
+                    current={selCumulative}
+                    previous={compCumulative}
+                    daysInMonth={daysInSelMonth}
+                  />
+                )}
               </motion.div>
             </AnimatePresence>
           )}
@@ -541,8 +573,85 @@ function Spinner() {
     <div style={{
       width: 28, height: 28, borderRadius: '50%',
       border: '2.5px solid var(--line)',
-      borderTopColor: 'var(--blue-600)',
+      borderTopColor: '#2563eb',
       animation: 'spin 0.9s linear infinite',
     }} />
+  );
+}
+
+function DailySpendLine({ current, previous, daysInMonth }: {
+  current: number[];
+  previous: number[];
+  daysInMonth: number;
+}) {
+  const W = 300;
+  const H = 52;
+  const PX = 2;
+  const PY = 4;
+
+  const maxVal = Math.max(...current, ...previous, 1);
+  const toX = (i: number, len: number) => PX + (len <= 1 ? 0 : (i / (len - 1)) * (W - PX * 2));
+  const toY = (v: number) => H - PY - (v / maxVal) * (H - PY * 2);
+
+  const buildPath = (data: number[]) => {
+    if (data.length < 2) return '';
+    return data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i, data.length).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ');
+  };
+
+  const currPath = buildPath(current);
+  const prevPath = buildPath(previous);
+  const lastVal = current[current.length - 1] ?? 0;
+  const lastX = toX(current.length - 1, current.length);
+  const lastY = toY(lastVal);
+  const areaFill = currPath
+    ? `${currPath} L ${lastX.toFixed(1)} ${H} L ${PX} ${H} Z`
+    : '';
+
+  return (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Acumulado del mes</span>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--ink)' }}>
+          {formatCOP(lastVal)}
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ width: '100%', height: 52, display: 'block', overflow: 'visible' }}
+      >
+        {areaFill && <path d={areaFill} fill="rgba(37,99,235,0.07)" />}
+        {prevPath && previous.some(v => v > 0) && (
+          <path d={prevPath} fill="none" stroke="rgba(100,116,139,0.32)" strokeWidth="1.5"
+            strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {currPath && current.some(v => v > 0) && (
+          <path d={currPath} fill="none" stroke="#2563eb" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {lastVal > 0 && current.length > 1 && (
+          <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#2563eb" />
+        )}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+        {['1', String(Math.ceil(daysInMonth / 2)), String(daysInMonth)].map(label => (
+          <span key={label} style={{ fontSize: 9, color: 'rgba(100,116,139,0.55)', fontFamily: 'var(--font-mono)' }}>
+            {label}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginTop: 5 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--muted)' }}>
+          <span style={{ width: 14, height: 2, background: '#2563eb', borderRadius: 1, display: 'inline-block' }} />
+          Este mes
+        </span>
+        {previous.some(v => v > 0) && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--muted)' }}>
+            <span style={{ width: 14, height: 0, borderTop: '1.5px dashed rgba(100,116,139,0.5)', display: 'inline-block' }} />
+            Mes anterior
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
