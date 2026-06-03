@@ -101,7 +101,7 @@ export async function updateCategory(timestamp: string, categoria: string): Prom
   if (!json.ok) throw new Error(json.error || 'Error al actualizar categoría');
 }
 
-export async function validatePin(pin: string, userId?: string): Promise<boolean> {
+export async function validatePin(pin: string, userId?: string): Promise<{ ok: boolean; error?: string }> {
   assertWebhookUrl();
   const uid = userId || _activeUserId || localStorage.getItem('fm_profile');
   const body: Record<string, unknown> = { type: 'validatePin', pin };
@@ -112,7 +112,7 @@ export async function validatePin(pin: string, userId?: string): Promise<boolean
     body: JSON.stringify(body),
   });
   const json = await res.json();
-  return json.ok === true;
+  return { ok: json.ok === true, error: json.error };
 }
 
 export async function askChat(question: string, context: object): Promise<string> {

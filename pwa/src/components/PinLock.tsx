@@ -67,7 +67,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
 
     if (next.length === 4) {
       setStatus('validating');
-      validatePin(next.join(''), userId).then(ok => {
+      validatePin(next.join(''), userId).then(({ ok, error }) => {
         if (ok) {
           // Reset lockout on success
           saveLockoutState(userId, { attempts: 0, lockedUntil: 0 });
@@ -85,7 +85,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
             const mins = Math.round(lockoutMs / 60_000);
             setErrorMsg(`Demasiados intentos. Bloqueado ${mins < 1 ? '30 segundos' : `${mins} minutos`}.`);
           } else {
-            setErrorMsg(`PIN incorrecto (${attempts}/${MAX_ATTEMPTS})`);
+            setErrorMsg(error || `PIN incorrecto (${attempts}/${MAX_ATTEMPTS})`);
           }
           setTimeout(() => {
             setStatus('idle');
@@ -94,9 +94,9 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
             if (lockedUntil > 0) startLockCountdown(lockedUntil - Date.now());
           }, 750);
         }
-      }).catch(() => {
+      }).catch((err: unknown) => {
         setStatus('error');
-        setErrorMsg('Error de conexión. Intenta de nuevo.');
+        setErrorMsg(err instanceof Error ? err.message : 'Error de conexión. Intenta de nuevo.');
         setTimeout(() => { setStatus('idle'); setDigits([]); digitsRef.current = []; }, 1000);
       });
     }
