@@ -27,7 +27,7 @@ export function DonutChart({ slices, total, onSliceClick }: Props) {
 
   if (nonZero.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '28px 0', color: '#9E9EA6', fontFamily: '"DM Sans"', fontSize: '13px' }}>
+      <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--muted)', fontFamily: 'var(--font-body)', fontSize: '13px' }}>
         Sin datos este mes
       </div>
     );
@@ -87,13 +87,13 @@ export function DonutChart({ slices, total, onSliceClick }: Props) {
               style={{ transformOrigin: `${CX}px ${CY}px` }}
             >
               <text x={CX} y={CY - 5} textAnchor="middle"
-                fill="#9E9EA6" fontSize="9.5"
-                fontFamily='"DM Sans"' letterSpacing="0.06em">
+                fill="var(--muted)" fontSize="9.5"
+                fontFamily='var(--font-body)' letterSpacing="0.06em">
                 {topCat.category.toUpperCase()}
               </text>
               <text x={CX} y={CY + 13} textAnchor="middle"
-                fill="#1D1C1D" fontSize="13"
-                fontWeight="600" fontFamily='"JetBrains Mono", monospace'>
+                fill="var(--ink)" fontSize="13"
+                fontWeight="600" fontFamily='var(--font-mono)'>
                 {formatCOP(topCat.amount)}
               </text>
             </motion.g>
@@ -122,11 +122,11 @@ export function DonutChart({ slices, total, onSliceClick }: Props) {
                 background: getCategoryColor(s.category),
                 flexShrink: 0,
               }} />
-              <span style={{ color: '#616061', fontSize: '13px', fontFamily: '"DM Sans"' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
                 {s.category}
               </span>
             </div>
-            <span style={{ color: '#1D1C1D', fontSize: '12px', fontFamily: '"JetBrains Mono"', fontWeight: 500 }}>
+            <span style={{ color: 'var(--ink)', fontSize: '13px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
               {formatCOP(s.amount)}
             </span>
           </motion.div>
