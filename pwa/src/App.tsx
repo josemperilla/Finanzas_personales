@@ -55,6 +55,7 @@ export default function App() {
         ...(data.monto     !== undefined && { 'Monto (COP)': data.monto as number }),
         ...(data.categoria !== undefined && { Categoría: data.categoria as string }),
         ...(data.fecha     !== undefined && { Fecha: data.fecha as string }),
+        ...(data.nota      !== undefined && { Nota: data.nota as string }),
       } : tx
     ));
   }, []);

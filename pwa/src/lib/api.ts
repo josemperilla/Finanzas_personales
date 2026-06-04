@@ -36,6 +36,7 @@ export interface Transaction {
   Comercio: string;
   'Tarjeta/Cuenta': string;
   Categoría: string;
+  Nota?: string;
 }
 
 export interface ManualTransaction {
@@ -46,6 +47,7 @@ export interface ManualTransaction {
   tarjeta?: string;
   categoria: string;
   fecha?: string;
+  nota?: string;
 }
 
 export interface VoiceParsed {

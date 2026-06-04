@@ -689,6 +689,14 @@ function updateTransactionFields(timestamp, payload, userId) {
       if (payload.fecha     !== undefined && cols.fecha     >= 0) sheet.getRange(row, cols.fecha     + 1).setValue(payload.fecha);
       if (payload.categoria !== undefined && ALLOWED_CATEGORIES.indexOf(payload.categoria) !== -1 && cols.categoria >= 0)
         sheet.getRange(row, cols.categoria + 1).setValue(payload.categoria);
+      if (payload.nota !== undefined) {
+        var notaCol = hdrs.indexOf("Nota");
+        if (notaCol === -1) {
+          notaCol = hdrs.length;
+          sheet.getRange(1, notaCol + 1).setValue("Nota").setFontWeight("bold").setBackground("#f3f3f3");
+        }
+        sheet.getRange(row, notaCol + 1).setValue(payload.nota);
+      }
       return;
     }
   }

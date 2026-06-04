@@ -383,6 +383,22 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
     fecha: (tx.Fecha || '').slice(0, 10),
   });
   const [editSaving, setEditSaving] = useState(false);
+  const [nota, setNota] = useState(tx.Nota || '');
+  const [notaSaving, setNotaSaving] = useState(false);
+  const [notaSaved, setNotaSaved] = useState(false);
+
+  async function handleNotaSave() {
+    if (nota === (tx.Nota || '')) return;
+    setNotaSaving(true);
+    try {
+      await updateTransaction(tx.Timestamp, { nota });
+      onTransactionUpdate?.(tx.Timestamp, { nota });
+      setNotaSaved(true);
+      setTimeout(() => setNotaSaved(false), 1800);
+    } catch { /* keep text on error */ } finally {
+      setNotaSaving(false);
+    }
+  }
 
   async function handleCategorySelect(e: React.ChangeEvent<HTMLSelectElement>) {
     const newCat = e.target.value;
@@ -569,8 +585,32 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
               </div>
             ))}
 
+            {/* Note — always editable inline */}
+            <div style={{ paddingTop: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Nota personal</span>
+                {notaSaving && <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Guardando…</span>}
+                {notaSaved && <span style={{ fontSize: 10.5, color: '#16a34a', fontWeight: 600 }}>✓ Guardado</span>}
+              </div>
+              <textarea
+                value={nota}
+                onChange={e => setNota(e.target.value)}
+                placeholder="Añade una nota a esta transacción..."
+                rows={2}
+                style={{
+                  width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                  border: '1.5px solid var(--line)', borderRadius: 10,
+                  background: nota ? 'rgba(254,252,232,0.8)' : 'var(--surface)',
+                  color: 'var(--ink)', fontSize: 13.5, fontFamily: 'var(--font-body)',
+                  outline: 'none', resize: 'none', lineHeight: '1.5',
+                }}
+                onFocus={e => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = '#2563eb'; }}
+                onBlur={e => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = 'var(--line)'; handleNotaSave(); }}
+              />
+            </div>
+
             <motion.button whileTap={{ scale: 0.98 }} onClick={onClose} style={{
-              marginTop: 18, width: '100%', padding: 14,
+              marginTop: 14, width: '100%', padding: 14,
               background: 'var(--surface)', border: '1px solid var(--line)',
               borderRadius: 12, color: 'var(--muted)', fontSize: 14, fontWeight: 600,
               cursor: 'pointer', fontFamily: 'var(--font-body)',
