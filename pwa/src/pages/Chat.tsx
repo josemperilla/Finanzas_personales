@@ -170,7 +170,7 @@ export function Chat({ transactions }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 48px - max(18px, env(safe-area-inset-bottom)))', fontFamily: 'var(--font-body)', background: 'var(--surface)' }}>
       {/* Header */}
       <div style={{
-        background: '#fff', borderBottom: '1px solid var(--line)',
+        background: 'var(--card)', borderBottom: '1px solid var(--line)',
         padding: 'max(20px, env(safe-area-inset-top)) 20px 14px',
         flexShrink: 0,
       }}>
@@ -204,7 +204,7 @@ export function Chat({ transactions }: Props) {
               {SUGGESTED.map(q => (
                 <motion.button key={q} variants={riseItem} transition={quickEase} whileTap={{ scale: 0.98 }} onClick={() => send(q)} style={{
                   padding: '10px 16px', borderRadius: 12, cursor: 'pointer',
-                  background: '#fff', border: '1.5px solid var(--line)',
+                  background: 'var(--card)', border: '1.5px solid var(--line)',
                   color: 'var(--ink-2)', fontSize: 13, fontWeight: 500,
                   fontFamily: 'var(--font-body)', textAlign: 'left',
                   transition: 'border-color 0.15s ease',
@@ -232,7 +232,7 @@ export function Chat({ transactions }: Props) {
             )}
             <div style={{
               maxWidth: '78%', padding: '11px 14px', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-              background: m.role === 'user' ? 'var(--blue-700)' : '#fff',
+              background: m.role === 'user' ? 'var(--blue-700)' : 'var(--card)',
               color: m.role === 'user' ? '#fff' : 'var(--ink)',
               fontSize: 14, lineHeight: 1.55,
               boxShadow: m.role === 'assistant' ? 'var(--shadow-card)' : 'none',
@@ -248,7 +248,7 @@ export function Chat({ transactions }: Props) {
             <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} style={{ flexShrink: 0 }}><Fino size={28} /></motion.div>
             <div style={{
               padding: '12px 16px', borderRadius: '16px 16px 16px 4px',
-              background: '#fff', boxShadow: 'var(--shadow-card)',
+              background: 'var(--card)', boxShadow: 'var(--shadow-card)',
               display: 'flex', gap: 5, alignItems: 'center',
             }}>
               {[0, 1, 2].map(i => (
@@ -267,7 +267,7 @@ export function Chat({ transactions }: Props) {
 
       {/* Input */}
       <div style={{
-        background: '#fff', borderTop: '1px solid var(--line)',
+        background: 'var(--card)', borderTop: '1px solid var(--line)',
         padding: '10px 16px max(16px, env(safe-area-inset-bottom))',
         flexShrink: 0,
       }}>

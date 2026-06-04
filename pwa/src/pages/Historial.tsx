@@ -259,7 +259,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
                       {formatCOP(dayTotal)}
                     </span>
                   </div>
-                  <div style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+                  <div style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
                     {group.map((tx, i) => (
                       <div key={tx.Timestamp || i}>
                         {i > 0 && <div style={{ height: 1, background: 'var(--line)', marginLeft: 16 }} />}
@@ -326,7 +326,7 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
 
       {/* Main content */}
       <motion.div
-        style={{ transform: `translateX(${offset}px)`, background: '#fff', position: 'relative', zIndex: 1, padding: '0 16px' }}
+        style={{ transform: `translateX(${offset}px)`, background: 'var(--card)', position: 'relative', zIndex: 1, padding: '0 16px' }}
         animate={{ x: offset }}
         transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.7 }}
         onTouchStart={onTouchStart}
@@ -441,7 +441,7 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
   const inputStyle: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box', height: 42, padding: '0 12px',
     border: '1.5px solid var(--line)', borderRadius: 10,
-    background: '#fff', color: 'var(--ink)', fontSize: 13.5,
+    background: 'var(--card)', color: 'var(--ink)', fontSize: 13.5,
     fontFamily: 'var(--font-body)', outline: 'none',
   };
 
@@ -466,7 +466,7 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
         drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.35 }}
         onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 650) onClose(); }}
         style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff',
+          position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--card)',
           borderRadius: '20px 20px 0 0',
           padding: '16px 20px max(20px, env(safe-area-inset-bottom))',
           zIndex: 201, boxShadow: '0 -4px 30px rgba(15,23,42,0.12)',

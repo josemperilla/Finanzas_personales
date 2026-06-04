@@ -51,12 +51,12 @@ export function ProfileSelector({ onSelect }: Props) {
             >
               <div style={{
                 width: 88, height: 88, borderRadius: '50%',
-                background: avatarFailed ? 'var(--grad-brand)' : '#fff',
+                background: avatarFailed ? 'var(--grad-brand)' : 'var(--card)',
                 border: '3px solid #fff',
                 boxShadow: '0 8px 28px rgba(15,23,42,0.14)',
                 overflow: 'hidden',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
+                color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
               }}>
                 {avatarFailed ? profile.initial : (
                   <img

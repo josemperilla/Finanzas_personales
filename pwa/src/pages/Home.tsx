@@ -225,7 +225,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           style={{
-            background: '#fff', borderRadius: 'var(--r-2xl)',
+            background: 'var(--card)', borderRadius: 'var(--r-2xl)',
             padding: 22, boxShadow: 'var(--shadow-card)',
             marginBottom: 14, overflow: 'hidden',
             touchAction: 'pan-y',
@@ -319,7 +319,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             transition={quickEase}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: '#fff', borderRadius: 'var(--r-xl)',
+              background: 'var(--card)', borderRadius: 'var(--r-xl)',
               padding: '11px 14px', marginBottom: 14,
               boxShadow: 'var(--shadow-card)',
             }}
@@ -424,7 +424,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}
+                style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}
               >
                 {recent.map((tx, i) => (
                   <div key={i}>
@@ -463,12 +463,12 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
         onClick={() => setMenuOpen(v => !v)}
         style={{
           width: 42, height: 42, borderRadius: '50%',
-          background: failed ? 'var(--grad-brand)' : '#fff',
+          background: failed ? 'var(--grad-brand)' : 'var(--card)',
           border: '2px solid #fff',
           boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden', cursor: 'pointer', padding: 0,
-          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
+          color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
         }}
       >
         {failed || !profile?.avatar ? (
@@ -499,7 +499,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
               transition={quickEase}
               style={{
                 position: 'absolute', top: 50, left: 0, zIndex: 51,
-                background: '#fff', borderRadius: 14, overflow: 'hidden',
+                background: 'var(--card)', borderRadius: 14, overflow: 'hidden',
                 boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
                 border: '1px solid var(--line)', minWidth: 160,
               }}

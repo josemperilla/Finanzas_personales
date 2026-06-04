@@ -12,7 +12,7 @@ export function BottomNav({ active, onChange }: Props) {
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: '#ffffff',
+      background: 'var(--card)',
       borderTop: '1px solid var(--line)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-around',
       paddingTop: '10px',

@@ -15,7 +15,7 @@ export function FriendlyEmptyState({ title, message, actionLabel, onAction }: Pr
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={quickEase}
       style={{
-        background: '#fff',
+        background: 'var(--card)',
         borderRadius: 'var(--r-2xl)',
         boxShadow: 'var(--shadow-card)',
         padding: '26px 20px',

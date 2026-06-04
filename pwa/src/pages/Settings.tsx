@@ -4,8 +4,14 @@ import { Transaction, changePin } from '../lib/api';
 import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
+import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'auto',  label: 'Auto' },
+  { value: 'light', label: 'Claro' },
+  { value: 'dark',  label: 'Oscuro' },
+];
 
 interface Props {
   userId: string;
@@ -19,6 +25,12 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const [defaultBank, setDefaultBank] = useState(
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
+  const [theme, setTheme] = useState<ThemeMode>(getTheme);
+
+  function handleThemeChange(mode: ThemeMode) {
+    setTheme(mode);
+    applyTheme(mode);
+  }
 
   // Change PIN
   const [showPinForm, setShowPinForm] = useState(false);
@@ -60,7 +72,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const inputStyle: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px',
     border: '1.5px solid var(--line)', borderRadius: 10,
-    background: '#fff', color: 'var(--ink)', fontSize: 15,
+    background: 'var(--card)', color: 'var(--ink)', fontSize: 15,
     fontFamily: 'var(--font-mono)', outline: 'none', letterSpacing: '0.18em',
   };
 
@@ -105,13 +117,13 @@ export function Settings({ userId, transactions, onClose }: Props) {
           {/* Profile card */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 14,
-            background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 16px',
+            background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 16px',
             boxShadow: 'var(--shadow-card)',
           }}>
             {profile?.avatar ? (
               <img src={profile.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center', flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--grad-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-display)', flexShrink: 0 }}>
+              <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--grad-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card)', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-display)', flexShrink: 0 }}>
                 {profile?.initial ?? '?'}
               </div>
             )}
@@ -163,7 +175,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
                     <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
                       <motion.button whileTap={{ scale: 0.97 }} onClick={handlePinChange} disabled={pinSaving} style={{
                         flex: 1, height: 44, background: pinSaving ? 'var(--blue-300)' : 'var(--blue-700)',
-                        border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600,
+                        border: 'none', borderRadius: 10, color: 'var(--card)', fontSize: 14, fontWeight: 600,
                         cursor: pinSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
                       }}>
                         {pinSaving ? 'Guardando…' : 'Guardar nuevo PIN'}
@@ -182,6 +194,28 @@ export function Settings({ userId, transactions, onClose }: Props) {
             </AnimatePresence>
           </Section>
 
+          {/* ── Apariencia ── */}
+          <Section title="Apariencia">
+            <div style={{ paddingTop: 12, paddingBottom: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Tema</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {THEME_OPTIONS.map(({ value, label }) => (
+                  <motion.button key={value} whileTap={{ scale: 0.92 }} onClick={() => handleThemeChange(value)} style={{
+                    flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 13, fontFamily: 'var(--font-body)',
+                    border: `1.5px solid ${theme === value ? 'var(--blue-600)' : 'var(--line)'}`,
+                    background: theme === value ? 'var(--blue-50)' : 'var(--card)',
+                    color: theme === value ? 'var(--blue-700)' : 'var(--muted)',
+                    fontWeight: theme === value ? 600 : 400, cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}>{label}</motion.button>
+                ))}
+              </div>
+              <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                Auto sigue la preferencia del sistema.
+              </p>
+            </div>
+          </Section>
+
           {/* ── Preferencias ── */}
           <Section title="Preferencias">
             <div style={{ paddingTop: 12, paddingBottom: 8 }}>
@@ -191,7 +225,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
                   <motion.button key={b} whileTap={{ scale: 0.92 }} onClick={() => handleBankChange(b)} style={{
                     padding: '6px 14px', borderRadius: 999, fontSize: 13, fontFamily: 'var(--font-body)',
                     border: `1.5px solid ${defaultBank === b ? 'var(--blue-600)' : 'var(--line)'}`,
-                    background: defaultBank === b ? 'var(--blue-50)' : '#fff',
+                    background: defaultBank === b ? 'var(--blue-50)' : 'var(--card)',
                     color: defaultBank === b ? 'var(--blue-700)' : 'var(--muted)',
                     fontWeight: defaultBank === b ? 600 : 400, cursor: 'pointer',
                     WebkitTapHighlightColor: 'transparent',
@@ -226,7 +260,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 600, marginBottom: 8, paddingLeft: 4 }}>
         {title}
       </div>
-      <div style={{ background: '#fff', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '0 16px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '0 16px', overflow: 'hidden' }}>
         {children}
       </div>
     </div>

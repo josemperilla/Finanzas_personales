@@ -103,7 +103,7 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
   const trendMax = Math.max(...monthlyTrend.map(m => m.total), 1);
 
   const card = {
-    background: '#fff',
+    background: 'var(--card)',
     borderRadius: 'var(--r-xl)' as const,
     padding: '14px 16px',
     marginBottom: 10,
@@ -195,7 +195,7 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
                   },
                   { label: 'Día más activo', value: stats.topDowName || '—', mono: false },
                 ].map(({ label, value, sub, mono }) => (
-                  <div key={label} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 14px', boxShadow: 'var(--shadow-card)' }}>
+                  <div key={label} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '12px 14px', boxShadow: 'var(--shadow-card)' }}>
                     <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 5 }}>{label}</div>
                     <div style={{
                       fontFamily: mono ? 'var(--font-mono)' : 'var(--font-display)',

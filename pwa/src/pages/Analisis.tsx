@@ -207,7 +207,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
           }} style={{
             flexShrink: 0, padding: '5px 14px', borderRadius: 999,
             border: `1.5px solid ${compareMode ? 'var(--orange-500)' : 'var(--line)'}`,
-            background: compareMode ? 'var(--orange-50)' : '#fff',
+            background: compareMode ? 'var(--orange-50)' : 'var(--card)',
             color: compareMode ? 'var(--orange-600)' : 'var(--ink-2)',
             fontSize: 13, fontWeight: compareMode ? 600 : 400,
             cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
@@ -249,7 +249,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
               animate={{ opacity: 1, height: 'auto', y: 0 }}
               exit={{ opacity: 0, height: 0, y: -8 }}
               transition={quickEase}
-              style={{ overflow: 'hidden', background: '#fff', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
+              style={{ overflow: 'hidden', background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '12px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}
             >
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
                 Comparar <span style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{displayStats?.label}</span> con:
@@ -259,7 +259,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
                   <motion.button key={s.key} whileTap={{ scale: 0.94 }} onClick={() => setCompareIdx(i)} style={{
                     padding: '4px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
                     border: `1.5px solid ${compareIdx === i ? 'var(--orange-500)' : 'var(--line)'}`,
-                    background: compareIdx === i ? 'var(--orange-50)' : '#fff',
+                    background: compareIdx === i ? 'var(--orange-50)' : 'var(--card)',
                     color: compareIdx === i ? 'var(--orange-600)' : 'var(--ink-2)',
                     cursor: 'pointer', fontFamily: 'var(--font-body)',
                   }}>
@@ -272,7 +272,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
         </AnimatePresence>
 
         {/* Bar chart */}
-        <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 12px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
+        <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 12px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Últimos {last6.length} meses</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 100 }}>
             {last6.map((s, i) => {
@@ -335,19 +335,19 @@ export function Analisis({ transactions, loading, userId }: Props) {
         {displayStats && (
           <>
             <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Total gastado</div>
                 <AnimatedAmount value={displayStats.total} />
                 {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>vs {formatCOP(compareStats.total)}</div>}
               </motion.div>
 
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Transacciones</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{displayStats.count}</div>
                 {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>vs {compareStats.count}</div>}
               </motion.div>
 
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Ticket promedio</div>
                 {displayStats.count > 0
                   ? <AnimatedAmount value={Math.round(displayStats.total / displayStats.count)} />
@@ -356,7 +356,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
                 {compareStats && compareStats.count > 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>vs {formatCOP(compareStats.total / compareStats.count)}</div>}
               </motion.div>
 
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 14px 12px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Categoría top</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{displayStats.byCategory[0]?.name || '—'}</div>
                 {compareStats && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{compareStats.byCategory[0]?.name || '—'}</div>}
@@ -365,7 +365,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
 
             {/* Category breakdown */}
             {displayStats.byCategory.length > 0 && (
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 10px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 10px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>Categorías</div>
                 {displayStats.byCategory.map(({ name, color, amount }) => {
                   const barPct = displayStats.total > 0 ? (amount / displayStats.total) * 100 : 0;
@@ -439,7 +439,7 @@ export function Analisis({ transactions, loading, userId }: Props) {
 
             {/* Top merchants — animated reorder */}
             {displayStats.topMerchants.length > 0 && (
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)' }}>
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
                     Top comercios — {displayStats.label}
@@ -541,7 +541,7 @@ function RecurringSection({ transactions }: { transactions: Transaction[] }) {
   if (all.length === 0) return null;
 
   return (
-    <motion.div variants={riseItem} transition={quickEase} style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '18px 16px 10px', boxShadow: 'var(--shadow-card)', marginTop: 14 }}>
+    <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 10px', boxShadow: 'var(--shadow-card)', marginTop: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
           Pagos recurrentes

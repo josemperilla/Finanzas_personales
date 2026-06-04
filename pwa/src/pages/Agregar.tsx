@@ -45,7 +45,7 @@ function makeDefaultForm(): FormData {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', height: 54, padding: '0 16px',
-  background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)',
+  background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)',
   color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)',
   outline: 'none', appearance: 'none' as const, transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
 };
@@ -239,7 +239,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       </div>
 
       {/* Mode toggle */}
-      <motion.div style={{ display: 'flex', background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20 }}>
+      <motion.div style={{ display: 'flex', background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20 }}>
         {(['form', 'split', 'voice'] as Mode[]).map(m => (
           <motion.button key={m} whileTap={{ scale: 0.96 }} onClick={() => setMode(m)} style={{
             flex: 1, padding: '9px 6px', borderRadius: 13, border: 'none', cursor: 'pointer',
@@ -258,7 +258,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       {mode === 'form' && (
         <motion.div key="form" variants={staggerContainer} initial="initial" animate="animate"
           exit={{ opacity: 0, y: -8 }} transition={quickEase}
-          style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Monto */}
           <motion.div variants={riseItem} transition={quickEase}>
@@ -296,7 +296,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
                   onTouchEnd={() => { suggRef.current = false; }}
                   style={{
                     position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                    background: '#fff', border: '1.5px solid var(--line)',
+                    background: 'var(--card)', border: '1.5px solid var(--line)',
                     borderRadius: 'var(--r-md)', boxShadow: 'var(--shadow-float)',
                     overflow: 'hidden', marginTop: 4,
                   }}>
@@ -385,7 +385,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         return (
           <motion.div key="split" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8 }} transition={quickEase}
-            style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
             {/* Total input */}
             <div>
@@ -410,7 +410,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
               {/* People picker */}
               <div style={{ flex: 1 }}>
                 <label style={labelStyle}>Personas</label>
-                <div style={{ display: 'flex', alignItems: 'center', height: 54, background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', height: 54, background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
                   <motion.button whileTap={{ scale: 0.88 }} onClick={() => setSplitCalc(s => ({ ...s, people: Math.max(1, s.people - 1) }))} style={{
                     width: 50, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
                     fontSize: 22, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -481,7 +481,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       {mode === 'voice' && (
         <motion.div key="voice" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -8 }} transition={quickEase}
-          style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: '44px 20px', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+          style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '44px 20px', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
           {voiceState === 'processing' ? (
             <>
               <div style={{ width: 56, height: 56, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }} />
@@ -532,7 +532,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={softSpring}
             style={{
               position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16,
-              padding: '13px 16px', borderRadius: 12, background: '#fff',
+              padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}`,
               color: toast.ok ? '#15803d' : '#b91c1c',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 300, boxShadow: 'var(--shadow-float)',
@@ -549,7 +549,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
             onClick={() => setBudgetAlert(null)}
             style={{
               position: 'fixed', bottom: 'calc(120px + env(safe-area-inset-bottom))', left: 16, right: 16,
-              padding: '13px 16px', borderRadius: 12, background: '#fff',
+              padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: '1px solid #fde68a',
               color: budgetAlert.pct >= 1 ? '#b91c1c' : '#92400e',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',

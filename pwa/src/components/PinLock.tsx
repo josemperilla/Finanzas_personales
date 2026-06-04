@@ -143,12 +143,12 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         <div style={{
           width: 82, height: 82, borderRadius: '50%',
           margin: '0 auto 18px',
-          background: avatarFailed ? 'var(--grad-brand)' : '#fff',
+          background: avatarFailed ? 'var(--grad-brand)' : 'var(--card)',
           border: '3px solid #fff',
           boxShadow: '0 8px 28px rgba(15,23,42,0.14)',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
+          color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
         }}>
           {avatarFailed ? (profile?.initial ?? '?') : (
             <img
@@ -227,7 +227,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
               disabled={isLocked || status !== 'idle'}
               style={{
                 height: 76, borderRadius: 9999,
-                background: key === '⌫' ? 'transparent' : '#fff',
+                background: key === '⌫' ? 'transparent' : 'var(--card)',
                 border: key === '⌫' ? 'none' : '1px solid rgba(15,23,42,0.06)',
                 boxShadow: key === '⌫' ? 'none' : 'var(--shadow-card)',
                 color: isLocked ? '#cbd5e1' : key === '⌫' ? 'var(--muted)' : 'var(--ink)',

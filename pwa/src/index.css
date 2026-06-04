@@ -22,6 +22,7 @@
   --muted-2:  #94a3b8;
   --line:     #e9eef5;
   --surface:  #f6f8fc;
+  --card:     #ffffff;
   --white:    #ffffff;
 
   --font-display: 'Syne', sans-serif;
@@ -114,8 +115,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 select option {
-  background: #ffffff;
+  background: var(--card);
   color: var(--ink);
+}
+
+/* ── Dark mode ─────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --surface:  #0f172a;
+  --card:     #1e293b;
+  --ink:      #f1f5f9;
+  --ink-2:    #e2e8f0;
+  --muted:    #94a3b8;
+  --muted-2:  #64748b;
+  --line:     #334155;
+
+  --blue-50:  #172554;
+  --blue-100: #1e3a8a;
+  --blue-300: #60a5fa;
+
+  --orange-50:  #2d1500;
+  --orange-100: #431407;
+
+  --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
+  --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
+  --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
+
+  color-scheme: dark;
+}
+
+/* Auto: follow system preference when user hasn't set a manual override */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface:  #0f172a;
+    --card:     #1e293b;
+    --ink:      #f1f5f9;
+    --ink-2:    #e2e8f0;
+    --muted:    #94a3b8;
+    --muted-2:  #64748b;
+    --line:     #334155;
+
+    --blue-50:  #172554;
+    --blue-100: #1e3a8a;
+    --blue-300: #60a5fa;
+
+    --orange-50:  #2d1500;
+    --orange-100: #431407;
+
+    --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
+    --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
+    --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
+
+    color-scheme: dark;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
