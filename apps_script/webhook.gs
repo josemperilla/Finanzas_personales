@@ -653,22 +653,103 @@ function detectCategory(merchant) {
   var m = merchant.toUpperCase();
 
   var rules = [
-    { keywords: ["RAPPI", "UBER EATS", "IFOOD", "DOMICILIOS", "MC DONALDS", "MCDONALDS",
-                 "BURGER", "PIZZA", "SUBWAY", "KFC", "CREPES", "RESTAURAN", "SUSHI"],   cat: "Comida" },
-    { keywords: ["NETFLIX", "SPOTIFY", "YOUTUBE", "PRIME", "DISNEY", "HBO", "APPLE TV",
-                 "NEW YORK TIMES"],                                                        cat: "Suscripciones" },
-    { keywords: ["UBER", "CABIFY", "DIDI", "TAXI", "TRANSMILENIO", "SITP"],              cat: "Transporte" },
-    { keywords: ["JUMBO", "CARREFOUR", "EXITO", "OLÉ", "ALMACENES", "SUPERTIENDA",
-                 "MERQUEO", "METRO", "FRUVER"],                                           cat: "Mercado" },
-    { keywords: ["FARMACIA", "DROGUER", "DROGUERÍA", "FARMATODO", "COLSUBSIDIO",
-                 "CAFAM", "COMPENSAR"],                                                   cat: "Salud" },
-    { keywords: ["COUNTRY CLUB", "GYM", "GIMNASIO", "SPORT", "GOLF", "TENNIS",
-                 "TENIS", "PADEL", "FITNESS"],                                            cat: "Deporte" },
-    { keywords: ["AMAZON", "MERCADOLIBRE", "FALABELLA", "HOMECENTER", "EASY",
-                 "IKEA", "APPLE", "SAMSUNG"],                                             cat: "Compras" },
-    { keywords: ["HOTEL", "AIRBNB", "BOOKING", "HOSPEDAJE", "HOSTAL"],                   cat: "Alojamiento" },
-    { keywords: ["AVIANCA", "LATAM", "COPA", "AMERICAN", "AERO", "VUELO"],               cat: "Viajes" },
-    { keywords: ["GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION"],                     cat: "Software" }
+    // ── Comida — restaurantes, cafés, delivery, fast food ──────────────────
+    { cat: "Comida", keywords: [
+      "RAPPI", "UBER EATS", "IFOOD", "DOMICILIOS", "OSAKI",
+      "MCDONALDS", "MC DONALD", "BURGER", "PIZZA", "SUBWAY", "KFC",
+      "TACO BELL", "POLLO CAMPERO", "CORRAL",
+      "CREPES", "WAFFLES", "RESTAURAN", "SUSHI", "BISTRO", "BRASSERIE",
+      "CAFE", "COFFEE", "CAFECULTOR", "TOSTAO", "AZAHAR", "TRIGO Y MIEL",
+      "CREPESYWAFFLES", "FOGON", "ASADERO", "CHIGUI", "FORTEZZA",
+      "TANUKI", "UKIYO", "WATAKUSHI", "RITMO Y AROMA", "LA AZOTEA",
+      "SALA DE", "HECTOR", "CASA MAGDALENA", "PURA SABROSURA",
+      "VENUES", "YOGEN FRUZ", "GELARTO", "HELADO",
+      "SELAMLIQUE", "SUSAM", "MESOPOTAMIA", "OLIVE GARDEN", "VERITY FOOD",
+      "KONTRBUS", "MELISSZA", "CARNESJREINA", "MERCADO PAGO*FCT",
+      "COMPRA MERCADO PAGO*CRO", "LA CESTA", "BIRRERIA", "SEOUL POCHA",
+      "HALVAANDNUTS", "SPAR PARTNER", "BARION"
+    ]},
+    // ── Mercado — supermercados y tiendas de alimentos ─────────────────────
+    { cat: "Mercado", keywords: [
+      "JUMBO", "CARREFOUR", "CARREFOURSA", "EXITO", "OLE", "ALMACENES",
+      "SUPERTIENDA", "MERQUEO", "FRUVER", "CARULLA", "OXXO",
+      "LIDL", "SPAR MAGYARORSZAG", "CSEMEGE", "METRO BARCELON"
+    ]},
+    // ── Transporte — taxis, apps, gasolina, metro ──────────────────────────
+    { cat: "Transporte", keywords: [
+      "UBER", "CABIFY", "DIDI", "TAXI", "TRANSMILENIO", "SITP",
+      "TAXIS LIBRES", "DOGGER AERO", "BELBIM", "BKK AUTOMATA",
+      "METRO BARCELON", "SAGALES", "ESTACION DE SERVICIO",
+      "ACARLAR PETROL", "TEMBICI"
+    ]},
+    // ── Alojamiento — hoteles, hostales, Airbnb ────────────────────────────
+    { cat: "Alojamiento", keywords: [
+      "HOTEL", "AIRBNB", "BOOKING", "HOSPEDAJE", "HOSTAL",
+      "HOSTELWORLD", "HAMARAT OTEL", "MARRIOT", "MARRIOTT",
+      "AVENUE HOSTEL", "HOTEL PALACIO", "HOTEL INMACULADA",
+      "HOTEL PALACIO DE"
+    ]},
+    // ── Viajes — vuelos, transporte interurbano, agencias ──────────────────
+    { cat: "Viajes", keywords: [
+      "AVIANCA", "LATAM", "COPA", "AMERICAN AIRLINES", "VUELO",
+      "FLIGHTS", "TRIP.COM", "BOOKING.COM", "SULTAN", "NURDEM TURIZM",
+      "SELDAR ISTANBUL", "IZMIR 1888", "KAPADOKYA", "VOYNN GIDA",
+      "MAVERICKCENTRALMAR", "DUFRY", "WAN TANACSADO"
+    ]},
+    // ── Compras — tiendas, online, regalos ────────────────────────────────
+    { cat: "Compras", keywords: [
+      "AMAZON", "MERCADOLIBRE", "FALABELLA", "HOMECENTER", "EASY",
+      "IKEA", "SAMSUNG", "TEMU", "OFFICE DEPOT", "LIBRERIA",
+      "TIENDA RAMBLAS", "FOLKART", "BOMO ART", "PROEXSAL", "MAYAN GIFTS",
+      "KAPADOKYA OTTOMAN", "YEMENICILER", "SOV MAGAZACILIK",
+      "DOLLARTICTY", "HELOPAY", "COMPRA PASARELA", "MERCADO PAGO"
+    ]},
+    // ── Ropa — ropa y accesorios ───────────────────────────────────────────
+    { cat: "Ropa", keywords: [
+      "ADIDAS", "UNIQLO", "BROOKS BROTHERS", "DECATHLON",
+      "TIENDA ADIDAS", "ALSANCAK MACROCENTER", "ALSANCAK COLOMBIA"
+    ]},
+    // ── Suscripciones — servicios digitales recurrentes ───────────────────
+    { cat: "Suscripciones", keywords: [
+      "NETFLIX", "SPOTIFY", "YOUTUBE", "PRIME", "DISNEY", "HBO",
+      "APPLE TV", "APPLE.COM", "APPLE COM",
+      "NEW YORK TIMES", "THE NEW YORK TIMES"
+    ]},
+    // ── Salud — farmacias, médicos, clínicas ──────────────────────────────
+    { cat: "Salud", keywords: [
+      "FARMACIA", "DROGUER", "FARMATODO", "COLSUBSIDIO",
+      "CAFAM", "COMPENSAR", "UNID MED", "DIAGNOSTICO", "MEDIC"
+    ]},
+    // ── Deporte — gimnasios, clubes, implementos ──────────────────────────
+    { cat: "Deporte", keywords: [
+      "COUNTRY CLUB", "GYM", "GIMNASIO", "SPORT", "GOLF",
+      "TENIS", "PADEL", "FITNESS", "RUNNING", "ATLETISMO",
+      "CLUB LOS LAGARTOS", "ANKARA DEMIRSPOR"
+    ]},
+    // ── Entretenimiento — espectáculos, museos, ocio ──────────────────────
+    { cat: "Entretenimiento", keywords: [
+      "NETFLIX", "CINE", "TEATRO", "CONCIERTO", "PARQUE",
+      "BUDAPEST JAZZ CLUB", "CORFERIAS", "PONTOON",
+      "SUNA VE INAN", "PARK ELITE"
+    ]},
+    // ── Belleza — peluquerías, estética personal ──────────────────────────
+    { cat: "Belleza", keywords: [
+      "PELUQUER", "BARBERIA", "BARBERIAS", "LORD", "ESTETICA",
+      "ANA MILENA", "ANDERSON GOGREEN", "HF PELUQUERIA"
+    ]},
+    // ── Software — herramientas y servicios digitales de trabajo ──────────
+    { cat: "Software", keywords: [
+      "GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION",
+      "AMAZON DIGI", "FOTOP"
+    ]},
+    // ── Hogar — artículos del hogar y servicios domésticos ────────────────
+    { cat: "Hogar", keywords: [
+      "HOMECENTER", "HOME SENTRY", "HOME DEPOT", "EASY HOME"
+    ]},
+    // ── Trámites — pagos oficiales, visas, impuestos ──────────────────────
+    { cat: "Trámites", keywords: [
+      "USEMBASSY", "MRVFEE", "GDIT"
+    ]}
   ];
 
   for (var i = 0; i < rules.length; i++) {
@@ -677,6 +758,43 @@ function detectCategory(merchant) {
     }
   }
   return "";
+}
+
+// ── Recategorizar todas las filas con categoría vacía ─────────────
+// Ejecutar una vez desde el editor de Apps Script después de ampliar detectCategory().
+// Solo toca filas donde la columna Categoría está vacía.
+function recategorizeAll() {
+  var users = ALLOWED_USERS;
+  var total = 0;
+  var updated = 0;
+
+  for (var u = 0; u < users.length; u++) {
+    var ref   = _getSheet(users[u]);
+    var sheet = ref.sheet;
+    if (!sheet) continue;
+
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var catCol     = hdrs.indexOf("Categoría");
+    var comercioCol = hdrs.indexOf("Comercio");
+    if (catCol < 0 || comercioCol < 0) continue;
+
+    for (var i = 1; i < data.length; i++) {
+      total++;
+      var cat      = String(data[i][catCol] || "").trim();
+      var comercio = String(data[i][comercioCol] || "").trim();
+      if (cat !== "" || !comercio) continue;
+
+      var newCat = detectCategory(comercio);
+      if (newCat) {
+        sheet.getRange(i + 1, catCol + 1).setValue(newCat);
+        updated++;
+      }
+    }
+  }
+
+  Logger.log("recategorizeAll: " + updated + " de " + total + " filas actualizadas.");
+  return { total: total, updated: updated };
 }
 
 // ── Actualizar categoría de una fila existente ────────────────
@@ -892,7 +1010,7 @@ function parseNotifBancolombia(title, body) {
     return {
       banco:   "Bancolombia",
       tipo:    "Compra",
-      monto:   parseMontoUS(mc[1].replace(/\./g, "").replace(",", ".")),
+      monto:   parseMontoUS(mc[1].replace(/\./g, "")),
       comercio: normalizeComercio(mc[2].trim()),
       tarjeta: "Tarjeta *" + mc[3],
       fecha:   new Date()
@@ -906,7 +1024,7 @@ function parseNotifBancolombia(title, body) {
     return {
       banco:   "Bancolombia",
       tipo:    "Transferencia",
-      monto:   parseMontoUS(mt[1].replace(/\./g, "").replace(",", ".")),
+      monto:   parseMontoUS(mt[1].replace(/\./g, "")),
       comercio: "",
       tarjeta: "",
       fecha:   new Date()
