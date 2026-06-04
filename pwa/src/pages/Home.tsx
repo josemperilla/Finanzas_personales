@@ -26,6 +26,7 @@ interface Props {
   onAdd: () => void;
   onViewAll: () => void;
   onLogout?: () => void;
+  onSettings?: () => void;
   userId: string;
 }
 
@@ -48,7 +49,7 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, userId }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -182,7 +183,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           marginBottom: 20, position: 'relative',
         }}
       >
-        <ProfileAvatar userId={userId} onLogout={onLogout} />
+        <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>Finanzas Personales</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
@@ -450,7 +451,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 }
 
-function ProfileAvatar({ userId, onLogout }: { userId: string; onLogout?: () => void }) {
+function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLogout?: () => void; onSettings?: () => void }) {
   const profile  = getProfile(userId);
   const [failed, setFailed]     = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -507,11 +508,26 @@ function ProfileAvatar({ userId, onLogout }: { userId: string; onLogout?: () => 
                 <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{profile?.name}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
               </div>
+              {onSettings && (
+                <button
+                  onClick={() => { setMenuOpen(false); onSettings(); }}
+                  style={{
+                    width: '100%', padding: '11px 14px', background: 'none', border: 'none',
+                    borderTop: '1px solid var(--line)',
+                    textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500,
+                    color: 'var(--ink)', fontFamily: 'var(--font-body)',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>⚙</span> Ajustes
+                </button>
+              )}
               {onLogout && (
                 <button
                   onClick={() => { setMenuOpen(false); onLogout(); }}
                   style={{
                     width: '100%', padding: '11px 14px', background: 'none', border: 'none',
+                    borderTop: '1px solid var(--line)',
                     textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500,
                     color: '#b91c1c', fontFamily: 'var(--font-body)',
                     display: 'flex', alignItems: 'center', gap: 8,

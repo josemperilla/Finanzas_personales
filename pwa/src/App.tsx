@@ -8,6 +8,7 @@ import { Analisis } from './pages/Analisis';
 import { Chat } from './pages/Chat';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
+import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
@@ -22,6 +23,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // When userId changes, register it in api.ts and check session
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function App() {
               onAdd={() => setTab('agregar')}
               onViewAll={() => setTab('historial')}
               onLogout={handleSwitchProfile}
+              onSettings={() => setShowSettings(true)}
               userId={userId}
             />
           )}
@@ -179,6 +182,9 @@ export default function App() {
         )}
         {userId && !unlocked && (
           <PinLock key="pin" userId={userId} onUnlock={handleUnlock} onSwitchProfile={handleSwitchProfile} />
+        )}
+        {showSettings && userId && (
+          <Settings key="settings" userId={userId} transactions={transactions} onClose={() => setShowSettings(false)} />
         )}
       </AnimatePresence>
     </motion.div>

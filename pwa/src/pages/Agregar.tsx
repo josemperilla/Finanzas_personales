@@ -34,10 +34,14 @@ interface FormData {
   fecha:     string;
 }
 
-const defaultForm: FormData = {
-  monto: '', comercio: '', banco: 'Otro', categoria: '', tipo: 'Compra',
-  fecha: new Date().toISOString().slice(0, 10),
-};
+function makeDefaultForm(): FormData {
+  return {
+    monto: '', comercio: '',
+    banco: localStorage.getItem('fm_default_bank') || 'Otro',
+    categoria: '', tipo: 'Compra',
+    fecha: new Date().toISOString().slice(0, 10),
+  };
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', height: 54, padding: '0 16px',
@@ -52,7 +56,7 @@ const labelStyle: React.CSSProperties = {
 
 export function Agregar({ onSaved, transactions, userId }: Props) {
   const [mode, setMode]         = useState<Mode>('form');
-  const [form, setForm]         = useState<FormData>(defaultForm);
+  const [form, setForm]         = useState<FormData>(makeDefaultForm);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [saveState, setSaveState]   = useState<SaveState>('idle');
@@ -165,7 +169,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         categoria: form.categoria || 'Otro', fecha: form.fecha,
       };
       await saveTransaction(data);
-      setForm(defaultForm);
+      setForm(makeDefaultForm());
       succeeded = true;
       setSaveState('success');
       showToast('Transacción guardada', true);

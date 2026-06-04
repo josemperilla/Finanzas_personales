@@ -165,6 +165,20 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    // Cambiar PIN del usuario
+    if (type === "changePin") {
+      var currentPin = String(payload.currentPin || "");
+      var newPin     = String(payload.newPin     || "");
+      if (!currentPin || !newPin) return jsonResponse({ ok: false, error: "Faltan campos" });
+      var pinKey    = "APP_PIN_" + userId;
+      var storedPin = PropertiesService.getScriptProperties().getProperty(pinKey);
+      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado" });
+      if (currentPin !== storedPin) return jsonResponse({ ok: false, error: "PIN incorrecto" });
+      if (!/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "El nuevo PIN debe tener 4–6 dígitos" });
+      PropertiesService.getScriptProperties().setProperty(pinKey, newPin);
+      return jsonResponse({ ok: true });
+    }
+
     // Chat con el asistente financiero
     if (type === "chat") {
       var question = payload.question || "";
