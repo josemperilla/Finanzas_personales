@@ -2,23 +2,30 @@
 retroactive_import.py — Importa extractos bancarios históricos al Google Sheet.
 
 Flujo:
-  PDF → parser existente (BogotaParser / ItauParser) → RawTransaction
-      → POST al webhook como type:manual
-      → webhook.gs: detectCategory() + appendToSheet()
-      → Google Sheet queda poblado
+  PDF/CSV → parser → RawTransaction
+           → POST al webhook como type:manual
+           → webhook.gs: detectCategory() + appendToSheet()
+           → Google Sheet queda poblado
+
+Variables de entorno requeridas (.env):
+  WEBHOOK_URL  → URL del GAS web app con el _secret ya incluido como query param.
+                 Ej: https://script.google.com/macros/s/.../exec?_secret=TU_SECRET
 
 Uso:
-  # Ver qué se importaría (sin enviar)
-  python tools/retroactive_import.py --bank bogota --file "Extractos_lectura/mayo_bogota.pdf" --dry-run
+  # Ver qué se importaría (sin enviar nada)
+  python tools/retroactive_import.py --bank bogota --file "Extractos_lectura/enero.pdf" --userId jose --dry-run
 
-  # Importar todas las transacciones del PDF
-  python tools/retroactive_import.py --bank itau --file "Extractos_lectura/extracts.pdf"
+  # Importar PDF de Bogotá
+  python tools/retroactive_import.py --bank bogota --file "Extractos_lectura/enero.pdf" --userId jose
+
+  # Importar CSV de Bancolombia
+  python tools/retroactive_import.py --bank bancolombia --file "Extractos_lectura/movimientos.csv" --userId jose
 
   # Filtrar solo un mes específico
-  python tools/retroactive_import.py --bank bogota --file "Extractos_lectura/mayo_bogota.pdf" --month 2026-05
+  python tools/retroactive_import.py --bank bogota --file "..." --userId jose --month 2026-05
 
-  # Delay entre requests (ms) para no saturar el webhook
-  python tools/retroactive_import.py --bank bogota --file "..." --delay 500
+  # Delay entre requests en ms para no saturar el webhook (default: 300)
+  python tools/retroactive_import.py --bank bogota --file "..." --userId jose --delay 500
 """
 
 import argparse
@@ -32,11 +39,11 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
-# Agregar raíz del proyecto al path para los imports relativos de los parsers
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tools.ingest.parsers.bogota_parser import BogotaParser
 from tools.ingest.parsers.itau_parser import ItauParser
+from tools.ingest.parsers.bancolombia_parser import BancolombiaParser
 from tools.ingest.parsers.base_parser import RawTransaction
 from tools.ingest.merchant_cleaner import clean_merchant
 
@@ -46,40 +53,51 @@ load_dotenv()
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 
+PARSERS = {
+    "bogota":      BogotaParser,
+    "itau":        ItauParser,
+    "bancolombia": BancolombiaParser,
+}
+
 BANK_DISPLAY = {
-    "bogota": "Bogotá",
-    "itau":   "Itaú",
+    "bogota":      "Bogotá",
+    "itau":        "Itaú",
+    "bancolombia": "Bancolombia",
 }
 
 # ── Conversión RawTransaction → payload manual ─────────────────────────────────
 
-def raw_to_payload(tx: RawTransaction, bank: str) -> Optional[dict]:
+def raw_to_payload(tx: RawTransaction, bank: str, user_id: str) -> Optional[dict]:
     """
-    Convierte un RawTransaction del parser a un payload de tipo 'manual'
-    que el webhook entiende. Devuelve None si la transacción debe saltarse.
+    Convierte un RawTransaction a un payload de tipo 'manual' para el webhook.
+    Devuelve None si la transacción debe saltarse (monto <= 0, fecha inválida,
+    o es un pago/abono al crédito).
     """
-    parser = BogotaParser() if bank == "bogota" else ItauParser()
+    parser = PARSERS[bank]()
 
-    # Parsear monto
     monto = parser.parse_cop_amount(tx.amount_raw)
     if monto <= 0:
-        return None  # Saltar créditos / pagos
+        return None
 
-    # Parsear fecha
+    # Saltar créditos / pagos a la tarjeta
+    tx_type = (tx.transaction_type_raw or "").lower()
+    if tx_type in ("c", "credito", "credit", "abono", "pago"):
+        return None
+
     fecha_obj = parser.parse_date(tx.date_raw)
     if fecha_obj is None:
         return None
-    fecha_str = fecha_obj.strftime("%Y-%m-%d")
 
     return {
         "type":      "manual",
+        "userId":    user_id,
         "banco":     BANK_DISPLAY.get(bank, bank.title()),
-        "fecha":     fecha_str,
+        "fecha":     fecha_obj.strftime("%Y-%m-%d"),
         "tipo":      "Compra",
         "monto":     round(monto),
         "comercio":  clean_merchant(tx.description, bank),
-        "tarjeta":   "",
-        "categoria": "",   # el webhook corre detectCategory() sobre el comercio
+        "tarjeta":   tx.extra.get("tarjeta", ""),
+        "categoria": "",
     }
 
 # ── Filtro de mes ──────────────────────────────────────────────────────────────
@@ -87,15 +105,16 @@ def raw_to_payload(tx: RawTransaction, bank: str) -> Optional[dict]:
 def matches_month(payload: dict, month_filter: Optional[str]) -> bool:
     if not month_filter:
         return True
-    # month_filter = "2026-05"
     return payload["fecha"].startswith(month_filter)
 
 # ── Envío al webhook ───────────────────────────────────────────────────────────
 
 def post_transaction(payload: dict) -> dict:
     if not WEBHOOK_URL:
-        raise RuntimeError("WEBHOOK_URL no configurada en .env")
-
+        raise RuntimeError(
+            "WEBHOOK_URL no está configurada en .env\n"
+            "  Agrega: WEBHOOK_URL=https://script.google.com/macros/s/.../exec?_secret=TU_SECRET"
+        )
     resp = requests.post(
         WEBHOOK_URL,
         headers={"Content-Type": "text/plain"},
@@ -108,63 +127,72 @@ def post_transaction(payload: dict) -> dict:
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def main():
-    ap = argparse.ArgumentParser(description="Importa un extracto PDF al Google Sheet.")
-    ap.add_argument("--bank",     required=True, choices=["bogota", "itau"], help="Banco del extracto")
-    ap.add_argument("--file",     required=True, help="Ruta al PDF del extracto")
-    ap.add_argument("--month",    default=None,  help="Filtrar por mes, ej: 2026-05 (opcional)")
-    ap.add_argument("--dry-run",  action="store_true", help="Solo muestra las transacciones, no envía nada")
-    ap.add_argument("--delay",    type=int, default=300, help="Delay entre requests en ms (default: 300)")
+    ap = argparse.ArgumentParser(description="Importa extractos bancarios (PDF/CSV) al Google Sheet.")
+    ap.add_argument("--bank",    required=True, choices=list(PARSERS.keys()),
+                    help="Banco del extracto: bogota | itau | bancolombia")
+    ap.add_argument("--file",    required=True, help="Ruta al archivo (PDF o CSV)")
+    ap.add_argument("--userId",  required=True, help="Usuario destino: jose | dani")
+    ap.add_argument("--month",   default=None,  help="Filtrar por mes, ej: 2026-05 (opcional)")
+    ap.add_argument("--dry-run", action="store_true", help="Solo muestra las transacciones, no envía nada")
+    ap.add_argument("--delay",   type=int, default=300,
+                    help="Delay entre requests en ms (default: 300)")
     args = ap.parse_args()
 
-    pdf_path = Path(args.file)
-    if not pdf_path.exists():
-        print(f"✗ Archivo no encontrado: {pdf_path}")
+    file_path = Path(args.file)
+    if not file_path.exists():
+        print(f"✗ Archivo no encontrado: {file_path}")
         sys.exit(1)
 
-    # ── 1. Parsear PDF ──────────────────────────────────────────────────────────
-    print(f"\n{'─'*55}")
-    print(f"  Banco : {BANK_DISPLAY.get(args.bank, args.bank)}")
-    print(f"  Archivo: {pdf_path.name}")
+    # ── 1. Parsear archivo ─────────────────────────────────────────────────────
+    print(f"\n{'─'*58}")
+    print(f"  Banco   : {BANK_DISPLAY.get(args.bank, args.bank)}")
+    print(f"  Archivo : {file_path.name}")
+    print(f"  Usuario : {args.userId}")
     if args.month:
-        print(f"  Filtro : {args.month}")
+        print(f"  Filtro  : {args.month}")
     if args.dry_run:
-        print("  Modo   : DRY-RUN (no se enviará nada)")
-    print(f"{'─'*55}\n")
+        print("  Modo    : DRY-RUN (no se enviará nada)")
+    print(f"{'─'*58}\n")
 
-    parser = BogotaParser() if args.bank == "bogota" else ItauParser()
+    parser = PARSERS[args.bank]()
     try:
-        raw_txs: list[RawTransaction] = parser.extract(str(pdf_path))
+        raw_txs: list[RawTransaction] = parser.extract(str(file_path))
     except Exception as e:
-        print(f"✗ Error al parsear el PDF: {e}")
+        print(f"✗ Error al parsear el archivo: {e}")
         sys.exit(1)
 
-    print(f"  Transacciones en el PDF: {len(raw_txs)}")
+    print(f"  Transacciones en el archivo : {len(raw_txs)}")
 
-    # ── 2. Convertir + filtrar ──────────────────────────────────────────────────
+    # ── 2. Convertir + filtrar ─────────────────────────────────────────────────
     payloads = []
+    skipped  = 0
     for tx in raw_txs:
-        payload = raw_to_payload(tx, args.bank)
+        payload = raw_to_payload(tx, args.bank, args.userId)
         if payload is None:
+            skipped += 1
             continue
         if not matches_month(payload, args.month):
+            skipped += 1
             continue
         payloads.append(payload)
 
-    print(f"  A importar             : {len(payloads)}\n")
+    print(f"  A importar                  : {len(payloads)}")
+    print(f"  Saltadas (pagos/créditos)   : {skipped}\n")
 
     if not payloads:
-        print("  Sin transacciones para importar. Verifica el filtro de mes o el PDF.")
+        print("  Sin transacciones para importar.")
+        print("  Verifica el filtro de mes o el formato del archivo.")
         return
 
-    # ── 3. Preview / envío ──────────────────────────────────────────────────────
-    ok_count = 0
+    # ── 3. Preview / envío ────────────────────────────────────────────────────
+    ok_count  = 0
     err_count = 0
 
     for i, payload in enumerate(payloads, 1):
-        fecha   = payload["fecha"]
-        monto   = f"${payload['monto']:,.0f}".replace(",", ".")
+        fecha    = payload["fecha"]
+        monto    = f"${payload['monto']:,.0f}".replace(",", ".")
         comercio = payload["comercio"][:35]
-        prefix  = f"  [{i:>3}/{len(payloads)}] {fecha}  {monto:>12}  {comercio:<36}"
+        prefix   = f"  [{i:>3}/{len(payloads)}] {fecha}  {monto:>12}  {comercio:<36}"
 
         if args.dry_run:
             print(f"{prefix}  (dry-run)")
@@ -185,13 +213,13 @@ def main():
         if args.delay > 0:
             time.sleep(args.delay / 1000)
 
-    # ── 4. Resumen ──────────────────────────────────────────────────────────────
+    # ── 4. Resumen ────────────────────────────────────────────────────────────
     if not args.dry_run:
-        print(f"\n{'─'*55}")
+        print(f"\n{'─'*58}")
         print(f"  ✓ Enviadas OK : {ok_count}")
         if err_count:
             print(f"  ✗ Con errores : {err_count}")
-        print(f"{'─'*55}\n")
+        print(f"{'─'*58}\n")
     else:
         print(f"\n  [dry-run] {len(payloads)} transacciones listas para importar.")
         print(f"  Ejecuta sin --dry-run para enviarlas.\n")
