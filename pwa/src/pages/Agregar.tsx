@@ -13,8 +13,16 @@ interface Props {
   userId: string;
 }
 
-type Mode       = 'form' | 'voice';
+type Mode       = 'form' | 'voice' | 'split';
 type VoiceState = 'idle' | 'recording' | 'processing' | 'prefilled';
+
+interface SplitCalc {
+  total:  string;
+  people: number;
+  tipPct: number;
+}
+const defaultSplit: SplitCalc = { total: '', people: 2, tipPct: 0 };
+const TIP_OPTIONS = [0, 5, 10, 15, 20];
 type SaveState  = 'idle' | 'saving' | 'success';
 
 interface FormData {
@@ -52,7 +60,8 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const [budgetAlert, setBudgetAlert] = useState<{ cat: string; pct: number } | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSugg, setShowSugg]       = useState(false);
-  const suggRef = useRef<boolean>(false); // true while touching suggestion list
+  const suggRef = useRef<boolean>(false);
+  const [splitCalc, setSplitCalc]     = useState<SplitCalc>(defaultSplit);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -171,6 +180,13 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     }
   }
 
+  function handleRegisterMyPart(perPerson: number) {
+    setForm(f => ({ ...f, monto: String(perPerson), categoria: f.categoria || 'Comida' }));
+    setMode('form');
+    setPrefillGlow(true);
+    setTimeout(() => setPrefillGlow(false), 1500);
+  }
+
   function startVoice() {
     type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
     const Ctor: SpeechRecognitionCtor | undefined =
@@ -220,15 +236,15 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 
       {/* Mode toggle */}
       <motion.div style={{ display: 'flex', background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20 }}>
-        {(['form', 'voice'] as Mode[]).map(m => (
+        {(['form', 'split', 'voice'] as Mode[]).map(m => (
           <motion.button key={m} whileTap={{ scale: 0.96 }} onClick={() => setMode(m)} style={{
-            flex: 1, padding: '9px', borderRadius: 13, border: 'none', cursor: 'pointer',
-            fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--font-body)',
+            flex: 1, padding: '9px 6px', borderRadius: 13, border: 'none', cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-body)',
             background: mode === m ? 'var(--blue-700)' : 'transparent',
             color: mode === m ? '#fff' : 'var(--muted)',
             transition: 'all 0.15s ease',
           }}>
-            {m === 'form' ? 'Formulario' : 'Voz'}
+            {m === 'form' ? 'Manual' : m === 'split' ? 'Dividir' : 'Voz'}
           </motion.button>
         ))}
       </motion.div>
@@ -356,6 +372,106 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           </motion.button>
         </motion.div>
       )}
+
+      {/* SPLIT CALCULATOR */}
+      {mode === 'split' && (() => {
+        const splitTotal = Number(splitCalc.total) || 0;
+        const withTip    = Math.round(splitTotal * (1 + splitCalc.tipPct / 100));
+        const perPerson  = splitCalc.people > 0 ? Math.round(withTip / splitCalc.people) : 0;
+        return (
+          <motion.div key="split" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8 }} transition={quickEase}
+            style={{ background: '#fff', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {/* Total input */}
+            <div>
+              <label style={labelStyle}>Total de la cuenta (COP)</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: splitCalc.total ? 'var(--blue-600)' : 'var(--muted-2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none' }}>$</span>
+                <input
+                  type="text" inputMode="numeric" placeholder="0"
+                  value={splitCalc.total ? Number(splitCalc.total).toLocaleString('es-CO') : ''}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    setSplitCalc(s => ({ ...s, total: digits }));
+                  }}
+                  style={{ ...inputStyle, paddingLeft: 30, fontFamily: 'var(--font-mono)', fontWeight: 600 }}
+                  onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}
+                />
+              </div>
+            </div>
+
+            {/* People + Tip in one row */}
+            <div style={{ display: 'flex', gap: 16 }}>
+              {/* People picker */}
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Personas</label>
+                <div style={{ display: 'flex', alignItems: 'center', height: 54, background: '#fff', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden' }}>
+                  <motion.button whileTap={{ scale: 0.88 }} onClick={() => setSplitCalc(s => ({ ...s, people: Math.max(1, s.people - 1) }))} style={{
+                    width: 50, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
+                    fontSize: 22, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'var(--font-body)', WebkitTapHighlightColor: 'transparent',
+                  }}>−</motion.button>
+                  <span style={{ flex: 1, textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
+                    {splitCalc.people}
+                  </span>
+                  <motion.button whileTap={{ scale: 0.88 }} onClick={() => setSplitCalc(s => ({ ...s, people: Math.min(20, s.people + 1) }))} style={{
+                    width: 50, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
+                    fontSize: 22, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'var(--font-body)', WebkitTapHighlightColor: 'transparent',
+                  }}>+</motion.button>
+                </div>
+              </div>
+
+              {/* Tip % */}
+              <div style={{ flex: 1.6 }}>
+                <label style={labelStyle}>Propina</label>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {TIP_OPTIONS.map(pct => (
+                    <motion.button key={pct} whileTap={{ scale: 0.9 }} onClick={() => setSplitCalc(s => ({ ...s, tipPct: pct }))} style={{
+                      flex: '1 0 auto', height: 42, border: `1.5px solid ${splitCalc.tipPct === pct ? 'var(--blue-600)' : 'var(--line)'}`,
+                      borderRadius: 10, background: splitCalc.tipPct === pct ? 'var(--blue-50)' : '#fff',
+                      color: splitCalc.tipPct === pct ? 'var(--blue-700)' : 'var(--muted)',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}>{pct}%</motion.button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Result card */}
+            <motion.div
+              animate={{ scale: perPerson > 0 ? 1 : 0.97, opacity: perPerson > 0 ? 1 : 0.45 }}
+              transition={quickEase}
+              style={{ background: 'var(--blue-50)', border: '1.5px solid var(--blue-100)', borderRadius: 'var(--r-xl)', padding: '16px 18px' }}>
+              <div style={{ fontSize: 11, color: 'var(--blue-700)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                Tu parte {splitCalc.tipPct > 0 ? `(con ${splitCalc.tipPct}% propina)` : ''}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 28, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+                {perPerson > 0 ? `$${perPerson.toLocaleString('es-CO')}` : '—'}
+              </div>
+              {splitCalc.tipPct > 0 && splitTotal > 0 && (
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                  Total con propina: ${withTip.toLocaleString('es-CO')}
+                </div>
+              )}
+            </motion.div>
+
+            {/* Register button */}
+            <motion.button whileTap={{ scale: perPerson > 0 ? 0.98 : 1 }}
+              onClick={() => perPerson > 0 && handleRegisterMyPart(perPerson)}
+              style={{
+                width: '100%', height: 54, background: perPerson > 0 ? 'var(--blue-700)' : 'var(--line)',
+                border: 'none', borderRadius: 'var(--r-lg)', color: perPerson > 0 ? '#fff' : 'var(--muted)',
+                fontSize: 15, fontWeight: 600, cursor: perPerson > 0 ? 'pointer' : 'default',
+                fontFamily: 'var(--font-body)', transition: 'all 0.15s ease',
+              }}>
+              Registrar mi parte →
+            </motion.button>
+          </motion.div>
+        );
+      })()}
 
       {/* VOICE */}
       {mode === 'voice' && (
