@@ -513,13 +513,12 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
                   onClick={() => { setMenuOpen(false); onSettings(); }}
                   style={{
                     width: '100%', padding: '11px 14px', background: 'none', border: 'none',
-                    borderTop: '1px solid var(--line)',
-                    textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500,
-                    color: 'var(--ink)', fontFamily: 'var(--font-body)',
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer',
+                    fontSize: 13.5, fontWeight: 500, color: 'var(--ink)',
+                    fontFamily: 'var(--font-body)',
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>⚙</span> Ajustes
+                  Ajustes
                 </button>
               )}
               {onLogout && (
@@ -527,13 +526,12 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
                   onClick={() => { setMenuOpen(false); onLogout(); }}
                   style={{
                     width: '100%', padding: '11px 14px', background: 'none', border: 'none',
-                    borderTop: '1px solid var(--line)',
-                    textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500,
-                    color: '#b91c1c', fontFamily: 'var(--font-body)',
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer',
+                    fontSize: 13.5, fontWeight: 500, color: '#b91c1c',
+                    fontFamily: 'var(--font-body)',
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>↩</span> Cerrar sesión
+                  Cerrar sesión
                 </button>
               )}
             </motion.div>
