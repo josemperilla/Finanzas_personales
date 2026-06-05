@@ -12,7 +12,7 @@ import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
-import { getTheme, applyTheme, applyAccessibleMode } from './lib/theme';
+import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode } from './lib/theme';
 import { fetchProfiles, Profile } from './lib/profiles';
 import { SetupPin } from './components/SetupPin';
 import { ImportarExtracto } from './components/ImportarExtracto';
@@ -37,6 +37,7 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [accessible, setAccessible] = useState(false);
 
   // When userId changes, register it in api.ts and check session
   useEffect(() => {
@@ -122,6 +123,7 @@ export default function App() {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
       applyAccessibleMode(userId);
+      setAccessible(getAccessibleMode(userId));
       setUnlocked(true);
     }
   }, [userId]);
@@ -133,7 +135,13 @@ export default function App() {
     setUnlocked(false);
     setNeedsSetupPin(false);
     setTransactions([]);
+    setAccessible(false);
   }, []);
+
+  // Redirect out of tabs that don't exist in accessible mode
+  useEffect(() => {
+    if (accessible && (tab === 'analisis' || tab === 'chat')) setTab('home');
+  }, [accessible, tab]);
 
   return (
     <motion.div
@@ -195,7 +203,7 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} />
 
       <AnimatePresence>
         {!userId && (
@@ -241,7 +249,10 @@ export default function App() {
           </motion.div>
         )}
         {showSettings && userId && (
-          <Settings key="settings" userId={userId} transactions={transactions} onClose={() => setShowSettings(false)} />
+          <Settings key="settings" userId={userId} transactions={transactions} onClose={() => {
+            setShowSettings(false);
+            setAccessible(getAccessibleMode(userId));
+          }} />
         )}
       </AnimatePresence>
     </motion.div>
