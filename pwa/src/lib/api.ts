@@ -227,8 +227,6 @@ export async function importTransactions(
   return { ok, errors };
 }
 
-// ─────────────────────────────────────────────────────────────
-
 export async function askChat(question: string, context: object): Promise<string> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
