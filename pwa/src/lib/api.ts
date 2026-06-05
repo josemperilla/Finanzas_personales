@@ -37,6 +37,8 @@ export interface Transaction {
   'Tarjeta/Cuenta': string;
   Categoría: string;
   Nota?: string;
+  SMS_Original?: string;
+  Fuente?: string; // "sms" | "notification" | "email" | "manual"
 }
 
 export interface ManualTransaction {

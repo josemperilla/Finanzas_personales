@@ -951,6 +951,225 @@ function jsonResponse(obj) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// GMAIL EMAIL CAPTURE — canal para Nequi, Rappi, dale!
+// ═══════════════════════════════════════════════════════════════
+//
+// Requiere: activar el servicio "Gmail" en Apps Script
+// (Servicios → Gmail API → Agregar)
+//
+// Setup:
+//   1. Ejecuta setupGmailTrigger() UNA VEZ desde el editor.
+//   2. GAS procesará el Gmail del propietario del script (Jose) cada 5 min.
+//   3. Dani necesita una copia del script en su propia cuenta de Google.
+//
+// Senders conocidos (actualizar con direcciones reales verificadas):
+var GMAIL_SENDERS = {
+  nequi:    ["no-reply@nequi.com", "noreply@nequi.com"],
+  rappi:    ["noreply@rappi.com", "no-reply@rappi.com", "soporte@rappi.com"],
+  dale:     ["notificaciones@dale.com.co", "noreply@dale.com.co"],
+  davivienda: ["notificacionesdigitales@davivienda.com"],
+  bancolombia: ["noreply@notificaciones.bancolombia.com.co"],
+};
+
+// ── Procesar emails bancarios nuevos ──────────────────────────
+// Llamado por el trigger cada 5 minutos.
+function processGmailTransactions() {
+  var props   = PropertiesService.getScriptProperties();
+  var userId  = props.getProperty("GMAIL_USER_ID") || "jose";
+
+  // Build sender filter from all known senders
+  var allSenders = [];
+  Object.keys(GMAIL_SENDERS).forEach(function(bank) {
+    allSenders = allSenders.concat(GMAIL_SENDERS[bank]);
+  });
+  var fromFilter = "from:(" + allSenders.join(" OR ") + ")";
+
+  // Only look at emails from the last 24 hours to keep it fast
+  var query = fromFilter + " newer_than:1d";
+
+  var threads;
+  try {
+    threads = GmailApp.search(query, 0, 50);
+  } catch(e) {
+    Logger.log("Gmail error: " + e.message);
+    return;
+  }
+
+  // Label for processed emails — create if not exists
+  var labelName = "Finanzas/Procesado";
+  var label;
+  try {
+    label = GmailApp.getUserLabelByName(labelName) || GmailApp.createLabel(labelName);
+  } catch(e) {
+    label = null; // non-fatal
+  }
+
+  var count = 0;
+  for (var i = 0; i < threads.length; i++) {
+    var thread = threads[i];
+    // Skip already-labeled threads
+    if (label && thread.getLabels().some(function(l) { return l.getName() === labelName; })) continue;
+
+    var messages = thread.getMessages();
+    for (var j = 0; j < messages.length; j++) {
+      var msg     = messages[j];
+      var from    = msg.getFrom().toLowerCase();
+      var subject = msg.getSubject();
+      var body    = msg.getPlainBody() || msg.getBody().replace(/<[^>]+>/g, " ");
+
+      // Determine bank from sender
+      var bank = _detectBankFromEmail(from);
+      if (!bank) continue;
+
+      var parsed = _parseEmailTransaction(bank, subject, body);
+      if (!parsed) {
+        // Save raw for parser improvement
+        appendToSheet({
+          timestamp:    new Date(),
+          fecha:        new Date(),
+          banco:        bank.charAt(0).toUpperCase() + bank.slice(1),
+          tipo:         "NO RECONOCIDO",
+          monto:        0,
+          comercio:     subject.slice(0, 50),
+          tarjeta:      "",
+          categoria:    "",
+          sms_original: "EMAIL | " + subject + " | " + body.slice(0, 300),
+          fuente:       "email"
+        }, userId);
+        count++;
+        continue;
+      }
+
+      if (parsed.reversal) {
+        reverseTransaction(parsed, userId);
+      } else {
+        parsed.timestamp    = new Date();
+        parsed.categoria    = detectCategory(parsed.comercio);
+        parsed.sms_original = "EMAIL | " + subject + " | " + body.slice(0, 300);
+        parsed.fuente       = "email";
+        appendToSheet(parsed, userId);
+      }
+      count++;
+    }
+
+    if (label) thread.addLabel(label);
+  }
+
+  Logger.log("processGmailTransactions: " + count + " emails procesados.");
+}
+
+// ── Detectar banco desde el campo From ───────────────────────
+function _detectBankFromEmail(from) {
+  var keys = Object.keys(GMAIL_SENDERS);
+  for (var i = 0; i < keys.length; i++) {
+    var senders = GMAIL_SENDERS[keys[i]];
+    for (var j = 0; j < senders.length; j++) {
+      if (from.indexOf(senders[j]) !== -1) return keys[i];
+    }
+  }
+  return null;
+}
+
+// ── Parsear cuerpo del email según banco ─────────────────────
+// Retorna el mismo objeto que los parsers SMS, o null si no matchea.
+// Actualizar con patrones reales una vez verificados los emails.
+function _parseEmailTransaction(bank, subject, body) {
+  var text = (subject + " " + body).replace(/\s+/g, " ");
+
+  if (bank === "nequi") {
+    // "Enviaste $23.000 a Juan Pérez" / "Recibiste $50.000 de María"
+    var rePago = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
+    var mp = text.match(rePago);
+    if (mp) return { banco: "Nequi", tipo: "Transferencia", monto: _parseCopEmail(mp[1]), comercio: mp[2].trim(), tarjeta: "", fecha: new Date() };
+
+    var reRecibio = /[Rr]ecibiste\s+\$\s*([\d.,]+)\s+de\s+(.+?)(?:\.|$)/;
+    var mr = text.match(reRecibio);
+    if (mr) return { banco: "Nequi", tipo: "Ingreso", monto: _parseCopEmail(mr[1]), comercio: mr[2].trim(), tarjeta: "", fecha: new Date() };
+
+    var reCompra = /[Cc]ompraste?\s+(?:en\s+)?(.+?)\s+por\s+\$\s*([\d.,]+)/;
+    var mc = text.match(reCompra);
+    if (mc) return { banco: "Nequi", tipo: "Compra", monto: _parseCopEmail(mc[2]), comercio: normalizeComercio(mc[1].trim()), tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "rappi") {
+    // "Tu pedido de $45.900 fue pagado" / "Pagaste $45.900 en Rappi"
+    var reRappi = /\$\s*([\d.,]+)/;
+    var mr2 = text.match(reRappi);
+    if (mr2) return { banco: "Rappi", tipo: "Compra", monto: _parseCopEmail(mr2[1]), comercio: "Rappi", tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "dale") {
+    var reDale = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
+    var md = text.match(reDale);
+    if (md) return { banco: "dale!", tipo: "Transferencia", monto: _parseCopEmail(md[1]), comercio: md[2].trim(), tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "davivienda") {
+    var reDAV = /[Cc]ompra.*?\$([\d,.]+).*?[Tt]arjeta\s+\*(\d+).*?[Ll]ugar\s+(.+?)(?:\.|$)/;
+    var mdav = text.match(reDAV);
+    if (mdav) return { banco: "Davivienda", tipo: "Compra", monto: _parseCopEmail(mdav[1]), tarjeta: "Tarjeta *" + mdav[2], comercio: normalizeComercio(mdav[3].trim()), fecha: new Date() };
+  }
+
+  if (bank === "bancolombia") {
+    var reBCO = /\$\s*([\d,.]+)/;
+    var mbco = text.match(reBCO);
+    if (mbco) {
+      var monto = _parseCopEmail(mbco[1]);
+      if (monto > 0) return { banco: "Bancolombia", tipo: "Compra", monto: monto, comercio: "", tarjeta: "", fecha: new Date() };
+    }
+  }
+
+  return null;
+}
+
+// ── Parser de montos desde email (formato colombiano) ─────────
+function _parseCopEmail(str) {
+  if (!str) return 0;
+  var s = String(str).replace(/\s/g, "");
+  // "1.234.567,89" → European; "1,234.56" → US
+  if (s.indexOf(",") !== -1 && s.indexOf(".") !== -1) {
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      // European: 1.234,56
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // US: 1,234.56
+      s = s.replace(/,/g, "");
+    }
+  } else {
+    s = s.replace(/[.,]/g, "");
+  }
+  return parseFloat(s) || 0;
+}
+
+// ── Configurar trigger de Gmail (ejecutar UNA VEZ) ────────────
+function setupGmailTrigger() {
+  // Eliminar triggers existentes de la misma función
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "processGmailTransactions") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // Crear trigger cada 5 minutos
+  ScriptApp.newTrigger("processGmailTransactions")
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  Logger.log("Trigger Gmail configurado: cada 5 minutos.");
+}
+
+// ── Desactivar trigger de Gmail ───────────────────────────────
+function removeGmailTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "processGmailTransactions") {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  Logger.log("Triggers Gmail eliminados: " + removed);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PUSH NOTIFICATION CAPTURE — nuevo canal, no modifica SMS path
 // ═══════════════════════════════════════════════════════════════
 

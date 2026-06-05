@@ -5,6 +5,7 @@ import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
+import { CoverturaMeter } from '../components/CoverturaMeter';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -236,6 +237,11 @@ export function Settings({ userId, transactions, onClose }: Props) {
                 Se usa como valor por defecto al agregar transacciones manualmente.
               </p>
             </div>
+          </Section>
+
+          {/* ── Captura ── */}
+          <Section title="Captura de transacciones">
+            <CoverturaMeter transactions={transactions} />
           </Section>
 
           {/* ── Datos ── */}
