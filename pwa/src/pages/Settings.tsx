@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin, listUsers, createUser } from '../lib/api';
 import { exportToCSV } from '../lib/export';
-import { getProfile } from '../lib/profiles';
+import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
@@ -31,6 +31,35 @@ export function Settings({ userId, transactions, onClose }: Props) {
   );
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
   const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
+  const [nickname, setNickname] = useState(() => getUserNickname(userId));
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => getUserAvatar(userId));
+
+  function handleNicknameSave(value: string) {
+    const trimmed = value.trim();
+    setNickname(trimmed);
+    setUserNickname(userId, trimmed);
+  }
+
+  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d')!;
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(objectUrl);
+      setAvatarUrl(dataUrl);
+      setUserAvatar(userId, dataUrl);
+    };
+    img.src = objectUrl;
+  }
 
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
@@ -165,18 +194,67 @@ export function Settings({ userId, transactions, onClose }: Props) {
             background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 16px',
             boxShadow: 'var(--shadow-card)',
           }}>
-            {profile?.avatar ? (
-              <img src={profile.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center', flexShrink: 0 }} />
+            {(avatarUrl || profile?.avatar) ? (
+              <img src={avatarUrl || profile!.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center', flexShrink: 0 }} />
             ) : (
               <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--grad-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card)', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-display)', flexShrink: 0 }}>
-                {profile?.initial ?? '?'}
+                {profile?.initial ?? userId.charAt(0).toUpperCase()}
               </div>
             )}
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{profile?.name}</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{nickname || profile?.name || userId}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Sesión activa · {userId}</div>
             </div>
           </div>
+
+          {/* ── Mi perfil ── */}
+          <Section title="Mi perfil">
+            <div style={{ paddingTop: 16, paddingBottom: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+              {/* Avatar */}
+              <div style={{ position: 'relative' }}>
+                {(avatarUrl || profile?.avatar) ? (
+                  <img src={avatarUrl || profile!.avatar} alt="" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+                ) : (
+                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--grad-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card)', fontWeight: 800, fontSize: 28, fontFamily: 'var(--font-display)' }}>
+                    {profile?.initial ?? userId.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <label style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 26, height: 26, borderRadius: '50%',
+                  background: 'var(--blue-700)', border: '2px solid var(--card)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: 13,
+                }}>
+                  ✎
+                  <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                </label>
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', textAlign: 'center' }}>
+                Toca el lápiz para cambiar tu foto
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 14 }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginBottom: 6 }}>Nombre visible</div>
+              <input
+                type="text"
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                onBlur={e => handleNicknameSave(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                placeholder={profile?.name || userId}
+                style={{
+                  width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px',
+                  border: '1.5px solid var(--line)', borderRadius: 10,
+                  background: 'var(--surface)', color: 'var(--ink)', fontSize: 'var(--text-base)',
+                  fontFamily: 'var(--font-body)', outline: 'none',
+                }}
+              />
+              <p style={{ margin: '6px 0 0', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+                Solo visible para ti. No cambia tu ID de usuario ({userId}).
+              </p>
+            </div>
+          </Section>
 
           {/* ── Cuenta ── */}
           <Section title="Cuenta">

@@ -16,6 +16,30 @@ export function getProfile(id: string): Profile | undefined {
   return PROFILES.find(p => p.id === id);
 }
 
+// ── Personalización por usuario (localStorage) ────────────────
+
+export function getUserNickname(userId: string): string {
+  return localStorage.getItem(`fm_nickname_${userId}`) || '';
+}
+export function setUserNickname(userId: string, name: string): void {
+  localStorage.setItem(`fm_nickname_${userId}`, name.trim());
+}
+
+export function getUserAvatar(userId: string): string | null {
+  return localStorage.getItem(`fm_avatar_${userId}`);
+}
+export function setUserAvatar(userId: string, dataUrl: string): void {
+  localStorage.setItem(`fm_avatar_${userId}`, dataUrl);
+}
+
+export function getDisplayName(userId: string): string {
+  const nick = getUserNickname(userId);
+  if (nick) return nick;
+  const profile = PROFILES.find(p => p.id === userId);
+  if (profile) return profile.name;
+  return userId.charAt(0).toUpperCase() + userId.slice(1);
+}
+
 // ── Carga dinámica de usuarios desde el webhook ───────────────
 // Usa el array estático como fallback si el webhook falla.
 export async function fetchProfiles(): Promise<Profile[]> {

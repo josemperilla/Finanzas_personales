@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PROFILES, Profile } from '../lib/profiles';
+import { PROFILES, Profile, getUserNickname, getUserAvatar } from '../lib/profiles';
 
 interface Props {
   onSelect: (userId: string) => void;
@@ -37,6 +37,9 @@ export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) 
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
         {displayProfiles.map(profile => {
+          const customAvatar = getUserAvatar(profile.id);
+          const displayName = getUserNickname(profile.id) || profile.name;
+          const avatarSrc = customAvatar || profile.avatar;
           const avatarFailed = failedAvatars.has(profile.id);
           return (
             <motion.button
@@ -53,24 +56,24 @@ export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) 
             >
               <div style={{
                 width: 88, height: 88, borderRadius: '50%',
-                background: avatarFailed ? 'var(--grad-brand)' : 'var(--card)',
+                background: (!avatarSrc || avatarFailed) ? 'var(--grad-brand)' : 'var(--card)',
                 border: '3px solid #fff',
                 boxShadow: '0 8px 28px rgba(15,23,42,0.14)',
                 overflow: 'hidden',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
               }}>
-                {avatarFailed ? profile.initial : (
+                {(!avatarSrc || avatarFailed) ? profile.initial : (
                   <img
-                    src={profile.avatar}
-                    alt={profile.name}
+                    src={avatarSrc}
+                    alt={displayName}
                     onError={() => setFailedAvatars(prev => new Set([...prev, profile.id]))}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
                   />
                 )}
               </div>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>
-                {profile.name}
+                {displayName}
               </span>
             </motion.button>
           );

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef } from 'react';
 import { Transaction } from '../lib/api';
-import { getProfile } from '../lib/profiles';
+import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
@@ -454,6 +454,9 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
 function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLogout?: () => void; onSettings?: () => void }) {
   const profile  = getProfile(userId);
+  const customAvatar = getUserAvatar(userId);
+  const displayName = getUserNickname(userId) || profile?.name || userId;
+  const avatarSrc = customAvatar || profile?.avatar;
   const [failed, setFailed]     = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -464,7 +467,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
         onClick={() => setMenuOpen(v => !v)}
         style={{
           width: 42, height: 42, borderRadius: '50%',
-          background: failed ? 'var(--grad-brand)' : 'var(--card)',
+          background: (failed || !avatarSrc) ? 'var(--grad-brand)' : 'var(--card)',
           border: '2px solid #fff',
           boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -472,12 +475,12 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
           color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
         }}
       >
-        {failed || !profile?.avatar ? (
-          profile?.initial ?? '?'
+        {(failed || !avatarSrc) ? (
+          profile?.initial ?? userId.charAt(0).toUpperCase()
         ) : (
           <img
-            src={profile.avatar}
-            alt={profile.name ?? 'Perfil'}
+            src={avatarSrc}
+            alt={displayName}
             onError={() => setFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
           />
@@ -506,7 +509,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
               }}
             >
               <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid var(--line)' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{profile?.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{displayName}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
               </div>
               {onSettings && (
