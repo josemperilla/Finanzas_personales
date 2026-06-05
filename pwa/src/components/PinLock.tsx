@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { validatePin } from '../lib/api';
 import { softSpring, quickEase } from '../lib/motion';
-import { getProfile } from '../lib/profiles';
+import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
 
 const MAX_ATTEMPTS  = 5;
 const LOCKOUT_MS    = [0, 0, 0, 0, 0, 30_000, 300_000, 1_800_000]; // 30s, 5m, 30m after 5/6/7+ fails
@@ -28,6 +28,8 @@ function saveLockoutState(userId: string, s: { attempts: number; lockedUntil: nu
 
 export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
   const profile = getProfile(userId);
+  const displayName = getUserNickname(userId) || profile?.name || 'Finanzas';
+  const avatarSrc = getUserAvatar(userId) || profile?.avatar || '/profile-avatar.jpg';
   const [digits, setDigits] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('Contraseña incorrecta');
@@ -150,17 +152,17 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
         }}>
-          {avatarFailed ? (profile?.initial ?? '?') : (
+          {avatarFailed ? (profile?.initial ?? userId.charAt(0).toUpperCase()) : (
             <img
-              src={profile?.avatar ?? '/profile-avatar.jpg'}
-              alt={profile?.name ?? 'Perfil'}
+              src={avatarSrc}
+              alt={displayName}
               onError={() => setAvatarFailed(true)}
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
             />
           )}
         </div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 5 }}>
-          {profile?.name ?? 'Finanzas'}
+          {displayName}
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
           {isLocked ? `Bloqueado — ${lockSecondsLeft}s` : 'Ingresa tu contraseña'}

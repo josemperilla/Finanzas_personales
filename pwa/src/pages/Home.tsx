@@ -567,6 +567,11 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
           {name}
         </div>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{tx.Categoría || 'Otro'} · {formatDateShort(fecha)}</div>
+        {tx.Nota && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tx.Nota}
+          </div>
+        )}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink)', flexShrink: 0 }}>
         −{formatCOP(Number(tx['Monto (COP)']))}

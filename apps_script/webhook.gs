@@ -133,6 +133,7 @@ function doPost(e) {
         comercio:     payload.comercio || "",
         tarjeta:      payload.tarjeta  || "",
         categoria:    payload.categoria || detectCategory(payload.comercio || ""),
+        nota:         payload.nota     || "",
         sms_original: "MANUAL"
       };
       appendToSheet(data, userId);
@@ -963,10 +964,17 @@ function appendToSheet(data, userId) {
     sheet = ss.insertSheet(ref.tabName);
     sheet.appendRow([
       "Timestamp", "Fecha", "Banco", "Tipo", "Monto (COP)",
-      "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original", "Fuente"
+      "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original", "Fuente", "Nota"
     ]);
-    sheet.getRange(1, 1, 1, 10).setFontWeight("bold").setBackground("#f3f3f3");
+    sheet.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#f3f3f3");
     sheet.setFrozenRows(1);
+  }
+
+  // Ensure Nota column exists on sheets created before this update
+  var hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (hdrs.indexOf("Nota") === -1) {
+    var notaCol = hdrs.length + 1;
+    sheet.getRange(1, notaCol).setValue("Nota").setFontWeight("bold").setBackground("#f3f3f3");
   }
 
   var fecha = data.fecha ? Utilities.formatDate(data.fecha, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss") : "";
@@ -981,7 +989,8 @@ function appendToSheet(data, userId) {
     data.tarjeta      || "",
     data.categoria    || "",
     data.sms_original || "",
-    data.fuente       || "sms"
+    data.fuente       || "sms",
+    data.nota         || ""
   ]);
 }
 

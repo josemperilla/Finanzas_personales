@@ -352,6 +352,11 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
               </span>
               <span style={{ color: 'var(--muted)', fontSize: 'var(--text-xs)' }}>{tx.Tipo}</span>
             </div>
+            {tx.Nota && (
+              <p style={{ margin: '3px 0 0', color: 'var(--muted)', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {tx.Nota}
+              </p>
+            )}
           </div>
           <span style={{ color: 'var(--ink)', fontSize: 'var(--text-sm)', fontWeight: 600, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             −{formatCOP(Number(tx['Monto (COP)']))}

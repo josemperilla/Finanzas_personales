@@ -32,11 +32,12 @@ interface FormData {
   categoria: string;
   tipo:      string;
   fecha:     string;
+  nota:      string;
 }
 
 function makeDefaultForm(): FormData {
   return {
-    monto: '', comercio: '',
+    monto: '', comercio: '', nota: '',
     banco: localStorage.getItem('fm_default_bank') || 'Otro',
     categoria: '', tipo: 'Compra',
     fecha: new Date().toISOString().slice(0, 10),
@@ -167,6 +168,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         banco: form.banco, tipo: form.tipo,
         monto: Number(form.monto), comercio: form.comercio,
         categoria: form.categoria || 'Otro', fecha: form.fecha,
+        ...(form.nota.trim() && { nota: form.nota.trim() }),
       };
       await saveTransaction(data);
       setForm(makeDefaultForm());
@@ -215,6 +217,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           categoria: parsed.categoria || 'Otro',
           tipo:      parsed.tipo || 'Compra',
           fecha:     new Date().toISOString().slice(0, 10),
+          nota:      '',
         });
         setMode('form'); setVoiceState('prefilled');
         setPrefillGlow(true); setTimeout(() => setPrefillGlow(false), 1500);
@@ -353,6 +356,23 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
             <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
               style={{ ...inputStyle, colorScheme: 'light' }}
               onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)} />
+          </motion.div>
+
+          {/* Nota */}
+          <motion.div variants={riseItem} transition={quickEase}>
+            <label style={labelStyle}>Nota <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(opcional)</span></label>
+            <textarea
+              value={form.nota}
+              onChange={e => setForm(f => ({ ...f, nota: e.target.value }))}
+              placeholder="Ej: almuerzo con familia, regalo cumpleaños…"
+              rows={2}
+              style={{
+                ...inputStyle, height: 'auto', padding: '12px 16px',
+                resize: 'none', lineHeight: 1.5,
+              }}
+              onFocus={e => focusStyle(e.target as unknown as HTMLInputElement)}
+              onBlur={e => blurStyle(e.target as unknown as HTMLInputElement)}
+            />
           </motion.div>
 
           <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }}
