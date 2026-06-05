@@ -1,4 +1,8 @@
-"""Aplicación FastAPI: punto de entrada del backend de Finanzas Personales."""
+"""
+Backend FastAPI — actualmente NO desplegado.
+La PWA usa Google Apps Script como backend activo (apps_script/webhook.gs).
+Este backend se activará cuando se superen ~10 usuarios (ver TODOS.md).
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

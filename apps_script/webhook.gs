@@ -5,8 +5,8 @@
 // ============================================================
 //
 // SECURITY: Set WEBHOOK_SECRET in Script Properties alongside ANTHROPIC_API_KEY.
-// All requests (GET and POST) must include header X-Webhook-Secret matching that value.
-// Netlify must have VITE_WEBHOOK_SECRET env var set to the same secret.
+// All requests (GET and POST) must include the _secret param matching that value.
+// Cloudflare Pages lee WEBHOOK_SECRET como variable de entorno del proyecto.
 // ============================================================
 
 // Multi-user: single spreadsheet, one tab per user.

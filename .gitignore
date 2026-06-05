@@ -17,6 +17,9 @@ pwa/dist/
 Extractos_lectura/
 *.pdf
 
+# Test framework cache (se regenera automáticamente)
+.hypothesis/
+
 # wrangler files
 .wrangler
 .dev.vars*
