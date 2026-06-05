@@ -7,6 +7,7 @@ import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
+import { TutorialCanales } from '../components/TutorialCanales';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -45,6 +46,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
   // Admin: user management
   const isAdmin = userId === ADMIN_USER;
   const [showImport, setShowImport] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [userList, setUserList]         = useState<string[]>([]);
   const [showNewUser, setShowNewUser]   = useState(false);
   const [newUser, setNewUser]           = useState({ id: '', name: '', pin: '' });
@@ -384,6 +386,12 @@ export function Settings({ userId, transactions, onClose }: Props) {
           {/* ── Captura ── */}
           <Section title="Captura de transacciones">
             <CoverturaMeter transactions={transactions} />
+            <Row
+              label="Ver tutorial de canales"
+              sublabel="Cómo activar SMS, notificaciones, Gmail o importar extractos"
+              onTap={() => setShowTutorial(true)}
+              chevron="›"
+            />
           </Section>
 
           {/* ── Datos ── */}
@@ -408,6 +416,9 @@ export function Settings({ userId, transactions, onClose }: Props) {
       <AnimatePresence>
         {showImport && (
           <ImportarExtracto key="import" userId={userId} onClose={() => setShowImport(false)} />
+        )}
+        {showTutorial && (
+          <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
         )}
       </AnimatePresence>
     </>

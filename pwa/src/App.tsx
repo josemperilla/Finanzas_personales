@@ -16,6 +16,7 @@ import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode } from './
 import { fetchProfiles, Profile } from './lib/profiles';
 import { SetupPin } from './components/SetupPin';
 import { ImportarExtracto } from './components/ImportarExtracto';
+import { TutorialCanales } from './components/TutorialCanales';
 
 export default function App() {
   // Apply saved theme preference immediately on mount
@@ -38,6 +39,7 @@ export default function App() {
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [accessible, setAccessible] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // When userId changes, register it in api.ts and check session
   useEffect(() => {
@@ -82,12 +84,15 @@ export default function App() {
     try {
       const data = await fetchTransactions();
       setTransactions(data);
+      if (data.length === 0 && userId && !localStorage.getItem(`fm_tutorial_seen_${userId}`)) {
+        setShowTutorial(true);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'No pude conectar con Google Sheets');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // H-04: only fetch data after the user has authenticated
   useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
@@ -253,6 +258,9 @@ export default function App() {
             setShowSettings(false);
             setAccessible(getAccessibleMode(userId));
           }} />
+        )}
+        {showTutorial && userId && (
+          <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
         )}
       </AnimatePresence>
     </motion.div>
