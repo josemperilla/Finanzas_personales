@@ -11,16 +11,33 @@
 
 // Multi-user: single spreadsheet, one tab per user.
 // Script Properties needed:
-//   SHEET_ID      → Google Sheet ID (shared spreadsheet)
-//   APP_PIN_jose  → 4-digit PIN for Jose
-//   APP_PIN_dani  → 4-digit PIN for Dani
-var ALLOWED_USERS = ["jose", "dani"];
+//   SHEET_ID       → Google Sheet ID (shared spreadsheet)
+//   APP_PIN_<id>   → 4-6 digit PIN for each user (e.g. APP_PIN_jose)
+//   USERS_LIST     → JSON array of user IDs, managed by createUser()
+//   ADMIN_USER     → (optional) override for the admin user ID
+var ADMIN_USER = "jose"; // can also be set in Script Properties as ADMIN_USER
+
+// ── Dynamic user list (persisted in Script Properties) ────────
+// Falls back to ["jose","dani"] so existing users are never broken.
+function _getAllowedUsers() {
+  var stored = PropertiesService.getScriptProperties().getProperty("USERS_LIST");
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  return ["jose", "dani"];
+}
 
 // ── User validation ───────────────────────────────────────────
 function _validateUserId(userId) {
-  if (!userId || ALLOWED_USERS.indexOf(userId) === -1) {
-    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + ALLOWED_USERS.join(", "));
+  var allowed = _getAllowedUsers();
+  if (!userId || allowed.indexOf(userId) === -1) {
+    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + allowed.join(", "));
   }
+}
+
+// ── Admin check ───────────────────────────────────────────────
+function _getAdminUser() {
+  return PropertiesService.getScriptProperties().getProperty("ADMIN_USER") || ADMIN_USER;
 }
 
 // ── Per-user Sheet accessor ───────────────────────────────────
@@ -151,6 +168,51 @@ function doPost(e) {
       if (pin === storedPin) return jsonResponse({ ok: true });
       return jsonResponse({ ok: false, error: "PIN incorrecto" });
     }
+
+    // ── Gestión de usuarios (solo admin) ─────────────────────────
+
+    // Listar usuarios registrados
+    if (type === "listUsers") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede listar usuarios" });
+      return jsonResponse({ ok: true, data: _getAllowedUsers() });
+    }
+
+    // Crear un nuevo usuario (admin only)
+    if (type === "createUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede crear usuarios" });
+      var newId   = String(payload.newUserId || "").toLowerCase().trim();
+      var newName = String(payload.displayName || newId);
+      var initPin = String(payload.initialPin || "");
+      if (!newId) return jsonResponse({ ok: false, error: "newUserId requerido" });
+      if (!/^[a-z0-9]{2,20}$/.test(newId)) return jsonResponse({ ok: false, error: "userId debe tener 2-20 caracteres alfanuméricos en minúsculas" });
+      if (initPin && !/^\d{4,6}$/.test(initPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
+      var currentUsers = _getAllowedUsers();
+      if (currentUsers.indexOf(newId) !== -1) return jsonResponse({ ok: false, error: "El usuario '" + newId + "' ya existe" });
+      currentUsers.push(newId);
+      var props = PropertiesService.getScriptProperties();
+      props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
+      if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
+      _getSheet(newId); // auto-crea el tab en el Sheet
+      return jsonResponse({ ok: true, created: newId });
+    }
+
+    // Verificar si el usuario ya tiene PIN configurado (para detectar primer login)
+    if (type === "hasPin") {
+      var p = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
+      return jsonResponse({ ok: true, exists: !!p && p.length > 0 });
+    }
+
+    // Configurar PIN por primera vez (solo si no existe aún)
+    if (type === "setupPin") {
+      var newPin = String(payload.pin || "");
+      if (!newPin || !/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
+      var existing = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
+      if (existing) return jsonResponse({ ok: false, error: "Este usuario ya tiene PIN. Usa changePin para cambiarlo." });
+      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + userId, newPin);
+      return jsonResponse({ ok: true });
+    }
+
+    // ─────────────────────────────────────────────────────────────
 
     // Eliminar una transacción
     if (type === "deleteTransaction") {
@@ -764,7 +826,7 @@ function detectCategory(merchant) {
 // Ejecutar una vez desde el editor de Apps Script después de ampliar detectCategory().
 // Solo toca filas donde la columna Categoría está vacía.
 function recategorizeAll() {
-  var users = ALLOWED_USERS;
+  var users = _getAllowedUsers();
   var total = 0;
   var updated = 0;
 

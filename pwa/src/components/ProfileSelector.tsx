@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PROFILES } from '../lib/profiles';
+import { PROFILES, Profile } from '../lib/profiles';
 
 interface Props {
   onSelect: (userId: string) => void;
+  profiles?: Profile[];
 }
 
-export function ProfileSelector({ onSelect }: Props) {
+export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) {
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
+  const displayProfiles = (dynamicProfiles && dynamicProfiles.length > 0) ? dynamicProfiles : PROFILES;
 
   return (
     <motion.div
@@ -25,16 +27,16 @@ export function ProfileSelector({ onSelect }: Props) {
       }}
     >
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color: 'var(--ink)', letterSpacing: '-0.02em', marginBottom: 6 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-2xl)', color: 'var(--ink)', letterSpacing: '-0.02em', marginBottom: 6 }}>
           ¿Quién eres?
         </div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)' }}>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
           Selecciona tu perfil para continuar
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {PROFILES.map(profile => {
+        {displayProfiles.map(profile => {
           const avatarFailed = failedAvatars.has(profile.id);
           return (
             <motion.button

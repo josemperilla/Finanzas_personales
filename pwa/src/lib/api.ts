@@ -152,6 +152,83 @@ export async function changePin(currentPin: string, newPin: string): Promise<voi
   if (!json.ok) throw new Error(json.error || 'Error al cambiar PIN');
 }
 
+// ── Gestión de usuarios ───────────────────────────────────────
+
+export async function listUsers(adminUserId: string): Promise<string[]> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'listUsers', userId: adminUserId }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al listar usuarios');
+  return json.data as string[];
+}
+
+export async function createUser(
+  adminUserId: string,
+  newUserId: string,
+  displayName: string,
+  initialPin: string,
+): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'createUser', userId: adminUserId, newUserId, displayName, initialPin }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al crear usuario');
+}
+
+export async function hasPin(userId: string): Promise<boolean> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'hasPin', userId }),
+  });
+  const json = await res.json();
+  return json.ok && json.exists === true;
+}
+
+export async function setupPin(userId: string, pin: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'setupPin', userId, pin }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al configurar PIN');
+}
+
+export async function importTransactions(
+  rows: ManualTransaction[],
+  onProgress: (done: number, total: number) => void,
+  delayMs = 300,
+): Promise<{ ok: number; errors: number }> {
+  assertWebhookUrl();
+  let ok = 0;
+  let errors = 0;
+  for (let i = 0; i < rows.length; i++) {
+    try {
+      await saveTransaction(rows[i]);
+      ok++;
+    } catch {
+      errors++;
+    }
+    onProgress(i + 1, rows.length);
+    if (delayMs > 0 && i < rows.length - 1) {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  return { ok, errors };
+}
+
+// ─────────────────────────────────────────────────────────────
+
 export async function askChat(question: string, context: object): Promise<string> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {

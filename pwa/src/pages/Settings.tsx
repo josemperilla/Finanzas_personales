@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin } from '../lib/api';
+import { Transaction, changePin, listUsers, createUser } from '../lib/api';
 import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
+
+const ADMIN_USER = 'jose';
 import { quickEase, softSpring } from '../lib/motion';
-import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
+import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
+import { ImportarExtracto } from '../components/ImportarExtracto';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -27,10 +30,46 @@ export function Settings({ userId, transactions, onClose }: Props) {
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
+  const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
 
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
     applyTheme(mode);
+  }
+
+  function handleAccessibleToggle() {
+    const next = !accessible;
+    setAccessible(next);
+    setAccessibleMode(userId, next);
+  }
+
+  // Admin: user management
+  const isAdmin = userId === ADMIN_USER;
+  const [showImport, setShowImport] = useState(false);
+  const [userList, setUserList]         = useState<string[]>([]);
+  const [showNewUser, setShowNewUser]   = useState(false);
+  const [newUser, setNewUser]           = useState({ id: '', name: '', pin: '' });
+  const [newUserSaving, setNewUserSaving] = useState(false);
+  const [newUserError, setNewUserError]   = useState<string | null>(null);
+  const [newUserSuccess, setNewUserSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) listUsers(userId).then(setUserList).catch(() => {});
+  }, [isAdmin, userId]);
+
+  async function handleCreateUser() {
+    if (!newUser.id || !newUser.pin) { setNewUserError('Completa ID y PIN'); return; }
+    setNewUserSaving(true); setNewUserError(null);
+    try {
+      await createUser(userId, newUser.id, newUser.name || newUser.id, newUser.pin);
+      setUserList(prev => [...prev, newUser.id]);
+      setNewUser({ id: '', name: '', pin: '' });
+      setShowNewUser(false);
+      setNewUserSuccess(true);
+      setTimeout(() => setNewUserSuccess(false), 2000);
+    } catch (e) {
+      setNewUserError(e instanceof Error ? e.message : 'Error al crear usuario');
+    } finally { setNewUserSaving(false); }
   }
 
   // Change PIN
@@ -73,7 +112,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const inputStyle: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px',
     border: '1.5px solid var(--line)', borderRadius: 10,
-    background: 'var(--card)', color: 'var(--ink)', fontSize: 15,
+    background: 'var(--card)', color: 'var(--ink)', fontSize: 'var(--text-base)',
     fontFamily: 'var(--font-mono)', outline: 'none', letterSpacing: '0.18em',
   };
 
@@ -211,9 +250,46 @@ export function Settings({ userId, transactions, onClose }: Props) {
                   }}>{label}</motion.button>
                 ))}
               </div>
-              <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+              <p style={{ margin: '8px 0 0', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
                 Auto sigue la preferencia del sistema.
               </p>
+
+              {/* Modo accesible */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink)', fontWeight: 500 }}>
+                      Modo accesible
+                    </div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 3 }}>
+                      Texto e íconos más grandes para mayor comodidad
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.92 }}
+                    onClick={handleAccessibleToggle}
+                    style={{
+                      flexShrink: 0,
+                      width: 50, height: 28, borderRadius: 999,
+                      background: accessible ? 'var(--blue-600)' : 'var(--line)',
+                      border: 'none', cursor: 'pointer', position: 'relative',
+                      transition: 'background 0.2s ease',
+                    }}
+                    aria-label="Toggle modo accesible"
+                  >
+                    <motion.span
+                      animate={{ x: accessible ? 24 : 4 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      style={{
+                        position: 'absolute', top: 4, left: 0,
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: 'white',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                  </motion.button>
+                </div>
+              </div>
             </div>
           </Section>
 
@@ -239,6 +315,68 @@ export function Settings({ userId, transactions, onClose }: Props) {
             </div>
           </Section>
 
+          {/* ── Usuarios (solo admin) ── */}
+          {isAdmin && (
+            <Section title="Usuarios">
+              {userList.length > 0 && (
+                <div style={{ paddingTop: 10, paddingBottom: 4 }}>
+                  {userList.map(uid => (
+                    <div key={uid} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
+                      {uid}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Row
+                label="Agregar usuario"
+                note={newUserSuccess ? '✓ Creado' : undefined}
+                noteColor="#16a34a"
+                onTap={() => { setShowNewUser(v => !v); setNewUserError(null); }}
+                chevron={showNewUser ? '↑' : '+'}
+              />
+              <AnimatePresence>
+                {showNewUser && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={quickEase}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {[
+                        { label: 'ID de usuario (ej: maria)', key: 'id' as const },
+                        { label: 'Nombre visible', key: 'name' as const },
+                        { label: 'PIN inicial (4–6 dígitos)', key: 'pin' as const },
+                      ].map(({ label, key }) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginBottom: 5 }}>{label}</div>
+                          <input
+                            type={key === 'pin' ? 'password' : 'text'}
+                            inputMode={key === 'pin' ? 'numeric' : 'text'}
+                            value={newUser[key]}
+                            onChange={e => setNewUser(u => ({ ...u, [key]: key === 'id' ? e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') : e.target.value }))}
+                            placeholder={key === 'pin' ? '● ● ● ●' : ''}
+                            style={{ width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px', border: '1.5px solid var(--line)', borderRadius: 10, background: 'var(--card)', color: 'var(--ink)', fontSize: 'var(--text-base)', fontFamily: 'var(--font-body)', outline: 'none' }}
+                          />
+                        </div>
+                      ))}
+                      {newUserError && <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: '#b91c1c' }}>{newUserError}</p>}
+                      <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+                        <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateUser} disabled={newUserSaving} style={{ flex: 1, height: 44, background: newUserSaving ? 'var(--blue-300)' : 'var(--blue-700)', border: 'none', borderRadius: 10, color: 'var(--card)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: newUserSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                          {newUserSaving ? 'Creando…' : 'Crear usuario'}
+                        </motion.button>
+                        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowNewUser(false)} style={{ padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                          Cancelar
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Section>
+          )}
+
           {/* ── Captura ── */}
           <Section title="Captura de transacciones">
             <CoverturaMeter transactions={transactions} />
@@ -252,10 +390,22 @@ export function Settings({ userId, transactions, onClose }: Props) {
               onTap={() => exportToCSV(transactions, `backup_${userId}.csv`)}
               chevron="↓"
             />
+            <Row
+              label="Importar extracto bancario"
+              sublabel="CSV de Bancolombia, Bogotá, Itaú u otro banco"
+              onTap={() => setShowImport(true)}
+              chevron="↑"
+            />
           </Section>
 
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showImport && (
+          <ImportarExtracto key="import" userId={userId} onClose={() => setShowImport(false)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -263,7 +413,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 600, marginBottom: 8, paddingLeft: 4 }}>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.09em', fontWeight: 600, marginBottom: 8, paddingLeft: 4 }}>
         {title}
       </div>
       <div style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '0 16px', overflow: 'hidden' }}>
@@ -285,12 +435,13 @@ function Row({ label, sublabel, note, noteColor, onTap, chevron }: {
     <motion.button whileTap={{ scale: 0.99 }} onClick={onTap} style={{
       width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer',
+      minHeight: 'var(--touch-min)',
     }}>
       <div style={{ textAlign: 'left' }}>
-        <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{label}</div>
-        {sublabel && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{sublabel}</div>}
+        <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{label}</div>
+        {sublabel && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 2 }}>{sublabel}</div>}
       </div>
-      <span style={{ color: note ? noteColor : 'var(--muted)', fontSize: note ? 12.5 : 18, fontWeight: note ? 600 : 400, marginLeft: 8, flexShrink: 0 }}>
+      <span style={{ color: note ? noteColor : 'var(--muted)', fontSize: note ? 'var(--text-xs)' : 18, fontWeight: note ? 600 : 400, marginLeft: 8, flexShrink: 0 }}>
         {note ?? chevron ?? '›'}
       </span>
     </motion.button>

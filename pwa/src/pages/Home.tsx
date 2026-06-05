@@ -393,11 +393,12 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {/* Recent transactions */}
         <motion.div variants={riseItem} transition={quickEase}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>Movimientos</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)', color: 'var(--ink)' }}>Movimientos</span>
             <motion.button whileTap={{ scale: 0.96 }} onClick={onViewAll} style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 13.5, fontWeight: 600, color: 'var(--blue-700)',
-              padding: 0, fontFamily: 'var(--font-body)',
+              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--blue-700)',
+              padding: '8px 0', fontFamily: 'var(--font-body)',
+              minHeight: 'var(--touch-min)',
             }}>
               Ver todo
             </motion.button>
@@ -559,12 +560,12 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
     >
       <MerchantLogo domain={domain} name={name} size={38} color={color} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{tx.Categoría} · {formatDateShort(fecha)}</div>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{tx.Categoría} · {formatDateShort(fecha)}</div>
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14.5, color: 'var(--ink)', flexShrink: 0 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink)', flexShrink: 0 }}>
         −{formatCOP(Number(tx['Monto (COP)']))}
       </div>
     </motion.div>

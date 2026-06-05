@@ -162,7 +162,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 5 }}>
           {profile?.name ?? 'Finanzas'}
         </div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--muted)' }}>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
           {isLocked ? `Bloqueado — ${lockSecondsLeft}s` : 'Ingresa tu contraseña'}
         </div>
       </motion.div>
@@ -198,13 +198,13 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           )}
           {status === 'error' && (
             <motion.span key="error" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={quickEase}
-              style={{ fontSize: 12.5, color: '#ef4444', fontFamily: 'var(--font-body)', textAlign: 'center', maxWidth: 220 }}>
+              style={{ fontSize: 'var(--text-xs)', color: '#ef4444', fontFamily: 'var(--font-body)', textAlign: 'center', maxWidth: 220 }}>
               {errorMsg}
             </motion.span>
           )}
           {isLocked && status === 'idle' && (
             <motion.span key="locked" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={quickEase}
-              style={{ fontSize: 12.5, color: '#94a3b8', fontFamily: 'var(--font-body)' }}>
+              style={{ fontSize: 'var(--text-xs)', color: '#94a3b8', fontFamily: 'var(--font-body)' }}>
               Espera {lockSecondsLeft}s para intentar de nuevo
             </motion.span>
           )}
@@ -253,8 +253,8 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         onClick={onSwitchProfile}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--muted)',
-          padding: '8px 16px', borderRadius: 8,
+          fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)',
+          padding: '12px 16px', borderRadius: 8, minHeight: 'var(--touch-min)',
           WebkitTapHighlightColor: 'transparent',
         }}
       >

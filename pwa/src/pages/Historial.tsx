@@ -339,21 +339,21 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
         }}>
           <MerchantLogo domain={domain} name={name} size={38} color={color} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ margin: 0, color: 'var(--ink)', fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <p style={{ margin: 0, color: 'var(--ink)', fontSize: 'var(--text-base)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {name}
             </p>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
               <span style={{
                 padding: '1px 7px', borderRadius: 6,
                 background: 'var(--blue-50)', border: '1px solid var(--blue-100)',
-                color: 'var(--blue-700)', fontSize: 10.5, fontWeight: 500,
+                color: 'var(--blue-700)', fontSize: 'var(--text-2xs)', fontWeight: 500,
               }}>
                 {tx.Banco}
               </span>
-              <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>{tx.Tipo}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 'var(--text-xs)' }}>{tx.Tipo}</span>
             </div>
           </div>
-          <span style={{ color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+          <span style={{ color: 'var(--ink)', fontSize: 'var(--text-sm)', fontWeight: 600, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             −{formatCOP(Number(tx['Monto (COP)']))}
           </span>
         </div>

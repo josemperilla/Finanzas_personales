@@ -9,19 +9,28 @@ import { Chat } from './pages/Chat';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
 import { Settings } from './pages/Settings';
-import { fetchTransactions, setActiveUser, Transaction } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
-import { getTheme, applyTheme } from './lib/theme';
+import { getTheme, applyTheme, applyAccessibleMode } from './lib/theme';
+import { fetchProfiles, Profile } from './lib/profiles';
+import { SetupPin } from './components/SetupPin';
+import { ImportarExtracto } from './components/ImportarExtracto';
 
 export default function App() {
   // Apply saved theme preference immediately on mount
   useEffect(() => { applyTheme(getTheme()); }, []);
 
+  // Load dynamic profile list on mount
+  useEffect(() => { fetchProfiles().then(setProfiles); }, []);
+
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
     () => localStorage.getItem('fm_profile')
   );
   const [unlocked, setUnlocked] = useState(false);
+  const [needsSetupPin, setNeedsSetupPin] = useState(false);
+  const [showWelcomeImport, setShowWelcomeImport] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,22 +108,30 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [silentLoad, unlocked]);
 
-  const handleSelectProfile = useCallback((id: string) => {
+  const handleSelectProfile = useCallback(async (id: string) => {
     localStorage.setItem('fm_profile', id);
     setUserId(id);
+    // Check if first-time user (no PIN set yet)
+    try {
+      const exists = await hasPin(id);
+      if (!exists) setNeedsSetupPin(true);
+    } catch { /* red de error — dejar que PinLock maneje */ }
   }, []);
 
   const handleUnlock = useCallback(() => {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+      applyAccessibleMode(userId);
       setUnlocked(true);
     }
   }, [userId]);
 
   const handleSwitchProfile = useCallback(() => {
     localStorage.removeItem('fm_profile');
+    document.documentElement.dataset.mode = ''; // clear accessible mode
     setUserId(null);
     setUnlocked(false);
+    setNeedsSetupPin(false);
     setTransactions([]);
   }, []);
 
@@ -182,10 +199,46 @@ export default function App() {
 
       <AnimatePresence>
         {!userId && (
-          <ProfileSelector key="profile" onSelect={handleSelectProfile} />
+          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} />
         )}
-        {userId && !unlocked && (
+        {userId && !unlocked && !needsSetupPin && (
           <PinLock key="pin" userId={userId} onUnlock={handleUnlock} onSwitchProfile={handleSwitchProfile} />
+        )}
+        {userId && !unlocked && needsSetupPin && (
+          <SetupPin
+            key="setup"
+            userId={userId}
+            onComplete={() => { setNeedsSetupPin(false); setShowWelcomeImport(true); handleUnlock(); }}
+            onSwitchProfile={handleSwitchProfile}
+          />
+        )}
+        {showWelcomeImport && userId && (
+          <motion.div
+            key="welcome-import"
+            initial={{ opacity: 0, y: '4%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: '32px 24px', textAlign: 'center' }}
+          >
+            <div style={{ fontSize: 56 }}>🎉</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-2xl)', color: 'var(--ink)' }}>
+              ¡Bienvenido!
+            </div>
+            <div style={{ fontSize: 'var(--text-base)', color: 'var(--muted)', maxWidth: 280 }}>
+              ¿Quieres cargar tus movimientos de meses anteriores? Puedes importar un CSV de tu banco ahora o hacerlo después desde Ajustes.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowWelcomeImport(false)}
+                style={{ height: 50, background: 'var(--blue-700)', border: 'none', borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Importar ahora
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowWelcomeImport(false)}
+                style={{ height: 50, background: 'none', border: '1px solid var(--line)', borderRadius: 14, color: 'var(--muted)', fontSize: 'var(--text-base)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Saltar por ahora
+              </motion.button>
+            </div>
+          </motion.div>
         )}
         {showSettings && userId && (
           <Settings key="settings" userId={userId} transactions={transactions} onClose={() => setShowSettings(false)} />
