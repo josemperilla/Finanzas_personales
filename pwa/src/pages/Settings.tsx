@@ -295,29 +295,6 @@ export function Settings({ userId, transactions, onClose }: Props) {
               </div>
             </div>
 
-            {/* Modo accesible */}
-            <div style={{ borderTop: '1px solid var(--line)', padding: '14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', fontWeight: 500 }}>Modo accesible</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 2 }}>Texto e íconos más grandes</div>
-              </div>
-              <motion.button
-                onClick={handleAccessibleToggle}
-                aria-label="Toggle modo accesible"
-                style={{
-                  width: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
-                  background: accessible ? 'var(--blue-600)' : 'var(--line)',
-                  position: 'relative', flexShrink: 0,
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <motion.div
-                  animate={{ x: accessible ? 24 : 4 }}
-                  transition={softSpring}
-                  style={{ position: 'absolute', top: 4, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
-                />
-              </motion.button>
-            </div>
           </Section>
 
           {/* ── Preferencias ── */}
@@ -422,12 +399,6 @@ export function Settings({ userId, transactions, onClose }: Props) {
               sublabel={`${transactions.length} transacciones`}
               onTap={() => exportToCSV(transactions, `backup_${userId}.csv`)}
               chevron="↓"
-            />
-            <Row
-              label="Importar extracto bancario"
-              sublabel="CSV de Bancolombia, Bogotá, Itaú u otro banco"
-              onTap={() => setShowImport(true)}
-              chevron="↑"
             />
           </Section>
 

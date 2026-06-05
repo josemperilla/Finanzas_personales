@@ -819,7 +819,7 @@ function detectCategory(merchant) {
       if (m.indexOf(rules[i].keywords[j]) !== -1) return rules[i].cat;
     }
   }
-  return "";
+  return "Otro";
 }
 
 // ── Recategorizar todas las filas con categoría vacía ─────────────

@@ -290,7 +290,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
 }
 
 function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void; onDelete: (ts: string) => void }) {
-  const color    = getCategoryColor(tx.Categoría);
+  const color    = getCategoryColor(tx.Categoría || 'Otro');
   const name     = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain   = getMerchantDomain(name);
   const startX   = useRef(0);

@@ -544,7 +544,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
 }
 
 function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
-  const color = getCategoryColor(tx.Categoría);
+  const color = getCategoryColor(tx.Categoría || 'Otro');
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain = getMerchantDomain(name);
@@ -563,7 +563,7 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
         <div style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
         </div>
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{tx.Categoría} · {formatDateShort(fecha)}</div>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{tx.Categoría || 'Otro'} · {formatDateShort(fecha)}</div>
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink)', flexShrink: 0 }}>
         −{formatCOP(Number(tx['Monto (COP)']))}
