@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F8FAFC">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Título -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Captura de transacciones"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#0F172A"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Captura automática de notificaciones bancarias"
+            android:textSize="14sp"
+            android:textColor="#64748B"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Estado global -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#FFFFFF"
+            android:padding="16dp"
+            android:layout_marginBottom="24dp"
+            android:elevation="2dp">
+
+            <ImageView
+                android:id="@+id/ivStatus"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="12dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Configura la app para comenzar"
+                android:textSize="13sp"
+                android:textColor="#334155" />
+        </LinearLayout>
+
+        <!-- Sección 1: Configuración -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1. CONFIGURACIÓN"
+            android:textSize="11sp"
+            android:textColor="#94A3B8"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Webhook URL"
+            android:textSize="13sp"
+            android:textColor="#475569"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/etWebhookUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="https://script.google.com/macros/s/.../exec?_secret=..."
+            android:inputType="textUri"
+            android:textSize="13sp"
+            android:padding="12dp"
+            android:background="@drawable/input_bg"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Usuario"
+            android:textSize="13sp"
+            android:textColor="#475569"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/etUserId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="jose  o  dani"
+            android:inputType="text"
+            android:textSize="13sp"
+            android:padding="12dp"
+            android:background="@drawable/input_bg"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Guardar configuración"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#1D4ED8"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Sección 2: Permisos -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2. PERMISOS"
+            android:textSize="11sp"
+            android:textColor="#94A3B8"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnNotifPermission"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Conceder acceso a notificaciones"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#0F172A"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Busca 'Captura de transacciones' en la lista y actívala."
+            android:textSize="12sp"
+            android:textColor="#94A3B8"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnBattery"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Eximir de optimización de batería"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#0F172A"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Evita que el sistema detenga la captura en segundo plano. En Samsung/Xiaomi/Huawei puede haber un ajuste adicional en Ajustes del sistema."
+            android:textSize="12sp"
+            android:textColor="#94A3B8"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Bancos soportados -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BANCOS SOPORTADOS"
+            android:textSize="11sp"
+            android:textColor="#94A3B8"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Bancolombia · Davivienda · Nequi · Daviplata\nBanco de Bogotá · Banco de Occidente · Banco Popular\nAV Villas · dale! · Banco Itaú · Rappi Pay"
+            android:textSize="13sp"
+            android:textColor="#334155"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+</ScrollView>

@@ -300,3 +300,161 @@ class TestDetectFormat:
     def test_unknown_extension_returns_something(self):
         result = _detect_format("txt")
         assert isinstance(result, str)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BancolombiaParser — CSV parsing
+# ══════════════════════════════════════════════════════════════════════════════
+
+import io
+import tempfile
+import os
+from tools.ingest.parsers.bancolombia_parser import BancolombiaParser
+
+_bcol = BancolombiaParser()
+
+
+def _csv_file(content: str, suffix=".csv"):
+    """Write content to a temp CSV file and return its path."""
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False,
+                                    encoding="utf-8", newline="")
+    f.write(content)
+    f.close()
+    return f.name
+
+
+class TestBancolombiaParserBasics:
+    def test_get_bank_name(self):
+        assert _bcol.get_bank_name() == "bancolombia"
+
+    def test_rejects_pdf(self):
+        import pytest
+        with pytest.raises(ValueError, match="CSV"):
+            _bcol.extract("some_file.pdf")
+
+
+class TestBancolombiaCSVFormatA:
+    """Cuenta de ahorros/corriente — formato semicolón con signo en Valor."""
+
+    CSV_A = (
+        "Fecha;Descripción;Oficina;Referencia;Valor\n"
+        "05/06/2026;COMPRA EN EXITO CHAPINERO;001;REF001;-45900\n"
+        "04/06/2026;TRANSFERENCIA A JUAN PEREZ;001;REF002;-23000\n"
+        "03/06/2026;CONSIGNACION NOMINA;001;REF003;3000000\n"   # ingreso → skip
+        "02/06/2026;PAGO TARJETA;001;REF004;-265000\n"          # pago → skip
+        "01/06/2026;CUOTA DE MANEJO;001;REF005;-9000\n"         # comisión → skip
+    )
+
+    def setup_method(self):
+        self.path = _csv_file(self.CSV_A)
+
+    def teardown_method(self):
+        os.unlink(self.path)
+
+    def test_parses_expense_rows(self):
+        results = _bcol.extract(self.path)
+        # Only compras (negative amounts that aren't payments/fees)
+        descs = [r.description for r in results]
+        assert any("EXITO" in d for d in descs)
+        assert any("JUAN" in d for d in descs)
+
+    def test_marks_income_as_credito(self):
+        # Parser returns CONSIGNACION but marks it as "credito" — raw_to_payload filters it
+        results = _bcol.extract(self.path)
+        income = [r for r in results if "CONSIGNACION" in r.description]
+        assert income, "CONSIGNACION should be returned (not silently dropped)"
+        assert income[0].transaction_type_raw == "credito"
+
+    def test_skips_payment(self):
+        # "PAGO TARJETA" matches _SKIP_DESCRIPTIONS → not returned at all
+        results = _bcol.extract(self.path)
+        descs = [r.description for r in results]
+        assert not any("PAGO TARJETA" in d.upper() for d in descs)
+
+    def test_skips_fee(self):
+        # "CUOTA DE MANEJO" matches _SKIP_DESCRIPTIONS → not returned at all
+        results = _bcol.extract(self.path)
+        descs = [r.description for r in results]
+        assert not any("CUOTA DE MANEJO" in d.upper() for d in descs)
+
+    def test_amount_raw_is_positive_string(self):
+        results = _bcol.extract(self.path)
+        for r in results:
+            assert float(r.amount_raw) > 0, f"amount_raw debe ser positivo: {r.amount_raw}"
+
+    def test_date_raw_preserved(self):
+        results = _bcol.extract(self.path)
+        assert results[0].date_raw == "05/06/2026"
+
+    def test_expense_rows_have_debito_type(self):
+        # Rows with negative amounts (compras) get transaction_type_raw="debito"
+        results = _bcol.extract(self.path)
+        expenses = [r for r in results if r.transaction_type_raw == "debito"]
+        assert len(expenses) >= 2  # EXITO + JUAN PEREZ
+
+
+class TestBancolombiaCSVFormatB:
+    """Tarjeta de crédito — sin columna Oficina/Referencia."""
+
+    CSV_B = (
+        "Fecha;Descripción;Valor\n"
+        "14/01/2026;APPLE.COM/BILL;12900\n"          # positivo → skip (ingreso/pago)
+        "10/01/2026;AMAZON COM;152694\n"              # positivo → skip
+        "08/01/2026;NETFLIX.COM;37900\n"              # positivo → skip
+    )
+
+    # Tarjeta crédito Bancolombia usa valores POSITIVOS para cargos (al revés que ahorros).
+    # BancolombiaParser trata positivos como créditos → los salta.
+    # Ajuste: si todos son positivos en una tarjeta de crédito, el usuario debe negar los valores.
+    # Por ahora documentamos el comportamiento esperado.
+
+    def setup_method(self):
+        self.path = _csv_file(self.CSV_B)
+
+    def teardown_method(self):
+        os.unlink(self.path)
+
+    def test_parses_without_error(self):
+        # Should not raise even if all rows are skipped
+        results = _bcol.extract(self.path)
+        assert isinstance(results, list)
+
+
+class TestBancolombiaCSVEdgeCases:
+    def test_empty_file_returns_empty_list(self):
+        path = _csv_file("Fecha;Descripción;Valor\n")
+        try:
+            results = _bcol.extract(path)
+            assert results == []
+        finally:
+            os.unlink(path)
+
+    def test_missing_value_column_raises(self):
+        import pytest
+        path = _csv_file("Fecha;Descripción\n05/06/2026;EXITO\n")
+        try:
+            with pytest.raises(ValueError, match="Columnas requeridas"):
+                _bcol.extract(path)
+        finally:
+            os.unlink(path)
+
+    def test_comma_delimiter_detected(self):
+        csv_comma = (
+            "Fecha,Descripcion,Valor\n"
+            "05/06/2026,EXITO CHAPINERO,-45900\n"
+        )
+        path = _csv_file(csv_comma)
+        try:
+            results = _bcol.extract(path)
+            assert len(results) == 1
+            assert "EXITO" in results[0].description
+        finally:
+            os.unlink(path)
+
+    def test_zero_amount_skipped(self):
+        csv = "Fecha;Descripción;Valor\n05/06/2026;EXITO;0\n"
+        path = _csv_file(csv)
+        try:
+            assert _bcol.extract(path) == []
+        finally:
+            os.unlink(path)

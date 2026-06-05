@@ -102,6 +102,9 @@ function doPost(e) {
     // Validate userId for all request types
     _validateUserId(userId);
 
+    // Ensure Fuente column exists (cached — runs once per user per 6h)
+    _migrateSheetHeaders(userId);
+
     // Entrada manual desde la PWA
     if (type === "manual") {
       var data = {
@@ -189,6 +192,46 @@ function doPost(e) {
       _checkRateLimit("chat", userId);
       var answer = handleChat(question, context);
       return jsonResponse({ ok: true, data: { answer: answer } });
+    }
+
+    // ── Notificación push desde iOS Shortcut (type:"notification") ──
+    if (type === "notification") {
+      var title = (payload.title || "").trim();
+      var body  = (payload.body  || "").trim();
+
+      if (!body && !title) return jsonResponse({ ok: false, error: "empty notification" });
+
+      var parsedNotif = parseNotification(bank, title, body);
+
+      if (!parsedNotif) {
+        // Unknown format — save raw so you can build the parser later
+        appendToSheet({
+          timestamp:    new Date(),
+          fecha:        new Date(),
+          banco:        bank || "Desconocido",
+          tipo:         "NO RECONOCIDO",
+          monto:        0,
+          comercio:     title,
+          tarjeta:      "",
+          categoria:    "",
+          sms_original: "PUSH | " + title + " | " + body,
+          fuente:       "notification"
+        }, userId);
+        return jsonResponse({ ok: true, skipped: true, reason: "unrecognized_format", raw: body });
+      }
+
+      if (parsedNotif.reversal) {
+        var removedNotif = reverseTransaction(parsedNotif, userId);
+        return jsonResponse({ ok: true, reversed: true, found: removedNotif });
+      }
+
+      parsedNotif.timestamp    = new Date();
+      parsedNotif.categoria    = detectCategory(parsedNotif.comercio);
+      parsedNotif.sms_original = "PUSH | " + title + " | " + body;
+      parsedNotif.fuente       = "notification";
+
+      appendToSheet(parsedNotif, userId);
+      return jsonResponse({ ok: true, data: parsedNotif });
     }
 
     // SMS automático desde iOS Shortcut
@@ -475,7 +518,8 @@ function parseMontoUS(str) {
 }
 
 // ── Reversal — find and delete the matching original transaction ──
-// Matches on banco, tarjeta (last 4 digits), and monto within the last 30 days.
+// Primary match: banco + tarjeta last-4 + monto within 30 days.
+// Fallback (push notifications without card digits): banco + monto + 5-min timestamp window.
 function reverseTransaction(parsed, userId) {
   var ref   = _getSheet(userId);
   var sheet = ref.sheet;
@@ -489,9 +533,9 @@ function reverseTransaction(parsed, userId) {
   var tarjetaCol = hdrs.indexOf("Tarjeta/Cuenta");
   var fechaCol   = hdrs.indexOf("Fecha");
 
-  var last4match = parsed.tarjeta.match(/(\d{4})$/);
-  if (!last4match) return false;
-  var last4 = last4match[1];
+  var last4match = parsed.tarjeta ? parsed.tarjeta.match(/(\d{4})$/) : null;
+  var last4      = last4match ? last4match[1] : null;
+  var fiveMinMs  = 5 * 60 * 1000;
 
   var cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 30);
@@ -501,9 +545,21 @@ function reverseTransaction(parsed, userId) {
     if (String(row[bancoCol]).trim() !== parsed.banco) continue;
     if (String(row[tipoCol]).trim() !== "Compra") continue;
     if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;
-    if (String(row[tarjetaCol]).indexOf(last4) === -1) continue;
-    var rowDate = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
-    if (!isNaN(rowDate.getTime()) && rowDate < cutoff) continue;
+
+    if (last4) {
+      // Primary: tarjeta digits available
+      if (String(row[tarjetaCol]).indexOf(last4) === -1) continue;
+    } else if (parsed.fecha) {
+      // Fallback: no tarjeta (e.g. Nequi push) — match within 5-minute window
+      var rowDate = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
+      if (isNaN(rowDate.getTime())) continue;
+      if (Math.abs(rowDate.getTime() - parsed.fecha.getTime()) > fiveMinMs) continue;
+    } else {
+      continue; // no tarjeta and no fecha — skip to avoid false positives
+    }
+
+    var rowDate2 = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
+    if (!isNaN(rowDate2.getTime()) && rowDate2 < cutoff) continue;
     sheet.deleteRow(i + 1);
     return true;
   }
@@ -597,22 +653,103 @@ function detectCategory(merchant) {
   var m = merchant.toUpperCase();
 
   var rules = [
-    { keywords: ["RAPPI", "UBER EATS", "IFOOD", "DOMICILIOS", "MC DONALDS", "MCDONALDS",
-                 "BURGER", "PIZZA", "SUBWAY", "KFC", "CREPES", "RESTAURAN", "SUSHI"],   cat: "Comida" },
-    { keywords: ["NETFLIX", "SPOTIFY", "YOUTUBE", "PRIME", "DISNEY", "HBO", "APPLE TV",
-                 "NEW YORK TIMES"],                                                        cat: "Suscripciones" },
-    { keywords: ["UBER", "CABIFY", "DIDI", "TAXI", "TRANSMILENIO", "SITP"],              cat: "Transporte" },
-    { keywords: ["JUMBO", "CARREFOUR", "EXITO", "OLÉ", "ALMACENES", "SUPERTIENDA",
-                 "MERQUEO", "METRO", "FRUVER"],                                           cat: "Mercado" },
-    { keywords: ["FARMACIA", "DROGUER", "DROGUERÍA", "FARMATODO", "COLSUBSIDIO",
-                 "CAFAM", "COMPENSAR"],                                                   cat: "Salud" },
-    { keywords: ["COUNTRY CLUB", "GYM", "GIMNASIO", "SPORT", "GOLF", "TENNIS",
-                 "TENIS", "PADEL", "FITNESS"],                                            cat: "Deporte" },
-    { keywords: ["AMAZON", "MERCADOLIBRE", "FALABELLA", "HOMECENTER", "EASY",
-                 "IKEA", "APPLE", "SAMSUNG"],                                             cat: "Compras" },
-    { keywords: ["HOTEL", "AIRBNB", "BOOKING", "HOSPEDAJE", "HOSTAL"],                   cat: "Alojamiento" },
-    { keywords: ["AVIANCA", "LATAM", "COPA", "AMERICAN", "AERO", "VUELO"],               cat: "Viajes" },
-    { keywords: ["GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION"],                     cat: "Software" }
+    // ── Comida — restaurantes, cafés, delivery, fast food ──────────────────
+    { cat: "Comida", keywords: [
+      "RAPPI", "UBER EATS", "IFOOD", "DOMICILIOS", "OSAKI",
+      "MCDONALDS", "MC DONALD", "BURGER", "PIZZA", "SUBWAY", "KFC",
+      "TACO BELL", "POLLO CAMPERO", "CORRAL",
+      "CREPES", "WAFFLES", "RESTAURAN", "SUSHI", "BISTRO", "BRASSERIE",
+      "CAFE", "COFFEE", "CAFECULTOR", "TOSTAO", "AZAHAR", "TRIGO Y MIEL",
+      "CREPESYWAFFLES", "FOGON", "ASADERO", "CHIGUI", "FORTEZZA",
+      "TANUKI", "UKIYO", "WATAKUSHI", "RITMO Y AROMA", "LA AZOTEA",
+      "SALA DE", "HECTOR", "CASA MAGDALENA", "PURA SABROSURA",
+      "VENUES", "YOGEN FRUZ", "GELARTO", "HELADO",
+      "SELAMLIQUE", "SUSAM", "MESOPOTAMIA", "OLIVE GARDEN", "VERITY FOOD",
+      "KONTRBUS", "MELISSZA", "CARNESJREINA", "MERCADO PAGO*FCT",
+      "COMPRA MERCADO PAGO*CRO", "LA CESTA", "BIRRERIA", "SEOUL POCHA",
+      "HALVAANDNUTS", "SPAR PARTNER", "BARION"
+    ]},
+    // ── Mercado — supermercados y tiendas de alimentos ─────────────────────
+    { cat: "Mercado", keywords: [
+      "JUMBO", "CARREFOUR", "CARREFOURSA", "EXITO", "OLE", "ALMACENES",
+      "SUPERTIENDA", "MERQUEO", "FRUVER", "CARULLA", "OXXO",
+      "LIDL", "SPAR MAGYARORSZAG", "CSEMEGE", "METRO BARCELON"
+    ]},
+    // ── Transporte — taxis, apps, gasolina, metro ──────────────────────────
+    { cat: "Transporte", keywords: [
+      "UBER", "CABIFY", "DIDI", "TAXI", "TRANSMILENIO", "SITP",
+      "TAXIS LIBRES", "DOGGER AERO", "BELBIM", "BKK AUTOMATA",
+      "METRO BARCELON", "SAGALES", "ESTACION DE SERVICIO",
+      "ACARLAR PETROL", "TEMBICI"
+    ]},
+    // ── Alojamiento — hoteles, hostales, Airbnb ────────────────────────────
+    { cat: "Alojamiento", keywords: [
+      "HOTEL", "AIRBNB", "BOOKING", "HOSPEDAJE", "HOSTAL",
+      "HOSTELWORLD", "HAMARAT OTEL", "MARRIOT", "MARRIOTT",
+      "AVENUE HOSTEL", "HOTEL PALACIO", "HOTEL INMACULADA",
+      "HOTEL PALACIO DE"
+    ]},
+    // ── Viajes — vuelos, transporte interurbano, agencias ──────────────────
+    { cat: "Viajes", keywords: [
+      "AVIANCA", "LATAM", "COPA", "AMERICAN AIRLINES", "VUELO",
+      "FLIGHTS", "TRIP.COM", "BOOKING.COM", "SULTAN", "NURDEM TURIZM",
+      "SELDAR ISTANBUL", "IZMIR 1888", "KAPADOKYA", "VOYNN GIDA",
+      "MAVERICKCENTRALMAR", "DUFRY", "WAN TANACSADO"
+    ]},
+    // ── Compras — tiendas, online, regalos ────────────────────────────────
+    { cat: "Compras", keywords: [
+      "AMAZON", "MERCADOLIBRE", "FALABELLA", "HOMECENTER", "EASY",
+      "IKEA", "SAMSUNG", "TEMU", "OFFICE DEPOT", "LIBRERIA",
+      "TIENDA RAMBLAS", "FOLKART", "BOMO ART", "PROEXSAL", "MAYAN GIFTS",
+      "KAPADOKYA OTTOMAN", "YEMENICILER", "SOV MAGAZACILIK",
+      "DOLLARTICTY", "HELOPAY", "COMPRA PASARELA", "MERCADO PAGO"
+    ]},
+    // ── Ropa — ropa y accesorios ───────────────────────────────────────────
+    { cat: "Ropa", keywords: [
+      "ADIDAS", "UNIQLO", "BROOKS BROTHERS", "DECATHLON",
+      "TIENDA ADIDAS", "ALSANCAK MACROCENTER", "ALSANCAK COLOMBIA"
+    ]},
+    // ── Suscripciones — servicios digitales recurrentes ───────────────────
+    { cat: "Suscripciones", keywords: [
+      "NETFLIX", "SPOTIFY", "YOUTUBE", "PRIME", "DISNEY", "HBO",
+      "APPLE TV", "APPLE.COM", "APPLE COM",
+      "NEW YORK TIMES", "THE NEW YORK TIMES"
+    ]},
+    // ── Salud — farmacias, médicos, clínicas ──────────────────────────────
+    { cat: "Salud", keywords: [
+      "FARMACIA", "DROGUER", "FARMATODO", "COLSUBSIDIO",
+      "CAFAM", "COMPENSAR", "UNID MED", "DIAGNOSTICO", "MEDIC"
+    ]},
+    // ── Deporte — gimnasios, clubes, implementos ──────────────────────────
+    { cat: "Deporte", keywords: [
+      "COUNTRY CLUB", "GYM", "GIMNASIO", "SPORT", "GOLF",
+      "TENIS", "PADEL", "FITNESS", "RUNNING", "ATLETISMO",
+      "CLUB LOS LAGARTOS", "ANKARA DEMIRSPOR"
+    ]},
+    // ── Entretenimiento — espectáculos, museos, ocio ──────────────────────
+    { cat: "Entretenimiento", keywords: [
+      "NETFLIX", "CINE", "TEATRO", "CONCIERTO", "PARQUE",
+      "BUDAPEST JAZZ CLUB", "CORFERIAS", "PONTOON",
+      "SUNA VE INAN", "PARK ELITE"
+    ]},
+    // ── Belleza — peluquerías, estética personal ──────────────────────────
+    { cat: "Belleza", keywords: [
+      "PELUQUER", "BARBERIA", "BARBERIAS", "LORD", "ESTETICA",
+      "ANA MILENA", "ANDERSON GOGREEN", "HF PELUQUERIA"
+    ]},
+    // ── Software — herramientas y servicios digitales de trabajo ──────────
+    { cat: "Software", keywords: [
+      "GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION",
+      "AMAZON DIGI", "FOTOP"
+    ]},
+    // ── Hogar — artículos del hogar y servicios domésticos ────────────────
+    { cat: "Hogar", keywords: [
+      "HOMECENTER", "HOME SENTRY", "HOME DEPOT", "EASY HOME"
+    ]},
+    // ── Trámites — pagos oficiales, visas, impuestos ──────────────────────
+    { cat: "Trámites", keywords: [
+      "USEMBASSY", "MRVFEE", "GDIT"
+    ]}
   ];
 
   for (var i = 0; i < rules.length; i++) {
@@ -621,6 +758,43 @@ function detectCategory(merchant) {
     }
   }
   return "";
+}
+
+// ── Recategorizar todas las filas con categoría vacía ─────────────
+// Ejecutar una vez desde el editor de Apps Script después de ampliar detectCategory().
+// Solo toca filas donde la columna Categoría está vacía.
+function recategorizeAll() {
+  var users = ALLOWED_USERS;
+  var total = 0;
+  var updated = 0;
+
+  for (var u = 0; u < users.length; u++) {
+    var ref   = _getSheet(users[u]);
+    var sheet = ref.sheet;
+    if (!sheet) continue;
+
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var catCol     = hdrs.indexOf("Categoría");
+    var comercioCol = hdrs.indexOf("Comercio");
+    if (catCol < 0 || comercioCol < 0) continue;
+
+    for (var i = 1; i < data.length; i++) {
+      total++;
+      var cat      = String(data[i][catCol] || "").trim();
+      var comercio = String(data[i][comercioCol] || "").trim();
+      if (cat !== "" || !comercio) continue;
+
+      var newCat = detectCategory(comercio);
+      if (newCat) {
+        sheet.getRange(i + 1, catCol + 1).setValue(newCat);
+        updated++;
+      }
+    }
+  }
+
+  Logger.log("recategorizeAll: " + updated + " de " + total + " filas actualizadas.");
+  return { total: total, updated: updated };
 }
 
 // ── Actualizar categoría de una fila existente ────────────────
@@ -727,9 +901,9 @@ function appendToSheet(data, userId) {
     sheet = ss.insertSheet(ref.tabName);
     sheet.appendRow([
       "Timestamp", "Fecha", "Banco", "Tipo", "Monto (COP)",
-      "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original"
+      "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original", "Fuente"
     ]);
-    sheet.getRange(1, 1, 1, 9).setFontWeight("bold").setBackground("#f3f3f3");
+    sheet.getRange(1, 1, 1, 10).setFontWeight("bold").setBackground("#f3f3f3");
     sheet.setFrozenRows(1);
   }
 
@@ -738,13 +912,14 @@ function appendToSheet(data, userId) {
   sheet.appendRow([
     Utilities.formatDate(data.timestamp, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
     fecha,
-    data.banco       || "",
-    data.tipo        || "",
-    data.monto       || "",
-    data.comercio    || "",
-    data.tarjeta     || "",
-    data.categoria   || "",
-    data.sms_original || ""
+    data.banco        || "",
+    data.tipo         || "",
+    data.monto        || "",
+    data.comercio     || "",
+    data.tarjeta      || "",
+    data.categoria    || "",
+    data.sms_original || "",
+    data.fuente       || "sms"
   ]);
 }
 
@@ -775,6 +950,558 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// GMAIL EMAIL CAPTURE — canal para Nequi, Rappi, dale!
+// ═══════════════════════════════════════════════════════════════
+//
+// Requiere: activar el servicio "Gmail" en Apps Script
+// (Servicios → Gmail API → Agregar)
+//
+// Setup:
+//   1. Ejecuta setupGmailTrigger() UNA VEZ desde el editor.
+//   2. GAS procesará el Gmail del propietario del script (Jose) cada 5 min.
+//   3. Dani necesita una copia del script en su propia cuenta de Google.
+//
+// Senders conocidos (actualizar con direcciones reales verificadas):
+var GMAIL_SENDERS = {
+  nequi:    ["no-reply@nequi.com", "noreply@nequi.com"],
+  rappi:    ["noreply@rappi.com", "no-reply@rappi.com", "soporte@rappi.com"],
+  dale:     ["notificaciones@dale.com.co", "noreply@dale.com.co"],
+  davivienda: ["notificacionesdigitales@davivienda.com"],
+  bancolombia: ["noreply@notificaciones.bancolombia.com.co"],
+};
+
+// ── Procesar emails bancarios nuevos ──────────────────────────
+// Llamado por el trigger cada 5 minutos.
+function processGmailTransactions() {
+  var props   = PropertiesService.getScriptProperties();
+  var userId  = props.getProperty("GMAIL_USER_ID") || "jose";
+
+  // Build sender filter from all known senders
+  var allSenders = [];
+  Object.keys(GMAIL_SENDERS).forEach(function(bank) {
+    allSenders = allSenders.concat(GMAIL_SENDERS[bank]);
+  });
+  var fromFilter = "from:(" + allSenders.join(" OR ") + ")";
+
+  // Only look at emails from the last 24 hours to keep it fast
+  var query = fromFilter + " newer_than:1d";
+
+  var threads;
+  try {
+    threads = GmailApp.search(query, 0, 50);
+  } catch(e) {
+    Logger.log("Gmail error: " + e.message);
+    return;
+  }
+
+  // Label for processed emails — create if not exists
+  var labelName = "Finanzas/Procesado";
+  var label;
+  try {
+    label = GmailApp.getUserLabelByName(labelName) || GmailApp.createLabel(labelName);
+  } catch(e) {
+    label = null; // non-fatal
+  }
+
+  var count = 0;
+  for (var i = 0; i < threads.length; i++) {
+    var thread = threads[i];
+    // Skip already-labeled threads
+    if (label && thread.getLabels().some(function(l) { return l.getName() === labelName; })) continue;
+
+    var messages = thread.getMessages();
+    for (var j = 0; j < messages.length; j++) {
+      var msg     = messages[j];
+      var from    = msg.getFrom().toLowerCase();
+      var subject = msg.getSubject();
+      var body    = msg.getPlainBody() || msg.getBody().replace(/<[^>]+>/g, " ");
+
+      // Determine bank from sender
+      var bank = _detectBankFromEmail(from);
+      if (!bank) continue;
+
+      var parsed = _parseEmailTransaction(bank, subject, body);
+      if (!parsed) {
+        // Save raw for parser improvement
+        appendToSheet({
+          timestamp:    new Date(),
+          fecha:        new Date(),
+          banco:        bank.charAt(0).toUpperCase() + bank.slice(1),
+          tipo:         "NO RECONOCIDO",
+          monto:        0,
+          comercio:     subject.slice(0, 50),
+          tarjeta:      "",
+          categoria:    "",
+          sms_original: "EMAIL | " + subject + " | " + body.slice(0, 300),
+          fuente:       "email"
+        }, userId);
+        count++;
+        continue;
+      }
+
+      if (parsed.reversal) {
+        reverseTransaction(parsed, userId);
+      } else {
+        parsed.timestamp    = new Date();
+        parsed.categoria    = detectCategory(parsed.comercio);
+        parsed.sms_original = "EMAIL | " + subject + " | " + body.slice(0, 300);
+        parsed.fuente       = "email";
+        appendToSheet(parsed, userId);
+      }
+      count++;
+    }
+
+    if (label) thread.addLabel(label);
+  }
+
+  Logger.log("processGmailTransactions: " + count + " emails procesados.");
+}
+
+// ── Detectar banco desde el campo From ───────────────────────
+function _detectBankFromEmail(from) {
+  var keys = Object.keys(GMAIL_SENDERS);
+  for (var i = 0; i < keys.length; i++) {
+    var senders = GMAIL_SENDERS[keys[i]];
+    for (var j = 0; j < senders.length; j++) {
+      if (from.indexOf(senders[j]) !== -1) return keys[i];
+    }
+  }
+  return null;
+}
+
+// ── Parsear cuerpo del email según banco ─────────────────────
+// Retorna el mismo objeto que los parsers SMS, o null si no matchea.
+// Actualizar con patrones reales una vez verificados los emails.
+function _parseEmailTransaction(bank, subject, body) {
+  var text = (subject + " " + body).replace(/\s+/g, " ");
+
+  if (bank === "nequi") {
+    // "Enviaste $23.000 a Juan Pérez" / "Recibiste $50.000 de María"
+    var rePago = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
+    var mp = text.match(rePago);
+    if (mp) return { banco: "Nequi", tipo: "Transferencia", monto: _parseCopEmail(mp[1]), comercio: mp[2].trim(), tarjeta: "", fecha: new Date() };
+
+    var reRecibio = /[Rr]ecibiste\s+\$\s*([\d.,]+)\s+de\s+(.+?)(?:\.|$)/;
+    var mr = text.match(reRecibio);
+    if (mr) return { banco: "Nequi", tipo: "Ingreso", monto: _parseCopEmail(mr[1]), comercio: mr[2].trim(), tarjeta: "", fecha: new Date() };
+
+    var reCompra = /[Cc]ompraste?\s+(?:en\s+)?(.+?)\s+por\s+\$\s*([\d.,]+)/;
+    var mc = text.match(reCompra);
+    if (mc) return { banco: "Nequi", tipo: "Compra", monto: _parseCopEmail(mc[2]), comercio: normalizeComercio(mc[1].trim()), tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "rappi") {
+    // "Tu pedido de $45.900 fue pagado" / "Pagaste $45.900 en Rappi"
+    var reRappi = /\$\s*([\d.,]+)/;
+    var mr2 = text.match(reRappi);
+    if (mr2) return { banco: "Rappi", tipo: "Compra", monto: _parseCopEmail(mr2[1]), comercio: "Rappi", tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "dale") {
+    var reDale = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
+    var md = text.match(reDale);
+    if (md) return { banco: "dale!", tipo: "Transferencia", monto: _parseCopEmail(md[1]), comercio: md[2].trim(), tarjeta: "", fecha: new Date() };
+  }
+
+  if (bank === "davivienda") {
+    var reDAV = /[Cc]ompra.*?\$([\d,.]+).*?[Tt]arjeta\s+\*(\d+).*?[Ll]ugar\s+(.+?)(?:\.|$)/;
+    var mdav = text.match(reDAV);
+    if (mdav) return { banco: "Davivienda", tipo: "Compra", monto: _parseCopEmail(mdav[1]), tarjeta: "Tarjeta *" + mdav[2], comercio: normalizeComercio(mdav[3].trim()), fecha: new Date() };
+  }
+
+  if (bank === "bancolombia") {
+    var reBCO = /\$\s*([\d,.]+)/;
+    var mbco = text.match(reBCO);
+    if (mbco) {
+      var monto = _parseCopEmail(mbco[1]);
+      if (monto > 0) return { banco: "Bancolombia", tipo: "Compra", monto: monto, comercio: "", tarjeta: "", fecha: new Date() };
+    }
+  }
+
+  return null;
+}
+
+// ── Parser de montos desde email (formato colombiano) ─────────
+function _parseCopEmail(str) {
+  if (!str) return 0;
+  var s = String(str).replace(/\s/g, "");
+  // "1.234.567,89" → European; "1,234.56" → US
+  if (s.indexOf(",") !== -1 && s.indexOf(".") !== -1) {
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      // European: 1.234,56
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // US: 1,234.56
+      s = s.replace(/,/g, "");
+    }
+  } else {
+    s = s.replace(/[.,]/g, "");
+  }
+  return parseFloat(s) || 0;
+}
+
+// ── Configurar trigger de Gmail (ejecutar UNA VEZ) ────────────
+function setupGmailTrigger() {
+  // Eliminar triggers existentes de la misma función
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "processGmailTransactions") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  // Crear trigger cada 5 minutos
+  ScriptApp.newTrigger("processGmailTransactions")
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  Logger.log("Trigger Gmail configurado: cada 5 minutos.");
+}
+
+// ── Desactivar trigger de Gmail ───────────────────────────────
+function removeGmailTrigger() {
+  var removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === "processGmailTransactions") {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
+  });
+  Logger.log("Triggers Gmail eliminados: " + removed);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PUSH NOTIFICATION CAPTURE — nuevo canal, no modifica SMS path
+// ═══════════════════════════════════════════════════════════════
+
+// ── Schema migration: add Fuente column to existing sheets ────
+// Uses 6-hour Script Cache to avoid re-checking on every request.
+function _migrateSheetHeaders(userId) {
+  var cache = CacheService.getScriptCache();
+  var key   = "migrated_fuente_" + userId;
+  if (cache.get(key)) return;
+
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
+  if (!sheet) return;
+
+  var lastCol = sheet.getLastColumn();
+  var hdrs    = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (hdrs.indexOf("Fuente") === -1) {
+    sheet.getRange(1, lastCol + 1).setValue("Fuente");
+    sheet.getRange(1, lastCol + 1).setFontWeight("bold").setBackground("#f3f3f3");
+  }
+  cache.put(key, "1", 21600); // 6 hours
+}
+
+// ── Push notification dispatcher ──────────────────────────────
+// Called from doPost() when type === "notification".
+// bank is set explicitly in the iOS Shortcut — no auto-detection needed.
+// Returns null if the body doesn't match any known pattern → NO_RECONOCIDO fallback.
+function parseNotification(bank, title, body) {
+  switch (bank) {
+    case "bancolombia":  return parseNotifBancolombia(title, body);
+    case "davivienda":   return parseNotifDavivienda(title, body);
+    case "bogota":       return parseNotifBogota(title, body);
+    case "itau":         return parseNotifItau(title, body);
+    case "nequi":        return parseNotifNequi(title, body);
+    case "daviplata":    return parseNotifDaviplata(title, body);
+    case "occidente":    return parseNotifOccidente(title, body);
+    case "popular":      return parseNotifPopular(title, body);
+    case "avvillas":     return parseNotifAvVillas(title, body);
+    case "dale":         return parseNotifDale(title, body);
+    case "rappi":        return parseNotifRappi(title, body);
+    default:             return null;
+  }
+}
+
+// ── Bancolombia push ──────────────────────────────────────────
+// Known formats (update with real samples from tools/notification_samples/BCO.txt):
+//   "Compra $45,900 Éxito Chapinero • *4521"
+//   "Aprobamos tu compra de $45,900.00 en Éxito • *4521"
+//   "Transferencia $137,500.00 a Natalia Karaman • *0018"
+function parseNotifBancolombia(title, body) {
+  var text = body || title;
+
+  // Compra con tarjeta: "$monto comercio • *digits" or "Compra $monto en comercio"
+  var reCompra = /(?:compra(?:\s+aprobada)?(?:\s+de)?\s+)?\$\s*([\d,.]+)\s+(?:en\s+)?(.+?)\s*[•·]\s*\*(\d+)/i;
+  var mc = text.match(reCompra);
+  if (mc) {
+    return {
+      banco:   "Bancolombia",
+      tipo:    "Compra",
+      monto:   parseMontoUS(mc[1].replace(/\./g, "")),
+      comercio: normalizeComercio(mc[2].trim()),
+      tarjeta: "Tarjeta *" + mc[3],
+      fecha:   new Date()
+    };
+  }
+
+  // Transferencia / Bre-B
+  var reTransfer = /transferencia\s+\$\s*([\d,.]+)/i;
+  var mt = text.match(reTransfer);
+  if (mt) {
+    return {
+      banco:   "Bancolombia",
+      tipo:    "Transferencia",
+      monto:   parseMontoUS(mt[1].replace(/\./g, "")),
+      comercio: "",
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Davivienda push ───────────────────────────────────────────
+// Known formats (update with real samples from tools/notification_samples/DAV.txt):
+//   "Compra Aprobada, $5,550, *8863, TEMBICI"
+//   "Compra $5,550 con *8863 en TEMBICI"
+function parseNotifDavivienda(title, body) {
+  var text = body || title;
+
+  // "Compra [Aprobada,] $monto, *tarjeta, comercio"
+  var re = /Compra(?:\s+Aprobad[ao])?\s*[,.]?\s*\$\s*([\d,.]+)\s*[,.]?\s*[*](\d+)\s*[,.]?\s*(.+)/i;
+  var m  = text.match(re);
+  if (m) {
+    return {
+      banco:   "Davivienda",
+      tipo:    "Compra",
+      monto:   parseMonto(m[1]),
+      tarjeta: "Tarjeta *" + m[2],
+      comercio: normalizeComercio(m[3].replace(/\.$/, "").trim()),
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Banco de Bogotá push ──────────────────────────────────────
+// Push format mirrors SMS (update with tools/notification_samples/BDB.txt):
+//   "Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 en COUNTRY CLUB"
+function parseNotifBogota(title, body) {
+  var text = body || title;
+  // Reuse SMS regex — push body is typically the same sentence
+  var parsed = parseBogota("Banco de Bogota: " + text);
+  return parsed;
+}
+
+// ── Banco Itaú push ───────────────────────────────────────────
+// Push format mirrors SMS (update with tools/notification_samples/ITA.txt):
+//   "Compra en THE NEW YORK TIMES $7,293 Tarjeta ****8439"
+function parseNotifItau(title, body) {
+  var text = body || title;
+  // Reuse SMS regex — Itaú push body matches the SMS structure
+  var parsed = parseItau(text);
+  if (parsed) return parsed;
+
+  // Short format: "$monto en comercio ****digits"
+  var reShort = /\$\s*([\d,.]+)\s+en\s+(.+?)\s+(?:Tarjeta\s+)?\*+(\d+)/i;
+  var ms = text.match(reShort);
+  if (ms) {
+    return {
+      banco:   "Itaú",
+      tipo:    "Compra",
+      monto:   parseMonto(ms[1]),
+      comercio: normalizeComercio(ms[2].trim()),
+      tarjeta: "Tarjeta ****" + ms[3],
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Nequi push ────────────────────────────────────────────────
+// Nequi is account-based (no card digits). No SMS alerts.
+// Typical formats (update with tools/notification_samples/NEQ.txt):
+//   "Pagaste $23,000 a Juan Pérez"
+//   "Recibiste $50,000 de María López"
+//   "Compraste $15,900 en Rappi"
+function parseNotifNequi(title, body) {
+  var text = body || title;
+
+  var rePago = /Pagaste\s+\$\s*([\d,.]+)\s+a\s+(.+)/i;
+  var mp = text.match(rePago);
+  if (mp) {
+    return {
+      banco:   "Nequi",
+      tipo:    "Transferencia",
+      monto:   parseMonto(mp[1]),
+      comercio: mp[2].trim(),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  var reRecibio = /Recibiste\s+\$\s*([\d,.]+)\s+de\s+(.+)/i;
+  var mr = text.match(reRecibio);
+  if (mr) {
+    return {
+      banco:   "Nequi",
+      tipo:    "Ingreso",
+      monto:   parseMonto(mr[1]),
+      comercio: mr[2].trim(),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  var reCompra = /Compraste\s+\$\s*([\d,.]+)\s+en\s+(.+)/i;
+  var mc = text.match(reCompra);
+  if (mc) {
+    return {
+      banco:   "Nequi",
+      tipo:    "Compra",
+      monto:   parseMonto(mc[1]),
+      comercio: normalizeComercio(mc[2].trim()),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Daviplata push ────────────────────────────────────────────
+// Update with tools/notification_samples/DPL.txt
+function parseNotifDaviplata(title, body) {
+  var text = body || title;
+
+  // "Transferencia de $monto recibida de Nombre"
+  var reRecibio = /\$\s*([\d,.]+)\s+recibid[ao]\s+de\s+(.+)/i;
+  var mr = text.match(reRecibio);
+  if (mr) {
+    return {
+      banco:   "Daviplata",
+      tipo:    "Ingreso",
+      monto:   parseMonto(mr[1]),
+      comercio: mr[2].trim(),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  var rePago = /Pagaste\s+\$\s*([\d,.]+)/i;
+  var mp = text.match(rePago);
+  if (mp) {
+    return {
+      banco:   "Daviplata",
+      tipo:    "Transferencia",
+      monto:   parseMonto(mp[1]),
+      comercio: "",
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Grupo Aval banks (Occidente, Popular, AV Villas) push ─────
+// All share Aval infrastructure — likely same notification format as Bogotá.
+// Update with tools/notification_samples/OCC.txt, POP.txt, AVV.txt.
+function parseNotifOccidente(title, body) {
+  return _parseNotifAval("Occidente", title, body);
+}
+function parseNotifPopular(title, body) {
+  return _parseNotifAval("Popular", title, body);
+}
+function parseNotifAvVillas(title, body) {
+  return _parseNotifAval("AV Villas", title, body);
+}
+
+function _parseNotifAval(nombreBanco, title, body) {
+  var text = body || title;
+
+  // Same pattern as Bogotá SMS — Aval banks share transaction notification wording
+  var re = /(?:Tu\s+)?(\w+)\s+por\s+([\d,.]+)\s+(?:fue\s+\w+\s+)?con\s+(?:Tarjeta\s+(?:Cr[eé]dito|D[eé]bito)|Cuenta)\s+(\d+)\s+(?:el\s+[\d/]+\s+[\d:]+\s+)?en\s+(.+?)(?:\s*[¿?]|$)/i;
+  var m = text.match(re);
+  if (m) {
+    return {
+      banco:   nombreBanco,
+      tipo:    normalizeTipo(m[1]),
+      monto:   parseMonto(m[2]),
+      tarjeta: m[3],
+      comercio: normalizeComercio(m[4].trim()),
+      fecha:   new Date()
+    };
+  }
+
+  // Generic fallback: extract monto if present
+  var reGeneric = /\$?\s*([\d,.]+)\s+en\s+(.+)/i;
+  var mg = text.match(reGeneric);
+  if (mg) {
+    return {
+      banco:   nombreBanco,
+      tipo:    "Compra",
+      monto:   parseMonto(mg[1]),
+      comercio: normalizeComercio(mg[2].trim()),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── dale! (Grupo Aval digital wallet) push ────────────────────
+// Update with tools/notification_samples/DAL.txt
+function parseNotifDale(title, body) {
+  var text = body || title;
+
+  var rePago = /(?:Enviaste|Pagaste)\s+\$\s*([\d,.]+)\s+(?:a\s+)?(.+)/i;
+  var mp = text.match(rePago);
+  if (mp) {
+    return {
+      banco:   "dale!",
+      tipo:    "Transferencia",
+      monto:   parseMonto(mp[1]),
+      comercio: mp[2].replace(/\.$/, "").trim(),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  var reRecibio = /Recibiste\s+\$\s*([\d,.]+)\s+de\s+(.+)/i;
+  var mr = text.match(reRecibio);
+  if (mr) {
+    return {
+      banco:   "dale!",
+      tipo:    "Ingreso",
+      monto:   parseMonto(mr[1]),
+      comercio: mr[2].replace(/\.$/, "").trim(),
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
+// ── Rappi Pay push ────────────────────────────────────────────
+// Update with tools/notification_samples/RAP.txt
+function parseNotifRappi(title, body) {
+  var text = body || title;
+
+  // "Tu pedido de $XX,XXX fue pagado" or "Pagaste $XX,XXX en Rappi"
+  var re = /(?:pedido de\s+|Pagaste\s+)\$\s*([\d,.]+)/i;
+  var m  = text.match(re);
+  if (m) {
+    return {
+      banco:   "Rappi",
+      tipo:    "Compra",
+      monto:   parseMonto(m[1]),
+      comercio: "Rappi",
+      tarjeta: "",
+      fecha:   new Date()
+    };
+  }
+
+  return null;
+}
+
 // ── Test manual — ejecutar desde el editor de Apps Script ─────
 function testParsers() {
   var smsBogota       = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
@@ -794,4 +1521,61 @@ function testParsers() {
   Logger.log("Bancolombia Bre-B:" + JSON.stringify(parseBancolombia(smsBancoBreb)));
   Logger.log("detectBank Davi:  " + detectBank(smsDaviApproved));
   Logger.log("detectBank Banco: " + detectBank(smsBancoPSE));
+
+  // ── Push notification parser tests ────────────────────────────
+  // Update these with real samples once tools/notification_samples/ is filled.
+  Logger.log("\n── Push notification parsers ──");
+
+  // Bancolombia push (format TBD — update after capturing BCO.txt)
+  var pushBco = "Compra $45,900 Éxito Chapinero • *4521";
+  Logger.log("Notif BCO compra: " + JSON.stringify(parseNotifBancolombia("Bancolombia", pushBco)));
+
+  var pushBcoTransfer = "Transferencia $137,500.00 a Natalia Karaman • *0018";
+  Logger.log("Notif BCO transfer:" + JSON.stringify(parseNotifBancolombia("Bancolombia", pushBcoTransfer)));
+
+  // Davivienda push
+  var pushDav = "Compra Aprobada, $5,550, *8863, TEMBICI";
+  Logger.log("Notif DAV compra: " + JSON.stringify(parseNotifDavivienda("Davivienda", pushDav)));
+
+  // Bogotá push (reuses SMS parser)
+  var pushBdb = "Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA";
+  Logger.log("Notif BDB compra: " + JSON.stringify(parseNotifBogota("Banco de Bogotá", pushBdb)));
+
+  // Itaú push (reuses SMS parser)
+  var pushIta = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU";
+  Logger.log("Notif ITA compra: " + JSON.stringify(parseNotifItau("Itaú", pushIta)));
+
+  // Nequi push (no tarjeta)
+  var pushNeqPago   = "Pagaste $23,000 a Juan Pérez";
+  var pushNeqRecibio = "Recibiste $50,000 de María López";
+  var pushNeqCompra = "Compraste $15,900 en Rappi";
+  Logger.log("Notif NEQ pago:   " + JSON.stringify(parseNotifNequi("Nequi", pushNeqPago)));
+  Logger.log("Notif NEQ recibio:" + JSON.stringify(parseNotifNequi("Nequi", pushNeqRecibio)));
+  Logger.log("Notif NEQ compra: " + JSON.stringify(parseNotifNequi("Nequi", pushNeqCompra)));
+
+  // Daviplata push
+  var pushDpl = "$30,000 recibida de Carlos Torres";
+  Logger.log("Notif DPL recibio:" + JSON.stringify(parseNotifDaviplata("Daviplata", pushDpl)));
+
+  // Aval banks push
+  var pushAval = "Tu compra por 45,000 fue aprobada con Tarjeta Crédito 1234 en JUMP FITNESS";
+  Logger.log("Notif OCC compra: " + JSON.stringify(parseNotifOccidente("Occidente", pushAval)));
+  Logger.log("Notif POP compra: " + JSON.stringify(parseNotifPopular("Popular", pushAval)));
+  Logger.log("Notif AVV compra: " + JSON.stringify(parseNotifAvVillas("AV Villas", pushAval)));
+
+  // dale! push
+  var pushDal = "Enviaste $15,000 a Pedro González";
+  Logger.log("Notif DAL envio:  " + JSON.stringify(parseNotifDale("dale!", pushDal)));
+
+  // Rappi push
+  var pushRap = "Tu pedido de $45,900 fue pagado";
+  Logger.log("Notif RAP pedido: " + JSON.stringify(parseNotifRappi("Rappi", pushRap)));
+
+  // NO_RECONOCIDO fallback
+  var pushUnknown = "Tienes una nueva notificación";
+  Logger.log("Notif UNKNOWN:    " + JSON.stringify(parseNotification("bancolombia", "Bancolombia", pushUnknown)));
+
+  // dispatcher routing check
+  Logger.log("Dispatch BCO:     " + JSON.stringify(parseNotification("bancolombia", "Bancolombia", pushBco)));
+  Logger.log("Dispatch NEQ:     " + JSON.stringify(parseNotification("nequi", "Nequi", pushNeqPago)));
 }
