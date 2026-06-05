@@ -14,7 +14,7 @@ import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
-import { getBudgets } from '../lib/budgets';
+import { getBudgets, getSharedBudgets } from '../lib/budgets';
 
 interface Props {
   transactions: Transaction[];
@@ -92,16 +92,19 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       .reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
   })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount);
 
-  // Budget alerts — categories ≥ 80% of monthly budget
+  // Budget alerts — personal ≥ 80% + shared ≥ 80%
   const budgets = getBudgets(userId);
+  const sharedBudgets = getSharedBudgets();
+  const mergedBudgets = { ...sharedBudgets, ...budgets }; // personal overrides shared per category
   const alerts = byCategory
-    .filter(s => budgets[s.category] > 0 && s.amount / budgets[s.category] >= 0.8)
+    .filter(s => mergedBudgets[s.category] > 0 && s.amount / mergedBudgets[s.category] >= 0.8)
     .map(s => ({
       cat: s.category,
-      budget: budgets[s.category],
+      budget: mergedBudgets[s.category],
       spent: s.amount,
-      pct: s.amount / budgets[s.category],
+      pct: s.amount / mergedBudgets[s.category],
       color: getCategoryColor(s.category),
+      shared: !budgets[s.category] && !!sharedBudgets[s.category],
     }))
     .sort((a, b) => b.pct - a.pct);
 
@@ -353,7 +356,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               Alertas
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {alerts.map(({ cat, budget, spent, pct, color }) => {
+              {alerts.map(({ cat, budget, spent, pct, color, shared }) => {
                 const exceeded = pct >= 1;
                 const accent = exceeded ? '#dc2626' : '#d97706';
                 const bg = exceeded ? '#fef2f2' : '#fffbeb';
@@ -363,6 +366,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{cat}</span>
+                      {shared && <span style={{ fontSize: 10, background: 'var(--blue-50)', color: 'var(--blue-700)', border: '1px solid var(--blue-100)', borderRadius: 5, padding: '1px 5px', fontWeight: 600 }}>hogar</span>}
                       <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: accent, fontWeight: 700 }}>
                         {Math.round(pct * 100)}%
                       </span>

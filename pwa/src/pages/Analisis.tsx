@@ -7,8 +7,9 @@ import { cleanMerchant } from '../lib/merchantCleaner';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
-import { getBudgets, setBudget, clearBudget } from '../lib/budgets';
+import { getBudgets, setBudget, clearBudget, getSharedBudgets, setSharedBudget, clearSharedBudget } from '../lib/budgets';
 import { CategorySheet } from '../components/CategorySheet';
+import { detectRecurring } from '../lib/recurring';
 
 
 interface Props {
@@ -104,6 +105,11 @@ export function Analisis({ transactions, loading, userId }: Props) {
   const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets(userId));
   const [editingBudget, setEditingBudget] = useState<string | null>(null);
   const [budgetDraft, setBudgetDraft] = useState('');
+  const [sharedBudgets, setSharedBudgetsState] = useState<Record<string, number>>(() => getSharedBudgets());
+  const [editingShared, setEditingShared] = useState<string | null>(null);
+  const [sharedDraft, setSharedDraft] = useState('');
+  const [addingShared, setAddingShared] = useState(false);
+  const [newSharedCat, setNewSharedCat] = useState('');
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
 
   const displayIdx = selectedIdx >= 0 && selectedIdx < last6.length
@@ -115,6 +121,8 @@ export function Analisis({ transactions, loading, userId }: Props) {
     ? last6[compareIdx] : null;
 
   const maxBar = Math.max(...last6.map(s => s.total), 1);
+
+  const subscriptions = useMemo(() => detectRecurring(transactions), [transactions]);
 
   if (loading) {
     return (
@@ -504,6 +512,125 @@ export function Analisis({ transactions, loading, userId }: Props) {
                     );
                   })}
                 </AnimatePresence>
+              </motion.div>
+            )}
+            {/* Presupuesto del hogar */}
+            {(Object.keys(sharedBudgets).length > 0 || addingShared) && (
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 14px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
+                  Presupuesto del hogar
+                </div>
+                {Object.entries(sharedBudgets).map(([cat, limit]) => {
+                  const spent = displayStats.byCategory.find(c => c.name === cat)?.amount ?? 0;
+                  const pct = Math.min(spent / limit, 1);
+                  const over = spent > limit;
+                  const barColor = over ? '#ef4444' : pct > 0.8 ? '#f59e0b' : 'var(--blue-600)';
+                  return (
+                    <div key={cat} style={{ marginBottom: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>{cat}</span>
+                        <span style={{ fontSize: 11.5, color: over ? '#ef4444' : 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                          {formatCOP(spent)} / {formatCOP(limit)}
+                        </span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct * 100, 100)}%` }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} style={{ height: '100%', borderRadius: 999, background: barColor }} />
+                      </div>
+                      <div style={{ marginTop: 5, display: 'flex', justifyContent: 'flex-end' }}>
+                        {editingShared === cat ? (
+                          <input
+                            autoFocus type="number" value={sharedDraft}
+                            onChange={e => setSharedDraft(e.target.value)}
+                            onBlur={() => {
+                              const val = parseInt(sharedDraft, 10);
+                              if (!isNaN(val) && val > 0) { setSharedBudget(cat, val); } else { clearSharedBudget(cat); }
+                              setSharedBudgetsState(getSharedBudgets());
+                              setEditingShared(null);
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                            placeholder="Límite mensual"
+                            style={{ width: 140, fontSize: 11.5, padding: '3px 8px', border: '1.5px solid var(--blue-600)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none' }}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => { setEditingShared(cat); setSharedDraft(String(limit)); }}
+                            style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer', fontSize: 10.5, color: 'var(--blue-700)', fontFamily: 'var(--font-body)' }}
+                          >
+                            ✏ {formatCOP(limit)}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {addingShared ? (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input
+                      autoFocus type="text" value={newSharedCat}
+                      onChange={e => setNewSharedCat(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                      placeholder="Categoría"
+                      style={{ flex: 1, height: 34, padding: '0 10px', border: '1.5px solid var(--blue-600)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }}
+                    />
+                    <input
+                      type="number" value={sharedDraft} onChange={e => setSharedDraft(e.target.value)}
+                      placeholder="Límite"
+                      style={{ width: 100, height: 34, padding: '0 10px', border: '1.5px solid var(--blue-600)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }}
+                    />
+                    <button onClick={() => {
+                      const val = parseInt(sharedDraft, 10);
+                      if (newSharedCat.trim() && !isNaN(val) && val > 0) {
+                        setSharedBudget(newSharedCat.trim(), val);
+                        setSharedBudgetsState(getSharedBudgets());
+                      }
+                      setAddingShared(false); setNewSharedCat(''); setSharedDraft('');
+                    }} style={{ height: 34, padding: '0 12px', background: 'var(--blue-700)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                      OK
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAddingShared(true)} style={{ marginTop: 4, background: 'none', border: '1px dashed var(--line)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-body)', width: '100%' }}>
+                    + Agregar categoría
+                  </button>
+                )}
+              </motion.div>
+            )}
+            {Object.keys(sharedBudgets).length === 0 && !addingShared && (
+              <motion.button variants={riseItem} transition={quickEase} onClick={() => setAddingShared(true)}
+                style={{ background: 'none', border: '1.5px dashed var(--line)', borderRadius: 'var(--r-2xl)', padding: '14px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)', width: '100%', textAlign: 'left' }}>
+                + Crear presupuesto del hogar
+              </motion.button>
+            )}
+
+            {/* Suscripciones detectadas */}
+            {subscriptions.length > 0 && (
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 14px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                    Posibles suscripciones
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    ~{formatCOP(subscriptions.reduce((s, r) => s + r.monthlyAmount, 0))}/mes
+                  </div>
+                </div>
+                {subscriptions.map((item, i) => {
+                  const color = getCategoryColor(item.categoria || 'Otro');
+                  return (
+                    <div key={item.comercio} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.comercio}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.categoria || 'Otro'} · {item.occurrences} veces</div>
+                      </div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink)', fontWeight: 600, flexShrink: 0 }}>
+                        {formatCOP(item.monthlyAmount)}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--muted)', textAlign: 'center' }}>
+                  Basado en cobros recurrentes del mismo monto
+                </div>
               </motion.div>
             )}
           </>

@@ -4,63 +4,74 @@ import { cleanMerchant } from './merchantCleaner';
 export interface RecurringItem {
   comercio: string;
   monthlyAmount: number;
-  months: number;
+  occurrences: number;
   lastDate: string;
   categoria: string;
-  isSubscription: boolean;   // monto casi fijo (CV < 15%)
-  missedRecentMonth: boolean; // no cobrado en el último mes ni en el anterior
 }
 
+// Conservative detection: same monto (±5%) appearing ≥2 times
+// with ≥25 days between each consecutive occurrence and within the last 3 months.
 export function detectRecurring(transactions: Transaction[]): RecurringItem[] {
-  const map: Record<string, {
-    months: Set<string>;
-    amounts: number[];
-    lastDate: string;
-    categoria: string;
-  }> = {};
+  const map: Record<string, { date: Date; amount: number; categoria: string }[]> = {};
 
   for (const tx of transactions) {
     const name = cleanMerchant(tx.Comercio) || tx.Comercio;
     if (!name || name.length < 2) continue;
-    const monthKey = (tx.Fecha || tx.Timestamp || '').slice(0, 7);
-    if (!monthKey || monthKey.length < 7) continue;
-
-    if (!map[name]) map[name] = { months: new Set(), amounts: [], lastDate: '', categoria: '' };
-    const entry = map[name];
-    entry.months.add(monthKey);
-    entry.amounts.push(Number(tx['Monto (COP)'] || 0));
+    const amount = Number(tx['Monto (COP)'] || 0);
+    if (amount <= 0) continue;
     const dateStr = tx.Fecha || tx.Timestamp || '';
-    if (dateStr > entry.lastDate) {
-      entry.lastDate = dateStr;
-      entry.categoria = tx.Categoría || '';
-    }
+    const date = new Date(dateStr.replace(' ', 'T'));
+    if (isNaN(date.getTime())) continue;
+
+    if (!map[name]) map[name] = [];
+    map[name].push({ date, amount, categoria: tx.Categoría || '' });
   }
 
   const now = new Date();
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  const currentMonth = fmt(now);
-  const prevMonth    = fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
   const result: RecurringItem[] = [];
 
-  for (const [comercio, data] of Object.entries(map)) {
-    if (data.months.size < 2) continue;
+  for (const [comercio, entries] of Object.entries(map)) {
+    if (entries.length < 2) continue;
 
-    const amounts = data.amounts.filter(a => a > 0);
-    if (amounts.length === 0) continue;
+    // Sort by date ascending
+    const sorted = [...entries].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-    const variance = amounts.reduce((s, a) => s + Math.pow(a - avg, 2), 0) / amounts.length;
-    const cv = avg > 0 ? Math.sqrt(variance) / avg : 1;
+    // Find consecutive pairs with same amount (±5%) and ≥25 days apart
+    let matchingPairs = 0;
+    let totalAmount = 0;
+    let lastDate = '';
+    let categoria = '';
+
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      const curr = sorted[i];
+      const daysDiff = (curr.date.getTime() - prev.date.getTime()) / 86_400_000;
+      const avgAmt = (prev.amount + curr.amount) / 2;
+      const amtDiff = Math.abs(prev.amount - curr.amount) / avgAmt;
+
+      if (daysDiff >= 25 && amtDiff < 0.05) {
+        matchingPairs++;
+        totalAmount += curr.amount;
+        if (curr.date.toISOString() > lastDate) {
+          lastDate = curr.date.toISOString();
+          categoria = curr.categoria;
+        }
+      }
+    }
+
+    if (matchingPairs < 1) continue;
+
+    // Must have occurred within the last 3 months
+    const mostRecent = sorted[sorted.length - 1].date;
+    if (mostRecent < threeMonthsAgo) continue;
 
     result.push({
       comercio,
-      monthlyAmount: Math.round(avg),
-      months: data.months.size,
-      lastDate: data.lastDate,
-      categoria: data.categoria,
-      isSubscription: cv < 0.15,
-      missedRecentMonth: !data.months.has(currentMonth) && !data.months.has(prevMonth),
+      monthlyAmount: Math.round(totalAmount / matchingPairs),
+      occurrences: matchingPairs + 1,
+      lastDate: lastDate || sorted[sorted.length - 1].date.toISOString(),
+      categoria,
     });
   }
 
