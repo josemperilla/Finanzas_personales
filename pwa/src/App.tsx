@@ -13,7 +13,8 @@ import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode } from './lib/theme';
-import { fetchProfiles, Profile } from './lib/profiles';
+import { fetchProfiles, Profile, getDisplayName } from './lib/profiles';
+import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
 import { ImportarExtracto } from './components/ImportarExtracto';
 import { TutorialCanales } from './components/TutorialCanales';
@@ -129,6 +130,7 @@ export default function App() {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
       applyAccessibleMode(userId);
       setAccessible(getAccessibleMode(userId));
+      applyPersonalizedAppIcon(userId, getDisplayName(userId));
       setUnlocked(true);
     }
   }, [userId]);
@@ -136,6 +138,7 @@ export default function App() {
   const handleSwitchProfile = useCallback(() => {
     localStorage.removeItem('fm_profile');
     document.documentElement.dataset.mode = ''; // clear accessible mode
+    resetAppIcon();
     setUserId(null);
     setUnlocked(false);
     setNeedsSetupPin(false);
@@ -257,6 +260,7 @@ export default function App() {
           <Settings key="settings" userId={userId} transactions={transactions} onClose={() => {
             setShowSettings(false);
             setAccessible(getAccessibleMode(userId));
+            applyPersonalizedAppIcon(userId, getDisplayName(userId));
           }} />
         )}
         {showTutorial && userId && (
