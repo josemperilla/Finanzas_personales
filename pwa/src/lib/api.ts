@@ -152,6 +152,29 @@ export async function changePin(currentPin: string, newPin: string): Promise<voi
   if (!json.ok) throw new Error(json.error || 'Error al cambiar PIN');
 }
 
+export async function importTransactions(
+  rows: ManualTransaction[],
+  onProgress: (done: number, total: number) => void,
+  delayMs = 300,
+): Promise<{ ok: number; errors: number }> {
+  assertWebhookUrl();
+  let ok = 0;
+  let errors = 0;
+  for (let i = 0; i < rows.length; i++) {
+    try {
+      await saveTransaction(rows[i]);
+      ok++;
+    } catch {
+      errors++;
+    }
+    onProgress(i + 1, rows.length);
+    if (delayMs > 0 && i < rows.length - 1) {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  return { ok, errors };
+}
+
 export async function askChat(question: string, context: object): Promise<string> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {

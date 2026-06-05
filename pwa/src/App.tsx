@@ -12,7 +12,7 @@ import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
-import { getTheme, applyTheme } from './lib/theme';
+import { getTheme, applyTheme, applyAccessibleMode } from './lib/theme';
 
 export default function App() {
   // Apply saved theme preference immediately on mount
@@ -107,12 +107,14 @@ export default function App() {
   const handleUnlock = useCallback(() => {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+      applyAccessibleMode(userId);
       setUnlocked(true);
     }
   }, [userId]);
 
   const handleSwitchProfile = useCallback(() => {
     localStorage.removeItem('fm_profile');
+    document.documentElement.dataset.mode = '';
     setUserId(null);
     setUnlocked(false);
     setTransactions([]);

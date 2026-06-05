@@ -4,8 +4,9 @@ import { Transaction, changePin } from '../lib/api';
 import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
-import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
+import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
+import { ImportarExtracto } from '../components/ImportarExtracto';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -27,10 +28,18 @@ export function Settings({ userId, transactions, onClose }: Props) {
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
+  const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
+  const [showImport, setShowImport] = useState(false);
 
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
     applyTheme(mode);
+  }
+
+  function handleAccessibleToggle() {
+    const next = !accessible;
+    setAccessible(next);
+    setAccessibleMode(userId, next);
   }
 
   // Change PIN
@@ -76,6 +85,10 @@ export function Settings({ userId, transactions, onClose }: Props) {
     background: 'var(--card)', color: 'var(--ink)', fontSize: 15,
     fontFamily: 'var(--font-mono)', outline: 'none', letterSpacing: '0.18em',
   };
+
+  if (showImport) {
+    return <ImportarExtracto userId={userId} onClose={() => setShowImport(false)} />;
+  }
 
   return (
     <>
@@ -215,6 +228,30 @@ export function Settings({ userId, transactions, onClose }: Props) {
                 Auto sigue la preferencia del sistema.
               </p>
             </div>
+
+            {/* Modo accesible */}
+            <div style={{ borderTop: '1px solid var(--line)', padding: '14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', fontWeight: 500 }}>Modo accesible</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 2 }}>Texto e íconos más grandes</div>
+              </div>
+              <motion.button
+                onClick={handleAccessibleToggle}
+                aria-label="Toggle modo accesible"
+                style={{
+                  width: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
+                  background: accessible ? 'var(--blue-600)' : 'var(--line)',
+                  position: 'relative', flexShrink: 0,
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <motion.div
+                  animate={{ x: accessible ? 24 : 4 }}
+                  transition={softSpring}
+                  style={{ position: 'absolute', top: 4, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
+                />
+              </motion.button>
+            </div>
           </Section>
 
           {/* ── Preferencias ── */}
@@ -246,6 +283,12 @@ export function Settings({ userId, transactions, onClose }: Props) {
 
           {/* ── Datos ── */}
           <Section title="Datos">
+            <Row
+              label="Importar extracto bancario"
+              sublabel="CSV de Bancolombia, Bogotá, Itaú u otro"
+              onTap={() => setShowImport(true)}
+              chevron="›"
+            />
             <Row
               label="Exportar backup completo"
               sublabel={`${transactions.length} transacciones`}

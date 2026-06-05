@@ -91,10 +91,10 @@ export function CoverturaMeter({ transactions }: Props) {
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
         marginBottom: 12,
       }}>
-        <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', fontWeight: 500 }}>
           Canales activos
         </span>
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
           {totalActivos}/{canales.length} · {totalTxns} txns (30d)
         </span>
       </div>
@@ -115,11 +115,11 @@ export function CoverturaMeter({ transactions }: Props) {
 
               {/* Label + instruccion */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', fontWeight: 500 }}>
                   {canal.label}
                 </div>
                 {canal.instruccion && (
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 1 }}>
                     {canal.instruccion}
                   </div>
                 )}
@@ -158,7 +158,7 @@ export function CoverturaMeter({ transactions }: Props) {
         ))}
       </div>
 
-      <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+      <p style={{ margin: '10px 0 0', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
         Muestra los últimos 30 días. Un canal "Inactivo" no significa que esté roto —
         puede que no hayas tenido transacciones por ese canal en el periodo.
       </p>

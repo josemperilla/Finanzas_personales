@@ -29,6 +29,19 @@
   --font-body:    'DM Sans', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
 
+  /* ── Escala tipográfica ─────────────────────────────────── */
+  --text-2xs:  11px;  /* timestamps, badges muy secundarios   */
+  --text-xs:   12px;  /* nav labels, chips, etiquetas          */
+  --text-sm:   14px;  /* subtítulos, labels de formulario      */
+  --text-base: 15px;  /* cuerpo principal                      */
+  --text-lg:   17px;  /* títulos de sección, card headers      */
+  --text-xl:   20px;  /* totales, cifras destacadas            */
+  --text-2xl:  24px;  /* títulos de página                     */
+  --text-3xl:  32px;  /* monto principal en Home               */
+
+  /* ── Touch targets ──────────────────────────────────────── */
+  --touch-min: 44px;
+
   --r-sm:   10px;
   --r-md:   14px;
   --r-lg:   16px;
@@ -56,6 +69,7 @@ html, body {
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-body);
+  font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
 }
@@ -117,6 +131,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 select option {
   background: var(--card);
   color: var(--ink);
+}
+
+/* ── Modo accesible (por usuario, toggle en Ajustes) ───────── */
+[data-mode="accessible"] {
+  --text-2xs:  13px;
+  --text-xs:   14px;
+  --text-sm:   16px;
+  --text-base: 18px;
+  --text-lg:   21px;
+  --text-xl:   25px;
+  --text-2xl:  30px;
+  --text-3xl:  40px;
+  --touch-min: 52px;
 }
 
 /* ── Dark mode ─────────────────────────────────────────────── */

@@ -36,7 +36,9 @@ function NavTab({ label, icon, active, onClick }: {
     <motion.button onClick={onClick} whileTap={{ scale: 0.92 }} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
       background: 'none', border: 'none', cursor: 'pointer', position: 'relative',
-      padding: '4px 12px',
+      padding: '4px 10px',
+      minHeight: 'var(--touch-min)', minWidth: 'var(--touch-min)',
+      justifyContent: 'center',
     }}>
       {active && (
         <motion.span
@@ -56,7 +58,7 @@ function NavTab({ label, icon, active, onClick }: {
         {icon}
       </motion.span>
       <span style={{
-        fontSize: '10px', fontFamily: 'var(--font-body)', fontWeight: 600,
+        fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,
         color: active ? 'var(--blue-700)' : 'var(--muted-2)',
         letterSpacing: '0.01em',
         transition: 'color 0.15s ease',
@@ -90,7 +92,7 @@ function AddTab({ active, onClick }: { active: boolean; onClick: () => void }) {
         </svg>
       </motion.span>
       <span style={{
-        fontSize: '10px', fontFamily: 'var(--font-body)', fontWeight: 600,
+        fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,
         color: active ? 'var(--blue-700)' : 'var(--muted-2)',
         letterSpacing: '0.01em',
       }}>
@@ -103,7 +105,7 @@ function AddTab({ active, onClick }: { active: boolean; onClick: () => void }) {
 function HomeIcon({ active }: { active: boolean }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
     </svg>
@@ -113,7 +115,7 @@ function HomeIcon({ active }: { active: boolean }) {
 function ListIcon({ active }: { active: boolean }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
       <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
@@ -123,7 +125,7 @@ function ListIcon({ active }: { active: boolean }) {
 function ChartIcon({ active }: { active: boolean }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="12" width="4" height="10" rx="1" />
       <rect x="9" y="7" width="4" height="15" rx="1" />
       <rect x="16" y="3" width="4" height="19" rx="1" />
@@ -134,7 +136,7 @@ function ChartIcon({ active }: { active: boolean }) {
 function ChatIcon({ active }: { active: boolean }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
