@@ -23,9 +23,6 @@ export default function App() {
   // Apply saved theme preference immediately on mount
   useEffect(() => { applyTheme(getTheme()); }, []);
 
-  // Load dynamic profile list on mount
-  useEffect(() => { fetchProfiles().then(setProfiles); }, []);
-
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
     () => localStorage.getItem('fm_profile')
@@ -39,8 +36,14 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDirectImport, setShowDirectImport] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Load dynamic profile list whenever no user is active (mount + every logout)
+  useEffect(() => {
+    if (!userId) fetchProfiles().then(setProfiles);
+  }, [userId]);
 
   // When userId changes, register it in api.ts and check session
   useEffect(() => {
@@ -245,7 +248,7 @@ export default function App() {
               ¿Quieres cargar tus movimientos de meses anteriores? Puedes importar un CSV de tu banco ahora o hacerlo después desde Ajustes.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowWelcomeImport(false)}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setShowWelcomeImport(false); setShowDirectImport(true); }}
                 style={{ height: 50, background: 'var(--blue-700)', border: 'none', borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                 Importar ahora
               </motion.button>
@@ -257,14 +260,19 @@ export default function App() {
           </motion.div>
         )}
         {showSettings && userId && (
-          <Settings key="settings" userId={userId} transactions={transactions} onClose={() => {
-            setShowSettings(false);
-            setAccessible(getAccessibleMode(userId));
-            applyPersonalizedAppIcon(userId, getDisplayName(userId));
-          }} />
+          <Settings key="settings" userId={userId} transactions={transactions}
+            onProfilesChanged={() => fetchProfiles().then(setProfiles)}
+            onClose={() => {
+              setShowSettings(false);
+              setAccessible(getAccessibleMode(userId));
+              applyPersonalizedAppIcon(userId, getDisplayName(userId));
+            }} />
         )}
         {showTutorial && userId && (
           <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
+        )}
+        {showDirectImport && userId && (
+          <ImportarExtracto key="direct-import" userId={userId} onClose={() => setShowDirectImport(false)} />
         )}
       </AnimatePresence>
     </motion.div>

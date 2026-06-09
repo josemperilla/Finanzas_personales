@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin, listUsers, createUser } from '../lib/api';
+import { Transaction, changePin } from '../lib/api';
+import { AdminPanel } from '../components/AdminPanel';
 import { exportToCSV } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
@@ -21,9 +22,10 @@ interface Props {
   userId: string;
   transactions: Transaction[];
   onClose: () => void;
+  onProfilesChanged?: () => void;
 }
 
-export function Settings({ userId, transactions, onClose }: Props) {
+export function Settings({ userId, transactions, onClose, onProfilesChanged }: Props) {
   const profile = getProfile(userId);
 
   const [defaultBank, setDefaultBank] = useState(
@@ -76,31 +78,6 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const isAdmin = userId === ADMIN_USER;
   const [showImport, setShowImport] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [userList, setUserList]         = useState<string[]>([]);
-  const [showNewUser, setShowNewUser]   = useState(false);
-  const [newUser, setNewUser]           = useState({ id: '', name: '', pin: '' });
-  const [newUserSaving, setNewUserSaving] = useState(false);
-  const [newUserError, setNewUserError]   = useState<string | null>(null);
-  const [newUserSuccess, setNewUserSuccess] = useState(false);
-
-  useEffect(() => {
-    if (isAdmin) listUsers(userId).then(setUserList).catch(() => {});
-  }, [isAdmin, userId]);
-
-  async function handleCreateUser() {
-    if (!newUser.id || !newUser.pin) { setNewUserError('Completa ID y PIN'); return; }
-    setNewUserSaving(true); setNewUserError(null);
-    try {
-      await createUser(userId, newUser.id, newUser.name || newUser.id, newUser.pin);
-      setUserList(prev => [...prev, newUser.id]);
-      setNewUser({ id: '', name: '', pin: '' });
-      setShowNewUser(false);
-      setNewUserSuccess(true);
-      setTimeout(() => setNewUserSuccess(false), 2000);
-    } catch (e) {
-      setNewUserError(e instanceof Error ? e.message : 'Error al crear usuario');
-    } finally { setNewUserSaving(false); }
-  }
 
   // Change PIN
   const [showPinForm, setShowPinForm] = useState(false);
@@ -402,62 +379,7 @@ export function Settings({ userId, transactions, onClose }: Props) {
           {/* ── Usuarios (solo admin) ── */}
           {isAdmin && (
             <Section title="Usuarios">
-              {userList.length > 0 && (
-                <div style={{ paddingTop: 10, paddingBottom: 4 }}>
-                  {userList.map(uid => (
-                    <div key={uid} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                      {uid}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <Row
-                label="Agregar usuario"
-                note={newUserSuccess ? '✓ Creado' : undefined}
-                noteColor="#16a34a"
-                onTap={() => { setShowNewUser(v => !v); setNewUserError(null); }}
-                chevron={showNewUser ? '↑' : '+'}
-              />
-              <AnimatePresence>
-                {showNewUser && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={quickEase}
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {[
-                        { label: 'ID de usuario (ej: maria)', key: 'id' as const },
-                        { label: 'Nombre visible', key: 'name' as const },
-                        { label: 'PIN inicial (4–6 dígitos)', key: 'pin' as const },
-                      ].map(({ label, key }) => (
-                        <div key={key}>
-                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginBottom: 5 }}>{label}</div>
-                          <input
-                            type={key === 'pin' ? 'password' : 'text'}
-                            inputMode={key === 'pin' ? 'numeric' : 'text'}
-                            value={newUser[key]}
-                            onChange={e => setNewUser(u => ({ ...u, [key]: key === 'id' ? e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') : e.target.value }))}
-                            placeholder={key === 'pin' ? '● ● ● ●' : ''}
-                            style={{ width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px', border: '1.5px solid var(--line)', borderRadius: 10, background: 'var(--card)', color: 'var(--ink)', fontSize: 'var(--text-base)', fontFamily: 'var(--font-body)', outline: 'none' }}
-                          />
-                        </div>
-                      ))}
-                      {newUserError && <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: '#b91c1c' }}>{newUserError}</p>}
-                      <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-                        <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateUser} disabled={newUserSaving} style={{ flex: 1, height: 44, background: newUserSaving ? 'var(--blue-300)' : 'var(--blue-700)', border: 'none', borderRadius: 10, color: 'var(--card)', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: newUserSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
-                          {newUserSaving ? 'Creando…' : 'Crear usuario'}
-                        </motion.button>
-                        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowNewUser(false)} style={{ padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                          Cancelar
-                        </motion.button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <AdminPanel adminId={userId} onProfilesChanged={onProfilesChanged ?? (() => {})} />
             </Section>
           )}
 

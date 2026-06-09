@@ -197,6 +197,37 @@ function doPost(e) {
       return jsonResponse({ ok: true, created: newId });
     }
 
+    // Eliminar un usuario (admin only) — borra PIN, lo remueve de USERS_LIST y elimina su tab en Sheets
+    if (type === "deleteUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede eliminar usuarios" });
+      var targetId = String(payload.targetId || "").toLowerCase().trim();
+      if (!targetId) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (targetId === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes eliminar al administrador" });
+      var allUsers = _getAllowedUsers();
+      if (allUsers.indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "El usuario '" + targetId + "' no existe" });
+      var delProps = PropertiesService.getScriptProperties();
+      delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
+      delProps.deleteProperty("APP_PIN_" + targetId);
+      try {
+        var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
+        var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
+        var delSheet = delSs.getSheetByName(sheetName);
+        if (delSheet) delSs.deleteSheet(delSheet);
+      } catch(delErr) { /* hoja no existe — continuar */ }
+      return jsonResponse({ ok: true, deleted: targetId });
+    }
+
+    // Resetear el PIN de un usuario (admin only)
+    if (type === "resetPin") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede resetear PINs" });
+      var resetTarget = String(payload.targetId || "").toLowerCase().trim();
+      var resetPin = String(payload.newPin || "");
+      if (!resetTarget) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (!resetPin || !/^\d{4,6}$/.test(resetPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
+      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, resetPin);
+      return jsonResponse({ ok: true, reset: resetTarget });
+    }
+
     // Verificar si el usuario ya tiene PIN configurado (para detectar primer login)
     if (type === "hasPin") {
       var p = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);

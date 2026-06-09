@@ -182,6 +182,28 @@ export async function createUser(
   if (!json.ok) throw new Error(json.error || 'Error al crear usuario');
 }
 
+export async function deleteUser(adminUserId: string, targetUserId: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar usuario');
+}
+
+export async function resetUserPin(adminUserId: string, targetUserId: string, newPin: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'resetPin', userId: adminUserId, targetId: targetUserId, newPin }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al resetear PIN');
+}
+
 export async function hasPin(userId: string): Promise<boolean> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
