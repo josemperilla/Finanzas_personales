@@ -33,3 +33,17 @@ export type CategoryName = typeof CATEGORIES[number]['name'];
 export function getCategoryColor(name: string): string {
   return CATEGORIES.find(c => c.name === name)?.color ?? '#6366f1';
 }
+
+// Mapa de nombres obsoletos → nuevos (para transacciones antes de la migración GAS)
+const CATEGORY_ALIASES: Record<string, string> = {
+  'Comida':      'Restaurantes',
+  'Alojamiento': 'Hogar',
+  'Ropa':        'Compras',
+  'Belleza':     'Compras',
+  'Trámites':    'Otro',
+};
+
+export function normalizeCategory(cat: string): string {
+  if (!cat) return 'Otro';
+  return CATEGORY_ALIASES[cat] ?? cat;
+}

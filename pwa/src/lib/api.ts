@@ -1,4 +1,4 @@
-import { WEBHOOK_URL, WEBHOOK_SECRET } from './config';
+import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
 
 let _activeUserId: string | null = null;
 
@@ -68,7 +68,10 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   const res = await fetch(secureUrl(WEBHOOK_URL, extraParams));
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
-  return json.data as Transaction[];
+  return (json.data as Transaction[]).map(tx => ({
+    ...tx,
+    Categoría: normalizeCategory(tx.Categoría),
+  }));
 }
 
 export async function saveTransaction(data: ManualTransaction): Promise<void> {

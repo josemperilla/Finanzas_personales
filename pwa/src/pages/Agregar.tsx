@@ -216,7 +216,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   }
 
   function handleRegisterMyPart(perPerson: number) {
-    setForm(f => ({ ...f, monto: String(perPerson), categoria: f.categoria || 'Comida' }));
+    setForm(f => ({ ...f, monto: String(perPerson), categoria: f.categoria || 'Restaurantes' }));
     setMode('form');
     setPrefillGlow(true);
     setTimeout(() => setPrefillGlow(false), 1500);
