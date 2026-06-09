@@ -9,6 +9,7 @@ import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion
 import { getUserTimezone } from '../lib/profiles';
 import { todayInTZ } from '../lib/utils';
 import { detectUnusualCategories } from '../lib/analytics';
+import { QrScanner, QrResult } from '../components/QrScanner';
 
 interface Props {
   onSaved: () => void | Promise<void>;
@@ -72,6 +73,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const [splitCalc, setSplitCalc]     = useState<SplitCalc>(defaultSplit);
   const [dupePending, setDupePending] = useState<ManualTransaction | null>(null);
   const [unusualAlert, setUnusualAlert] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -276,12 +278,41 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 
   function stopVoice() { recognitionRef.current?.stop(); }
 
+  function prefillFromQr(result: QrResult) {
+    setShowQr(false);
+    setForm(f => ({
+      ...f,
+      monto:    result.amount ? String(result.amount) : f.monto,
+      fecha:    result.date ?? f.fecha,
+      comercio: result.merchant ?? f.comercio,
+    }));
+    setMode('form');
+    setPrefillGlow(true);
+    setTimeout(() => setPrefillGlow(false), 1500);
+  }
+
   return (
     <div style={{ padding: '0 20px 100px', fontFamily: 'var(--font-body)' }}>
       {/* Header */}
-      <div style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', marginBottom: 22 }}>
-        <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nueva entrada</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>Agregar</h1>
+      <div style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', marginBottom: 22, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nueva entrada</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>Agregar</h1>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setShowQr(true)}
+          title="Escanear QR DIAN"
+          style={{
+            width: 40, height: 40, borderRadius: 12, marginBottom: 2,
+            background: 'var(--card)', border: '1.5px solid var(--line)',
+            boxShadow: 'var(--shadow-card)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          ▦
+        </motion.button>
       </div>
 
       {/* Mode toggle */}
@@ -673,6 +704,16 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
               : `⚠️ ${budgetAlert.cat} al ${Math.round(budgetAlert.pct * 100)}% del presupuesto mensual`
             }
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showQr && (
+          <QrScanner
+            key="qr"
+            onScanned={prefillFromQr}
+            onClose={() => setShowQr(false)}
+          />
         )}
       </AnimatePresence>
     </div>

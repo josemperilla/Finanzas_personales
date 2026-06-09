@@ -10,7 +10,9 @@ import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode, COLOR_PRESETS, getUserColorScheme, setUserColorScheme, applyColorScheme } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
+import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
 import { TutorialCanales } from '../components/TutorialCanales';
+import { isBiometricSupported, hasBiometric, registerBiometric, clearBiometric } from '../lib/webauthn';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -127,6 +129,25 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   const [pinSaving, setPinSaving]     = useState(false);
   const [pinError, setPinError]       = useState<string | null>(null);
   const [pinSuccess, setPinSuccess]   = useState(false);
+
+  // Biometría
+  const [bioRegistered, setBioRegistered] = useState(() => hasBiometric(userId));
+  const [bioLoading, setBioLoading]       = useState(false);
+  const bioSupported = isBiometricSupported();
+
+  async function handleBioToggle() {
+    if (bioRegistered) {
+      clearBiometric(userId);
+      setBioRegistered(false);
+    } else {
+      setBioLoading(true);
+      const ok = await registerBiometric(userId);
+      setBioLoading(false);
+      setBioRegistered(ok);
+    }
+  }
+
+  const [showFotoImport, setShowFotoImport] = useState(false);
 
   function handleBankChange(bank: string) {
     setDefaultBank(bank);
@@ -334,6 +355,39 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {bioSupported && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderTop: '1px solid var(--line)' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                    Face ID / Huella digital
+                  </div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 2 }}>
+                    {bioRegistered ? 'Activado — toca para desactivar' : 'Entrar sin PIN con biometría'}
+                  </div>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleBioToggle}
+                  disabled={bioLoading}
+                  style={{
+                    width: 51, height: 31, borderRadius: 999, border: 'none', cursor: 'pointer',
+                    background: bioRegistered ? 'var(--blue-600)' : 'var(--line)',
+                    position: 'relative', transition: 'background 0.2s ease', flexShrink: 0,
+                  }}
+                >
+                  <motion.div
+                    animate={{ x: bioRegistered ? 22 : 2 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    style={{
+                      position: 'absolute', top: 3, width: 25, height: 25,
+                      borderRadius: '50%', background: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                    }}
+                  />
+                </motion.button>
+              </div>
+            )}
           </Section>
 
           {/* ── Apariencia ── */}
@@ -561,6 +615,12 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
               chevron="›"
             />
             <Row
+              label="Importar extracto por foto"
+              sublabel="Foto o captura de pantalla — analiza con IA"
+              onTap={() => setShowFotoImport(true)}
+              chevron="›"
+            />
+            <Row
               label="Exportar CSV"
               sublabel={`${transactions.length} transacciones`}
               onTap={() => exportToCSV(transactions, `backup_${userId}.csv`)}
@@ -588,6 +648,14 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
         )}
         {showImport && (
           <ImportarExtracto key="import" userId={userId} onClose={() => setShowImport(false)} />
+        )}
+        {showFotoImport && (
+          <ImportarExtractoPorFoto
+            key="foto-import"
+            userId={userId}
+            onClose={() => setShowFotoImport(false)}
+            onImported={() => setShowFotoImport(false)}
+          />
         )}
         {showTutorial && (
           <TutorialCanales key="tutorial" userId={userId} initialCard={tutorialCard} onClose={() => setShowTutorial(false)} />

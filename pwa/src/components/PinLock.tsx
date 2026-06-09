@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { validatePin } from '../lib/api';
 import { softSpring, quickEase } from '../lib/motion';
 import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
+import {
+  isBiometricSupported, hasBiometric, registerBiometric, authenticateBiometric,
+} from '../lib/webauthn';
 
 const MAX_ATTEMPTS  = 5;
 const LOCKOUT_MS    = [0, 0, 0, 0, 0, 30_000, 300_000, 1_800_000]; // 30s, 5m, 30m after 5/6/7+ fails
@@ -38,6 +41,12 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
   const digitsRef = useRef<string[]>([]);
   const lockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Biometría
+  const bioSupported  = isBiometricSupported();
+  const bioRegistered = hasBiometric(userId);
+  const [bioLoading, setBioLoading]     = useState(false);
+  const [showBioPrompt, setShowBioPrompt] = useState(false); // oferta de registro post-PIN
+
   // Initialise lockout countdown on mount
   useEffect(() => {
     const state = getLockoutState(userId);
@@ -45,6 +54,31 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
     if (remaining > 0) startLockCountdown(remaining);
     return () => { if (lockTimerRef.current) clearInterval(lockTimerRef.current); };
   }, [userId]);
+
+  // Auto-intento biométrico al abrir si hay credencial guardada
+  useEffect(() => {
+    if (!bioRegistered) return;
+    handleBioAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleBioAuth() {
+    setBioLoading(true);
+    const ok = await authenticateBiometric(userId);
+    setBioLoading(false);
+    if (ok) {
+      saveLockoutState(userId, { attempts: 0, lockedUntil: 0 });
+      setStatus('success');
+      setTimeout(onUnlock, 520);
+    }
+  }
+
+  async function activateBiometric() {
+    const ok = await registerBiometric(userId);
+    setShowBioPrompt(false);
+    if (ok) onUnlock();
+    else onUnlock(); // igual desbloqueamos aunque falle el registro
+  }
 
   function startLockCountdown(ms: number) {
     setLockSecondsLeft(Math.ceil(ms / 1000));
@@ -74,7 +108,11 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           // Reset lockout on success
           saveLockoutState(userId, { attempts: 0, lockedUntil: 0 });
           setStatus('success');
-          setTimeout(onUnlock, 520);
+          if (bioSupported && !bioRegistered) {
+            setTimeout(() => setShowBioPrompt(true), 520);
+          } else {
+            setTimeout(onUnlock, 520);
+          }
         } else {
           const prev = getLockoutState(userId);
           const attempts = prev.attempts + 1;
@@ -247,6 +285,84 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           )
         )}
       </motion.div>
+
+      {/* Biometric button — shown if credential registered */}
+      {bioRegistered && !bioLoading && status === 'idle' && !isLocked && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ ...quickEase, delay: 0.25 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={handleBioAuth}
+          style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'var(--card)', border: '1.5px solid var(--line)',
+            boxShadow: 'var(--shadow-card)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: 26,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          title="Usar Face ID / Huella"
+        >
+          {/iPhone|iPad|Mac/.test(navigator.userAgent) ? '🔐' : '👆'}
+        </motion.button>
+      )}
+      {bioLoading && (
+        <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }} />
+      )}
+
+      {/* Biometric registration prompt — shown after first successful PIN */}
+      <AnimatePresence>
+        {showBioPrompt && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={softSpring}
+            style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0,
+              background: 'var(--card)', borderRadius: '20px 20px 0 0',
+              padding: '24px 24px max(24px, env(safe-area-inset-bottom))',
+              boxShadow: '0 -4px 32px rgba(15,23,42,0.16)',
+              display: 'flex', flexDirection: 'column', gap: 14, zIndex: 10000,
+            }}
+          >
+            <div style={{ textAlign: 'center', fontSize: 40 }}>
+              {/iPhone|iPad|Mac/.test(navigator.userAgent) ? '🔐' : '👆'}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)', color: 'var(--ink)', marginBottom: 6 }}>
+                Activar Face ID / Huella
+              </div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', lineHeight: 1.5 }}>
+                La próxima vez entrarás sin necesidad de escribir tu PIN.
+              </div>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={activateBiometric}
+              style={{
+                height: 50, background: 'var(--blue-700)', border: 'none',
+                borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)',
+                fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              Activar
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => { setShowBioPrompt(false); onUnlock(); }}
+              style={{
+                height: 44, background: 'none', border: 'none',
+                borderRadius: 14, color: 'var(--muted)', fontSize: 'var(--text-sm)',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              Ahora no
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.button
         initial={{ opacity: 0 }}
