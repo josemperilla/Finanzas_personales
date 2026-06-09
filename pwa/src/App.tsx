@@ -252,7 +252,7 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
 
-      {createPortal(
+      {unlocked && userId && createPortal(
         <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />,
         document.body
       )}
