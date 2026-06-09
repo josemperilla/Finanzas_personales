@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Reto, RetoTipo, getRetos, addReto, deleteReto, computeProgress, periodDates } from '../lib/retos';
 import { Transaction } from '../lib/api';
-import { CATEGORIES } from '../lib/config';
+import { CATEGORIES, getCategoryColor } from '../lib/config';
+import { cleanMerchant } from '../lib/merchantCleaner';
 import { RetoCard } from './RetoCard';
 import { softSpring, quickEase } from '../lib/motion';
 
@@ -12,25 +13,68 @@ interface Props {
 }
 
 const TIPO_OPTIONS: { value: RetoTipo; label: string; desc: string }[] = [
-  { value: 'budget_limit',    label: 'Límite de gasto',     desc: 'Gastar menos de X en el período' },
+  { value: 'budget_limit',    label: 'Límite de gasto',      desc: 'Gastar menos de X en el período' },
   { value: 'frequency_limit', label: 'Límite de frecuencia', desc: 'Máximo X transacciones en el período' },
-  { value: 'no_spend',        label: 'Sin gastos',           desc: 'No gastar nada en esta categoría' },
+  { value: 'no_spend',        label: 'Sin gastos',            desc: 'No gastar nada en estas categorías / comercios' },
 ];
 
 function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 44, padding: '0 14px',
+  border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)',
+  background: 'var(--card)', color: 'var(--ink)',
+  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+  boxSizing: 'border-box',
+};
 
 export function RetosPanel({ userId, transactions }: Props) {
   const [retos, setRetos] = useState<Reto[]>(() => getRetos(userId));
   const [showForm, setShowForm] = useState(false);
 
   // Form state
-  const [titulo,        setTitulo]       = useState('');
-  const [tipo,          setTipo]         = useState<RetoTipo>('budget_limit');
-  const [categoria,     setCategoria]    = useState('');
-  const [objetivo,      setObjetivo]     = useState('');
-  const [periodoTipo,   setPeriodoTipo]  = useState<'mes' | 'semana' | 'personalizado'>('mes');
-  const [fechaInicio,   setFechaInicio]  = useState('');
-  const [fechaFin,      setFechaFin]     = useState('');
+  const [titulo,       setTitulo]      = useState('');
+  const [tipo,         setTipo]        = useState<RetoTipo>('budget_limit');
+  const [categorias,   setCategorias]  = useState<string[]>([]);
+  const [comercios,    setComercio]    = useState<string[]>([]);
+  const [objetivo,     setObjetivo]    = useState('');
+  const [periodoTipo,  setPeriodoTipo] = useState<'mes' | 'semana' | 'personalizado'>('mes');
+  const [fechaInicio,  setFechaInicio] = useState('');
+  const [fechaFin,     setFechaFin]    = useState('');
+
+  // Merchant autocomplete state
+  const [mercQuery,    setMercQuery]   = useState('');
+  const [showMercDrop, setShowMercDrop] = useState(false);
+  const mercRef = useRef<HTMLDivElement>(null);
+
+  // Build sorted list of unique clean merchant names from transaction history
+  const knownMerchants = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const tx of transactions) {
+      const name = cleanMerchant(tx.Comercio);
+      if (name && name.length >= 2) counts[name] = (counts[name] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+  }, [transactions]);
+
+  const mercSuggestions = useMemo(() => {
+    if (!mercQuery.trim()) return knownMerchants.slice(0, 8);
+    const q = mercQuery.toLowerCase();
+    return knownMerchants.filter(m => m.toLowerCase().includes(q)).slice(0, 8);
+  }, [mercQuery, knownMerchants]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (mercRef.current && !mercRef.current.contains(e.target as Node)) {
+        setShowMercDrop(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
 
   const progresses = useMemo(
     () => retos.map(r => computeProgress(r, transactions)),
@@ -38,8 +82,25 @@ export function RetosPanel({ userId, transactions }: Props) {
   );
 
   function resetForm() {
-    setTitulo(''); setTipo('budget_limit'); setCategoria('');
+    setTitulo(''); setTipo('budget_limit'); setCategorias([]); setComercio([]);
     setObjetivo(''); setPeriodoTipo('mes'); setFechaInicio(''); setFechaFin('');
+    setMercQuery(''); setShowMercDrop(false);
+  }
+
+  function toggleCat(name: string) {
+    setCategorias(prev =>
+      prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]
+    );
+  }
+
+  function addMerchant(name: string) {
+    if (!comercios.includes(name)) setComercio(prev => [...prev, name]);
+    setMercQuery('');
+    setShowMercDrop(false);
+  }
+
+  function removeMerchant(name: string) {
+    setComercio(prev => prev.filter(m => m !== name));
   }
 
   function handleAdd() {
@@ -51,11 +112,17 @@ export function RetosPanel({ userId, transactions }: Props) {
     }
     if (!fi || !ff) return;
 
+    // If user typed a merchant but didn't select from dropdown, add it
+    if (mercQuery.trim() && !comercios.includes(mercQuery.trim())) {
+      comercios.push(mercQuery.trim());
+    }
+
     const reto: Reto = {
       id:          newId(),
       titulo:      titulo.trim(),
       tipo,
-      categoria,
+      categorias,
+      comercios,
       objetivo:    tipo === 'no_spend' ? 0 : (parseFloat(objetivo) || 0),
       fechaInicio: fi,
       fechaFin:    ff,
@@ -70,6 +137,10 @@ export function RetosPanel({ userId, transactions }: Props) {
     deleteReto(userId, id);
     setRetos(getRetos(userId));
   }
+
+  const canSubmit = titulo.trim()
+    && (tipo === 'no_spend' || !!objetivo)
+    && (periodoTipo !== 'personalizado' || (!!fechaInicio && !!fechaFin));
 
   return (
     <div style={{ padding: '0 16px 0' }}>
@@ -157,19 +228,15 @@ export function RetosPanel({ userId, transactions }: Props) {
               </div>
 
               <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
                 {/* Título */}
                 <div>
                   <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>Título del reto</label>
                   <input
                     value={titulo}
                     onChange={e => setTitulo(e.target.value)}
-                    placeholder="Ej: Gastar menos en restaurantes este mes"
-                    style={{
-                      width: '100%', height: 44, padding: '0 14px',
-                      border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)',
-                      background: 'var(--card)', color: 'var(--ink)',
-                      fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-                    }}
+                    placeholder="Ej: Gastar menos en salidas este mes"
+                    style={inputStyle}
                   />
                 </div>
 
@@ -199,24 +266,126 @@ export function RetosPanel({ userId, transactions }: Props) {
                   </div>
                 </div>
 
-                {/* Categoría */}
+                {/* Categorías — multi-select chips */}
                 <div>
-                  <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                    Categoría <span style={{ fontWeight: 400 }}>(opcional — vacío = todas)</span>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 8 }}>
+                    Categorías <span style={{ fontWeight: 400 }}>(opcional — toca para seleccionar)</span>
                   </label>
-                  <select
-                    value={categoria}
-                    onChange={e => setCategoria(e.target.value)}
-                    style={{
-                      width: '100%', height: 44, padding: '0 14px',
-                      border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)',
-                      background: 'var(--card)', color: 'var(--ink)',
-                      fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-                    }}
-                  >
-                    <option value="">Todas las categorías</option>
-                    {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {CATEGORIES.map(c => {
+                      const active = categorias.includes(c.name);
+                      return (
+                        <motion.button
+                          key={c.name}
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => toggleCat(c.name)}
+                          style={{
+                            padding: '5px 11px', borderRadius: 999, border: 'none',
+                            cursor: 'pointer', fontSize: 12, fontWeight: active ? 700 : 500,
+                            fontFamily: 'var(--font-body)',
+                            background: active ? `${c.color}22` : 'var(--card)',
+                            color: active ? c.color : 'var(--muted)',
+                            boxShadow: active ? `0 0 0 1.5px ${c.color}` : '0 0 0 1px var(--line)',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {c.name}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Comercios — autocomplete + chips */}
+                <div ref={mercRef}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Comercios <span style={{ fontWeight: 400 }}>(opcional — busca o escribe)</span>
+                  </label>
+
+                  {/* Selected merchant chips */}
+                  {comercios.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      {comercios.map(m => (
+                        <span
+                          key={m}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '4px 10px', borderRadius: 999,
+                            background: 'var(--card)', border: '1px solid var(--line)',
+                            fontSize: 12, color: 'var(--ink)', fontWeight: 600,
+                          }}
+                        >
+                          🏪 {m}
+                          <button
+                            type="button"
+                            onClick={() => removeMerchant(m)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1, marginLeft: 2 }}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Search input */}
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={mercQuery}
+                      onChange={e => { setMercQuery(e.target.value); setShowMercDrop(true); }}
+                      onFocus={() => setShowMercDrop(true)}
+                      placeholder="Ej: Rappi, Netflix, Uber…"
+                      style={inputStyle}
+                    />
+
+                    {/* Dropdown */}
+                    <AnimatePresence>
+                      {showMercDrop && mercSuggestions.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.12 }}
+                          style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                            background: 'var(--surface)', border: '1px solid var(--line)',
+                            borderRadius: 'var(--r-lg)', marginTop: 4,
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {mercSuggestions
+                            .filter(m => !comercios.includes(m))
+                            .map(m => (
+                              <button
+                                type="button"
+                                key={m}
+                                onMouseDown={e => { e.preventDefault(); addMerchant(m); }}
+                                style={{
+                                  width: '100%', padding: '10px 14px', textAlign: 'left',
+                                  background: 'none', border: 'none', borderBottom: '1px solid var(--line)',
+                                  cursor: 'pointer', fontSize: 13, color: 'var(--ink)',
+                                  fontFamily: 'var(--font-body)',
+                                }}
+                              >
+                                🏪 {m}
+                              </button>
+                            ))}
+                          {/* Add custom if not in list */}
+                          {mercQuery.trim() && !knownMerchants.some(m => m.toLowerCase() === mercQuery.trim().toLowerCase()) && (
+                            <button
+                              type="button"
+                              onMouseDown={e => { e.preventDefault(); addMerchant(mercQuery.trim()); }}
+                              style={{
+                                width: '100%', padding: '10px 14px', textAlign: 'left',
+                                background: 'none', border: 'none',
+                                cursor: 'pointer', fontSize: 13, color: 'var(--blue-700)',
+                                fontFamily: 'var(--font-body)', fontWeight: 600,
+                              }}
+                            >
+                              + Agregar "{mercQuery.trim()}"
+                            </button>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {/* Objetivo (hidden for no_spend) */}
@@ -229,13 +398,8 @@ export function RetosPanel({ userId, transactions }: Props) {
                       type="number"
                       value={objetivo}
                       onChange={e => setObjetivo(e.target.value)}
-                      placeholder={tipo === 'frequency_limit' ? 'Ej: 10' : 'Ej: 200000'}
-                      style={{
-                        width: '100%', height: 44, padding: '0 14px',
-                        border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)',
-                        background: 'var(--card)', color: 'var(--ink)',
-                        fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-                      }}
+                      placeholder={tipo === 'frequency_limit' ? 'Ej: 10' : 'Ej: 500000'}
+                      style={inputStyle}
                     />
                   </div>
                 )}
@@ -256,10 +420,9 @@ export function RetosPanel({ userId, transactions }: Props) {
                           color: periodoTipo === p ? 'var(--blue-700)' : 'var(--ink-2)',
                           fontSize: 13, fontWeight: periodoTipo === p ? 600 : 400,
                           cursor: 'pointer', fontFamily: 'var(--font-body)',
-                          textTransform: 'capitalize',
                         }}
                       >
-                        {p === 'personalizado' ? 'Personalizado' : p.charAt(0).toUpperCase() + p.slice(1)}
+                        {p === 'personalizado' ? 'Custom' : p.charAt(0).toUpperCase() + p.slice(1)}
                       </motion.button>
                     ))}
                   </div>
@@ -268,13 +431,13 @@ export function RetosPanel({ userId, transactions }: Props) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Inicio</label>
-                        <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
-                          style={{ width: '100%', height: 40, padding: '0 10px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }} />
+                        <input type="date" title="Fecha de inicio" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
+                          style={{ ...inputStyle, height: 40, fontSize: 13 }} />
                       </div>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Fin</label>
-                        <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
-                          style={{ width: '100%', height: 40, padding: '0 10px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }} />
+                        <input type="date" title="Fecha de fin" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
+                          style={{ ...inputStyle, height: 40, fontSize: 13 }} />
                       </div>
                     </div>
                   )}
@@ -284,14 +447,15 @@ export function RetosPanel({ userId, transactions }: Props) {
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={handleAdd}
-                  disabled={!titulo.trim() || (tipo !== 'no_spend' && !objetivo) || (periodoTipo === 'personalizado' && (!fechaInicio || !fechaFin))}
+                  disabled={!canSubmit}
                   style={{
                     width: '100%', height: 50,
                     background: 'var(--blue-700)', border: 'none',
                     borderRadius: 'var(--r-xl)', color: '#fff',
                     fontSize: 15, fontWeight: 700,
-                    cursor: 'pointer', fontFamily: 'var(--font-display)',
-                    opacity: (!titulo.trim() || (tipo !== 'no_spend' && !objetivo) || (periodoTipo === 'personalizado' && (!fechaInicio || !fechaFin))) ? 0.5 : 1,
+                    cursor: canSubmit ? 'pointer' : 'default',
+                    fontFamily: 'var(--font-display)',
+                    opacity: canSubmit ? 1 : 0.5,
                   }}
                 >
                   Crear reto

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { RetoProgress } from '../lib/retos';
 import { formatCOP } from '../lib/utils';
-import { getCategoryColor, CATEGORIES } from '../lib/config';
+import { getCategoryColor } from '../lib/config';
 import { quickEase } from '../lib/motion';
 
 interface Props {
@@ -15,7 +15,6 @@ const TIPO_LABEL: Record<string, string> = {
   no_spend:        'Sin gastos',
 };
 
-// CSS confetti (same approach as MonthRecapModal)
 function Confetti() {
   const pieces = Array.from({ length: 20 }, (_, i) => i);
   const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
@@ -39,11 +38,51 @@ function Confetti() {
   );
 }
 
+function TargetChips({ reto }: { reto: RetoProgress['reto'] }) {
+  const cats  = reto.categorias?.length ? reto.categorias : (reto.categoria ? [reto.categoria] : []);
+  const mercs = reto.comercios ?? [];
+  const all   = [
+    ...cats.map(c  => ({ label: c,  type: 'cat'  as const })),
+    ...mercs.map(m => ({ label: m,  type: 'merc' as const })),
+  ];
+
+  if (all.length === 0) {
+    return (
+      <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)', color: 'var(--muted)' }}>
+        Todos los gastos
+      </span>
+    );
+  }
+
+  const visible  = all.slice(0, 3);
+  const overflow = all.length - 3;
+
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+      {visible.map(({ label, type }) => {
+        const color = type === 'cat' ? getCategoryColor(label) : '#64748b';
+        return (
+          <span
+            key={`${type}-${label}`}
+            style={{
+              fontSize: 11, padding: '1px 7px', borderRadius: 999,
+              background: `${color}18`, color,
+              fontWeight: 600,
+            }}
+          >
+            {type === 'merc' && '🏪 '}{label}
+          </span>
+        );
+      })}
+      {overflow > 0 && (
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>y {overflow} más</span>
+      )}
+    </div>
+  );
+}
+
 export function RetoCard({ progress, onDelete }: Props) {
   const { reto, current, pct, failed, completed, diasRestantes } = progress;
-
-  const catColor = reto.categoria ? getCategoryColor(reto.categoria) : 'var(--blue-700)';
-  const catExists = CATEGORIES.some(c => c.name === reto.categoria);
 
   const barColor = failed
     ? '#ef4444'
@@ -81,16 +120,12 @@ export function RetoCard({ progress, onDelete }: Props) {
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {reto.titulo}
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>{TIPO_LABEL[reto.tipo]}</span>
-            {reto.categoria && catExists && (
-              <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 999, background: `${catColor}18`, color: catColor, fontWeight: 600 }}>
-                {reto.categoria}
-              </span>
-            )}
+            <TargetChips reto={reto} />
           </div>
         </div>
         <button
@@ -101,7 +136,7 @@ export function RetoCard({ progress, onDelete }: Props) {
         </button>
       </div>
 
-      {/* Progress bar (hidden for no_spend if not failed) */}
+      {/* Progress bar */}
       {reto.tipo !== 'no_spend' && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ height: 6, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>

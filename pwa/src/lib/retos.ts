@@ -1,4 +1,5 @@
 import { Transaction } from './api';
+import { cleanMerchant } from './merchantCleaner';
 
 export type RetoTipo = 'budget_limit' | 'frequency_limit' | 'no_spend';
 
@@ -6,9 +7,11 @@ export interface Reto {
   id: string;
   titulo: string;
   tipo: RetoTipo;
-  categoria: string;   // '' = todas las categorías
-  objetivo: number;    // COP o número de transacciones; 0 para no_spend
-  fechaInicio: string; // YYYY-MM-DD
+  categorias: string[];  // [] = todas las categorías
+  comercios: string[];   // [] = todos los comercios (nombres limpios)
+  categoria?: string;    // legacy — usado si categorias está vacío
+  objetivo: number;      // COP o número de transacciones; 0 para no_spend
+  fechaInicio: string;   // YYYY-MM-DD
   fechaFin: string;
 }
 
@@ -62,9 +65,23 @@ export function computeProgress(reto: Reto, txs: Transaction[]): RetoProgress {
   const end   = new Date(reto.fechaFin   + 'T23:59:59');
   const now   = new Date();
 
+  // Backward compat: si reto viejo tiene categoria (string) en lugar de categorias (array)
+  const cats  = reto.categorias?.length ? reto.categorias : (reto.categoria ? [reto.categoria] : []);
+  const mercs = reto.comercios ?? [];
+
   const relevant = txs.filter(tx => {
     const d = new Date(tx.Fecha || tx.Timestamp);
-    return d >= start && d <= end && (!reto.categoria || tx.Categoría === reto.categoria);
+    if (d < start || d > end) return false;
+    // Sin filtro → todas las transacciones cuentan
+    if (cats.length === 0 && mercs.length === 0) return true;
+    // OR: cuenta si coincide con alguna categoría o algún comercio
+    const matchesCat = cats.length > 0 && cats.includes(tx.Categoría);
+    const cleaned    = cleanMerchant(tx.Comercio);
+    const matchesMer = mercs.length > 0 && mercs.some(m =>
+      cleaned.toLowerCase().includes(m.toLowerCase()) ||
+      m.toLowerCase().includes(cleaned.toLowerCase())
+    );
+    return matchesCat || matchesMer;
   });
 
   const current = reto.tipo === 'frequency_limit'

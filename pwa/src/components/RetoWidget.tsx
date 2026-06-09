@@ -8,13 +8,55 @@ interface Props {
 const fmt = (n: number) =>
   '$' + Math.round(n).toLocaleString('es-CO');
 
+function TargetChips({ reto }: { reto: RetoProgress['reto'] }) {
+  const cats  = reto.categorias?.length ? reto.categorias : (reto.categoria ? [reto.categoria] : []);
+  const mercs = reto.comercios ?? [];
+  const all   = [
+    ...cats.map(c  => ({ label: c, type: 'cat'  as const })),
+    ...mercs.map(m => ({ label: m, type: 'merc' as const })),
+  ];
+
+  if (all.length === 0) {
+    return (
+      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: 'var(--card)', border: '1px solid var(--line)', color: 'var(--muted)' }}>
+        Todos los gastos
+      </span>
+    );
+  }
+
+  const visible  = all.slice(0, 3);
+  const overflow = all.length - 3;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+      {visible.map(({ label, type }) => {
+        const color = type === 'cat' ? getCategoryColor(label) : '#64748b';
+        return (
+          <span
+            key={`${type}-${label}`}
+            style={{
+              fontSize: 11, padding: '2px 8px', borderRadius: 999,
+              background: `${color}22`, color,
+              fontWeight: 600,
+            }}
+          >
+            {type === 'merc' && '🏪 '}{label}
+          </span>
+        );
+      })}
+      {overflow > 0 && (
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>y {overflow} más</span>
+      )}
+    </div>
+  );
+}
+
 export function RetoWidget({ progress }: Props) {
   const { reto, current, pct, failed, diasRestantes } = progress;
   const CIRC = 175.93; // 2π×28
   const dash = Math.min(pct, 1) * CIRC;
   const color = failed ? '#ef4444' : pct >= 0.8 ? '#f59e0b' : '#16a34a';
   const pctDisplay = Math.round(pct * 100);
-  const catColor = reto.categoria ? getCategoryColor(reto.categoria) : '#6366f1';
 
   return (
     <div style={{ background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 18, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -42,20 +84,12 @@ export function RetoWidget({ progress }: Props) {
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 5, lineHeight: 1.3 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>
             {reto.titulo}
           </div>
-          {reto.categoria && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '3px 10px', borderRadius: 999,
-              background: catColor + '22', color: catColor,
-              fontSize: 11, fontWeight: 600, marginBottom: 6,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: catColor, flexShrink: 0 }} />
-              {reto.categoria}
-            </span>
-          )}
+          <div style={{ marginBottom: 6 }}>
+            <TargetChips reto={reto} />
+          </div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
             {failed
               ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Superado en {fmt(current - reto.objetivo)}</span>
