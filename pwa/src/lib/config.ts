@@ -24,6 +24,7 @@ export const CATEGORIES = [
   { name: 'Viajes',         color: '#14b8a6' },
   { name: 'Software',       color: '#a855f7' },
   { name: 'Bre-B',          color: '#0ea5e9' },
+  { name: 'Entretenimiento', color: '#ef4444' },
   { name: 'Otro',           color: '#6366f1' },
 ] as const;
 

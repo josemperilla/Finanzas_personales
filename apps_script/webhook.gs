@@ -468,7 +468,7 @@ function parseVoice(text) {
     "Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: " +
     "monto (número sin símbolos ni puntos de miles, ej: 50000), " +
     "comercio (nombre del lugar o descripción, string), " +
-    "categoria (una de: Restaurantes, Domicilios, Mercado, Transporte, Hogar, Salud, Deporte, Compras, Suscripciones, Viajes, Software, Bre-B, Otro), " +
+    "categoria (una de: Restaurantes, Domicilios, Mercado, Transporte, Hogar, Salud, Deporte, Compras, Suscripciones, Viajes, Software, Bre-B, Entretenimiento, Otro), " +
     "banco (Bogotá o Itaú u Otro), " +
     "tipo (Compra, Débito, Transferencia u Otro). " +
     "Si algún campo no está claro en el texto, usa el valor más probable.";
@@ -881,6 +881,12 @@ function detectCategory(merchant, userId) {
       "TENIS", "PADEL", "FITNESS", "RUNNING", "ATLETISMO",
       "CLUB LOS LAGARTOS", "ANKARA DEMIRSPOR"
     ]},
+    // ── Entretenimiento — espectáculos, cine, museos, ocio ───────────────
+    { cat: "Entretenimiento", keywords: [
+      "CINE", "TEATRO", "CONCIERTO", "PARQUE",
+      "BUDAPEST JAZZ CLUB", "CORFERIAS", "PONTOON",
+      "SUNA VE INAN", "PARK ELITE"
+    ]},
     // ── Software — herramientas y servicios digitales de trabajo ──────────
     { cat: "Software", keywords: [
       "GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION",
@@ -944,7 +950,6 @@ function migrateCategories() {
   var renameMap = {
     "Alojamiento": "Hogar",
     "Ropa":        "Compras",
-    "Entretenimiento": "Otro",
     "Belleza":     "Compras",
     "Trámites":    "Otro"
   };
@@ -1002,7 +1007,7 @@ function migrateCategories() {
 }
 
 // ── Actualizar categoría de una fila existente ────────────────
-var ALLOWED_CATEGORIES = ["Restaurantes","Domicilios","Mercado","Transporte","Hogar","Salud","Deporte","Compras","Suscripciones","Viajes","Software","Bre-B","Otro"];
+var ALLOWED_CATEGORIES = ["Restaurantes","Domicilios","Mercado","Transporte","Hogar","Salud","Deporte","Compras","Suscripciones","Viajes","Software","Bre-B","Entretenimiento","Otro"];
 
 // Returns the merchant name (Comercio) of the updated row, or null if not found.
 function updateCategoryInSheet(timestamp, categoria, userId) {
