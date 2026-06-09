@@ -111,16 +111,13 @@ function getNota(card: Card, platform: Platform | null): string | undefined {
   return card.androidNota ?? card.nota;
 }
 
-const PLATFORM_KEY = 'fm_tutorial_platform';
-
 export function TutorialCanales({ userId, onClose, initialCard }: Props) {
+  const PLATFORM_KEY = `fm_tutorial_platform_${userId}`;
+
   const [platform, setPlatform] = useState<Platform | null>(
     () => (localStorage.getItem(PLATFORM_KEY) as Platform | null)
   );
-  const [idx, setIdx] = useState(() => {
-    const stored = localStorage.getItem(PLATFORM_KEY);
-    return stored ? (initialCard ?? 0) : 0;
-  });
+  const [idx, setIdx] = useState(initialCard ?? 0);
 
   const card = CARDS[idx];
 

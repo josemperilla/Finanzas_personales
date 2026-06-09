@@ -373,6 +373,54 @@ function doPost(e) {
       return jsonResponse({ ok: true, data: parsedNotif });
     }
 
+    // Cuenta transacciones sin categorizar (tipo: "uncategorizedCount")
+    if (type === "uncategorizedCount") {
+      var ss2    = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SHEET_ID"));
+      var tab2   = ss2.getSheetByName(userId);
+      if (!tab2) return jsonResponse({ ok: true, count: 0 });
+      var data2    = tab2.getDataRange().getValues();
+      var headers2 = data2[0];
+      var catIdx2  = headers2.indexOf('Categoría');
+      if (catIdx2 < 0) return jsonResponse({ ok: true, count: 0 });
+      var count2 = data2.slice(1).filter(function(row) {
+        var cat = row[catIdx2];
+        return !cat || cat === '' || cat === 'Otro';
+      }).length;
+      return jsonResponse({ ok: true, count: count2 });
+    }
+
+    // Resumen del mes (type: "monthSummary") — para widget iOS Shortcut
+    if (type === "monthSummary") {
+      var ss3    = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SHEET_ID"));
+      var tab3   = ss3.getSheetByName(userId);
+      if (!tab3) return jsonResponse({ ok: true, data: { total: 0, topCategory: null, projection: 0 } });
+      var data3    = tab3.getDataRange().getValues();
+      var headers3 = data3[0];
+      var fechaIdx = headers3.indexOf('Fecha');
+      var montoIdx = headers3.indexOf('Monto (COP)');
+      var catIdx3  = headers3.indexOf('Categoría');
+      var now3     = new Date();
+      var y3 = now3.getFullYear(), m3 = now3.getMonth();
+      var startM = new Date(y3, m3, 1);
+      var endM   = new Date(y3, m3 + 1, 0, 23, 59, 59);
+      var byCat3 = {};
+      var total3 = 0;
+      data3.slice(1).forEach(function(row) {
+        var d = new Date(row[fechaIdx]);
+        if (d < startM || d > endM) return;
+        var monto = Number(row[montoIdx]) || 0;
+        if (monto <= 0) return;
+        total3 += monto;
+        var cat = row[catIdx3] || 'Otro';
+        byCat3[cat] = (byCat3[cat] || 0) + monto;
+      });
+      var topCat3  = Object.keys(byCat3).sort(function(a,b){ return byCat3[b]-byCat3[a]; })[0] || null;
+      var dayOfMonth = now3.getDate();
+      var daysInMonth = new Date(y3, m3 + 1, 0).getDate();
+      var projection = dayOfMonth > 0 ? Math.round(total3 / dayOfMonth * daysInMonth) : 0;
+      return jsonResponse({ ok: true, data: { total: total3, topCategory: topCat3, projection: projection, daysLeft: daysInMonth - dayOfMonth } });
+    }
+
     // SMS automático desde iOS Shortcut
     var sms    = (payload.sms    || "").trim();
     var sentAt = payload.timestamp || new Date().toISOString();
@@ -1799,4 +1847,48 @@ function testParsers() {
   // dispatcher routing check
   Logger.log("Dispatch BCO:     " + JSON.stringify(parseNotification("bancolombia", "Bancolombia", pushBco)));
   Logger.log("Dispatch NEQ:     " + JSON.stringify(parseNotification("nequi", "Nequi", pushNeqPago)));
+}
+
+// ============================================================
+// D5-2: Backup automático semanal a Google Drive
+// ============================================================
+// Ejecutar setupWeeklyBackupTrigger() una vez desde el editor
+// para activar el trigger. Crea/actualiza archivos JSON en la
+// carpeta "Finanzas Backup" del Drive del propietario del script.
+// ============================================================
+
+function weeklyBackupToDrive() {
+  var props   = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty("SHEET_ID");
+  if (!sheetId) { Logger.log("SHEET_ID no configurado"); return; }
+
+  var ss      = SpreadsheetApp.openById(sheetId);
+  var users   = _getAllowedUsers();
+  var date    = Utilities.formatDate(new Date(), "America/Bogota", "yyyy-MM-dd");
+
+  // Encontrar o crear carpeta "Finanzas Backup" en Drive
+  var folders = DriveApp.getFoldersByName("Finanzas Backup");
+  var folder  = folders.hasNext() ? folders.next() : DriveApp.createFolder("Finanzas Backup");
+
+  var backed = 0;
+  users.forEach(function(uid) {
+    var tab = ss.getSheetByName(uid);
+    if (!tab) return;
+    var data    = tab.getDataRange().getValues();
+    if (data.length < 2) return;
+    var headers = data[0];
+    var rows    = data.slice(1).map(function(row) {
+      var obj = {};
+      headers.forEach(function(h, i) { obj[h] = row[i] instanceof Date ? row[i].toISOString() : row[i]; });
+      return obj;
+    });
+    var filename = "backup_" + uid + "_" + date + ".json";
+    // Eliminar backup previo del mismo día si existe
+    var existing = folder.getFilesByName(filename);
+    while (existing.hasNext()) existing.next().setTrashed(true);
+    folder.createFile(filename, JSON.stringify(rows, null, 2), MimeType.PLAIN_TEXT);
+    backed++;
+  });
+
+  Logger.log("Backup completado: " + backed + " usuarios — " + date);
 }
