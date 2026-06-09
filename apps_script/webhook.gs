@@ -925,13 +925,11 @@ function recategorizeAll() {
       total++;
       var cat      = String(data[i][catCol] || "").trim();
       var comercio = String(data[i][comercioCol] || "").trim();
-      if (cat !== "" || !comercio) continue;
+      if (cat !== "") continue; // ya tiene categoría — no tocar
 
-      var newCat = detectCategory(comercio);
-      if (newCat) {
-        sheet.getRange(i + 1, catCol + 1).setValue(newCat);
-        updated++;
-      }
+      var newCat = comercio ? detectCategory(comercio) : "Otro";
+      sheet.getRange(i + 1, catCol + 1).setValue(newCat);
+      updated++;
     }
   }
 
@@ -992,6 +990,10 @@ function migrateCategories() {
       else if (cat === "Otro" && comercio) {
         var redetected = detectCategory(comercio, users[u]);
         if (redetected !== "Otro") newCat = redetected;
+      }
+      // Categoría vacía → detectar o asignar "Otro"
+      else if (cat === "") {
+        newCat = comercio ? detectCategory(comercio, users[u]) : "Otro";
       }
 
       if (newCat && newCat !== cat) {
@@ -1135,7 +1137,7 @@ function appendToSheet(data, userId) {
     data.monto        || "",
     data.comercio     || "",
     data.tarjeta      || "",
-    data.categoria    || "",
+    data.categoria    || "Otro",
     data.sms_original || "",
     data.fuente       || "sms",
     data.nota         || ""
