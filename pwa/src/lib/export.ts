@@ -27,12 +27,30 @@ export function exportToCSV(transactions: Transaction[], filename = 'gastos.csv'
   }
 }
 
+export function exportToJSON(transactions: Transaction[], filename = 'backup.json'): void {
+  const data = transactions.map(tx => ({
+    fecha: tx.Fecha || tx.Timestamp || '',
+    comercio: cleanMerchant(tx.Comercio) || tx.Comercio || '',
+    banco: tx.Banco || '',
+    tipo: tx.Tipo || '',
+    monto: tx['Monto (COP)'] || 0,
+    categoria: tx.Categoría || '',
+    tarjeta: tx['Tarjeta/Cuenta'] || '',
+    nota: tx.Nota || '',
+  }));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadFallback(blob, filename);
+}
+
 function downloadFallback(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const a = document.createElement('a');
+    a.href = ev.target?.result as string;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 500);
+  };
+  reader.readAsDataURL(blob);
 }

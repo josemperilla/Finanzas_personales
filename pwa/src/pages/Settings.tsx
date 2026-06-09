@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
-import { exportToCSV } from '../lib/export';
+import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone } from '../lib/profiles';
 import { TIMEZONE_OPTIONS } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
@@ -441,9 +441,15 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
               chevron="›"
             />
             <Row
-              label="Exportar backup completo"
+              label="Exportar CSV"
               sublabel={`${transactions.length} transacciones`}
               onTap={() => exportToCSV(transactions, `backup_${userId}.csv`)}
+              chevron="↓"
+            />
+            <Row
+              label="Exportar JSON"
+              sublabel="Formato completo con todos los campos"
+              onTap={() => exportToJSON(transactions, `backup_${userId}.json`)}
               chevron="↓"
             />
           </Section>

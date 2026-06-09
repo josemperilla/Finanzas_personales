@@ -69,6 +69,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const [showSugg, setShowSugg]       = useState(false);
   const suggRef = useRef<boolean>(false);
   const [splitCalc, setSplitCalc]     = useState<SplitCalc>(defaultSplit);
+  const [dupePending, setDupePending] = useState<ManualTransaction | null>(null);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -160,18 +161,20 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     if (pct >= 0.8) setBudgetAlert({ cat, pct });
   }
 
-  async function handleSubmit() {
-    if (saveState !== 'idle') return;
-    if (!form.monto || !form.comercio) { showToast('Monto y comercio son requeridos', false); return; }
+  function hasDuplicate(monto: number, categoria: string): boolean {
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    return transactions.some(tx => {
+      const ts = new Date(tx.Timestamp || tx.Fecha).getTime();
+      if (isNaN(ts) || ts < fiveMinAgo) return false;
+      const txMonto = Number(tx['Monto (COP)'] || 0);
+      return Math.abs(txMonto - monto) / Math.max(monto, 1) < 0.05 && tx.Categoría === categoria;
+    });
+  }
+
+  async function saveData(data: ManualTransaction) {
     setSaveState('saving');
     let succeeded = false;
     try {
-      const data: ManualTransaction = {
-        banco: form.banco, tipo: form.tipo,
-        monto: Number(form.monto), comercio: form.comercio,
-        categoria: form.categoria || 'Otro', fecha: form.fecha,
-        ...(form.nota.trim() && { nota: form.nota.trim() }),
-      };
       await saveTransaction(data);
       setForm(makeDefaultForm(userId));
       succeeded = true;
@@ -186,6 +189,22 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     } finally {
       if (!succeeded) setSaveState('idle');
     }
+  }
+
+  async function handleSubmit() {
+    if (saveState !== 'idle') return;
+    if (!form.monto || !form.comercio) { showToast('Monto y comercio son requeridos', false); return; }
+    const data: ManualTransaction = {
+      banco: form.banco, tipo: form.tipo,
+      monto: Number(form.monto), comercio: form.comercio,
+      categoria: form.categoria || 'Otro', fecha: form.fecha,
+      ...(form.nota.trim() && { nota: form.nota.trim() }),
+    };
+    if (hasDuplicate(data.monto, data.categoria)) {
+      setDupePending(data);
+      return;
+    }
+    await saveData(data);
   }
 
   function handleRegisterMyPart(perPerson: number) {
@@ -209,10 +228,12 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     rec.onend = async () => {
       const t = transcript;
       if (!t.trim()) { setVoiceState('idle'); return; }
+      const autoSubmitTriggers = ['guardar', 'confirma', 'confirmar', 'listo', 'graba', 'grabar'];
+      const shouldAutoSave = autoSubmitTriggers.some(w => t.toLowerCase().includes(w));
       setVoiceState('processing');
       try {
         const parsed = await parseVoice(t);
-        setForm({
+        const newForm = {
           monto:     String(Math.round(parsed.monto || 0)),
           comercio:  parsed.comercio || '',
           banco:     parsed.banco || 'Otro',
@@ -220,10 +241,22 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           tipo:      parsed.tipo || 'Compra',
           fecha:     todayInTZ(getUserTimezone(userId)),
           nota:      '',
-        });
-        setMode('form'); setVoiceState('prefilled');
-        setPrefillGlow(true); setTimeout(() => setPrefillGlow(false), 1500);
+        };
         setTranscript('');
+        if (shouldAutoSave && newForm.monto && newForm.monto !== '0' && newForm.comercio) {
+          const data: ManualTransaction = {
+            banco: newForm.banco, tipo: newForm.tipo,
+            monto: Number(newForm.monto), comercio: newForm.comercio,
+            categoria: newForm.categoria || 'Otro', fecha: newForm.fecha,
+          };
+          showToast('Guardando automáticamente...', true);
+          await saveData(data);
+          setVoiceState('idle');
+        } else {
+          setForm(newForm);
+          setMode('form'); setVoiceState('prefilled');
+          setPrefillGlow(true); setTimeout(() => setPrefillGlow(false), 1500);
+        }
       } catch {
         showToast('Error al analizar la voz. Intenta de nuevo.', false);
         setVoiceState('idle');
@@ -561,6 +594,34 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 300, boxShadow: 'var(--shadow-float)',
             }}>
             {toast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Duplicate warning modal */}
+      <AnimatePresence>
+        {dupePending && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 400, display: 'flex', alignItems: 'flex-end', padding: '0 0 env(safe-area-inset-bottom)' }}>
+            <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }} transition={softSpring}
+              style={{ width: '100%', background: 'var(--card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 28px' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>¿Ya guardaste esto?</div>
+              <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 24 }}>
+                Hay una transacción similar de ${(dupePending.monto).toLocaleString('es-CO')} en los últimos 5 minutos.
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={() => setDupePending(null)} style={{
+                  flex: 1, height: 48, borderRadius: 12, border: '1.5px solid var(--line)',
+                  background: 'var(--card)', color: 'var(--ink)', fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}>Cancelar</button>
+                <button type="button" onClick={() => { const d = dupePending; setDupePending(null); saveData(d); }} style={{
+                  flex: 1, height: 48, borderRadius: 12, border: 'none',
+                  background: 'var(--blue-700)', color: '#fff', fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}>Guardar igual</button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

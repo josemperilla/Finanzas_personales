@@ -260,3 +260,18 @@ export async function askChat(question: string, context: object): Promise<string
   if (!json.ok) throw new Error(json.error || 'Error al consultar el asistente');
   return json.data.answer as string;
 }
+
+export async function generateEmergencyPin(
+  adminUserId: string,
+  targetUserId: string,
+): Promise<{ code: string; expiresAt: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'generateEmergencyPin', userId: adminUserId, targetId: targetUserId }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error generando PIN de emergencia');
+  return { code: json.code as string, expiresAt: json.expiresAt as string };
+}

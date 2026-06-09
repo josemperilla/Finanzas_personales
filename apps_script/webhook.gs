@@ -132,7 +132,7 @@ function doPost(e) {
         monto:        parseFloat(payload.monto) || 0,
         comercio:     payload.comercio || "",
         tarjeta:      payload.tarjeta  || "",
-        categoria:    payload.categoria || detectCategory(payload.comercio || ""),
+        categoria:    payload.categoria || detectCategory(payload.comercio || "", userId),
         nota:         payload.nota     || "",
         sms_original: "MANUAL"
       };
@@ -156,7 +156,15 @@ function doPost(e) {
       var ts  = payload.timestamp || "";
       var cat = payload.categoria  || "";
       if (!ts || !cat) return jsonResponse({ ok: false, error: "Faltan timestamp y categoria" });
-      updateCategoryInSheet(ts, cat, userId);
+      var comercioAprendido = updateCategoryInSheet(ts, cat, userId);
+      // Guardar aprendizaje {comercio → categoría} para mejorar detección futura
+      if (comercioAprendido) {
+        var learnKey = "CATEGORY_LEARN_" + userId;
+        var learnProps = PropertiesService.getScriptProperties();
+        var learned = JSON.parse(learnProps.getProperty(learnKey) || "{}");
+        learned[normalizeComercio(comercioAprendido).toUpperCase()] = cat;
+        learnProps.setProperty(learnKey, JSON.stringify(learned));
+      }
       return jsonResponse({ ok: true });
     }
 
@@ -164,10 +172,33 @@ function doPost(e) {
     if (type === "validatePin") {
       var pin = String(payload.pin || "");
       if (!pin) return jsonResponse({ ok: false, error: "PIN requerido" });
-      var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
+      var vProps = PropertiesService.getScriptProperties();
+      var storedPin = vProps.getProperty("APP_PIN_" + userId);
       if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado en Script Properties" });
       if (pin === storedPin) return jsonResponse({ ok: true });
+      // Check emergency PIN (single-use, 24h TTL)
+      var emergRaw = vProps.getProperty("EMERGENCY_PIN_" + userId);
+      if (emergRaw) {
+        try {
+          var ep = JSON.parse(emergRaw);
+          if (ep.code === pin && Date.now() < ep.expiry) {
+            vProps.deleteProperty("EMERGENCY_PIN_" + userId);
+            return jsonResponse({ ok: true, emergency: true });
+          }
+        } catch(e) {}
+      }
       return jsonResponse({ ok: false, error: "PIN incorrecto" });
+    }
+
+    // Generar PIN de emergencia de un solo uso (24h) — solo admin
+    if (type === "generateEmergencyPin") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "No autorizado" });
+      var targetId = (payload.targetId || "").toLowerCase().trim();
+      if (!targetId) return jsonResponse({ ok: false, error: "targetId requerido" });
+      var code = String(100000 + Math.floor(Math.random() * 900000));
+      var expiry = Date.now() + 24 * 60 * 60 * 1000;
+      PropertiesService.getScriptProperties().setProperty("EMERGENCY_PIN_" + targetId, JSON.stringify({ code: code, expiry: expiry }));
+      return jsonResponse({ ok: true, code: code, expiresAt: new Date(expiry).toISOString() });
     }
 
     // ── Gestión de usuarios (solo admin) ─────────────────────────
@@ -327,7 +358,7 @@ function doPost(e) {
       }
 
       parsedNotif.timestamp    = new Date();
-      parsedNotif.categoria    = detectCategory(parsedNotif.comercio);
+      parsedNotif.categoria    = detectCategory(parsedNotif.comercio, userId);
       parsedNotif.sms_original = "PUSH | " + title + " | " + body;
       parsedNotif.fuente       = "notification";
 
@@ -372,7 +403,7 @@ function doPost(e) {
     }
 
     parsed.timestamp    = new Date();
-    parsed.categoria    = detectCategory(parsed.comercio);
+    parsed.categoria    = detectCategory(parsed.comercio, userId);
     parsed.sms_original = sms;
 
     appendToSheet(parsed, userId);
@@ -749,9 +780,18 @@ function normalizeTipo(raw) {
   return map[raw.toLowerCase()] || (raw.charAt(0).toUpperCase() + raw.slice(1));
 }
 
-function detectCategory(merchant) {
+function detectCategory(merchant, userId) {
   if (!merchant) return "";
   var m = merchant.toUpperCase();
+
+  // Check user-learned mappings first (from manual corrections)
+  if (userId) {
+    var learned = JSON.parse(PropertiesService.getScriptProperties().getProperty("CATEGORY_LEARN_" + userId) || "{}");
+    var normalized = normalizeComercio(merchant).toUpperCase();
+    if (learned[normalized]) return learned[normalized];
+    // Also try exact match on raw merchant name
+    if (learned[m]) return learned[m];
+  }
 
   var rules = [
     // ── Comida — restaurantes, cafés, delivery, fast food ──────────────────
@@ -901,6 +941,7 @@ function recategorizeAll() {
 // ── Actualizar categoría de una fila existente ────────────────
 var ALLOWED_CATEGORIES = ["Comida","Transporte","Suscripciones","Mercado","Salud","Deporte","Compras","Alojamiento","Viajes","Software","Otro"];
 
+// Returns the merchant name (Comercio) of the updated row, or null if not found.
 function updateCategoryInSheet(timestamp, categoria, userId) {
   // Allowlist check — prevents formula injection (H-03)
   if (ALLOWED_CATEGORIES.indexOf(categoria) === -1) {
@@ -911,8 +952,9 @@ function updateCategoryInSheet(timestamp, categoria, userId) {
   var sheet = ref.sheet;
   var data  = sheet.getDataRange().getValues();
   var hdrs  = data[0];
-  var tsCol  = hdrs.indexOf("Timestamp");
-  var catCol = hdrs.indexOf("Categoría");
+  var tsCol      = hdrs.indexOf("Timestamp");
+  var catCol     = hdrs.indexOf("Categoría");
+  var comercioCol = hdrs.indexOf("Comercio");
   if (tsCol === -1 || catCol === -1) throw new Error("Columnas Timestamp/Categoría no encontradas");
 
   var targetMs = new Date(timestamp).getTime();
@@ -921,7 +963,7 @@ function updateCategoryInSheet(timestamp, categoria, userId) {
     var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
     if (Math.abs(cellMs - targetMs) < 2000) {
       sheet.getRange(i + 1, catCol + 1).setValue(categoria);
-      return;
+      return comercioCol >= 0 ? String(data[i][comercioCol] || "") : null;
     }
   }
   throw new Error("Transacción no encontrada: " + timestamp);
@@ -1153,7 +1195,7 @@ function processGmailTransactions() {
         reverseTransaction(parsed, userId);
       } else {
         parsed.timestamp    = new Date();
-        parsed.categoria    = detectCategory(parsed.comercio);
+        parsed.categoria    = detectCategory(parsed.comercio, userId);
         parsed.sms_original = "EMAIL | " + subject + " | " + body.slice(0, 300);
         parsed.fuente       = "email";
         appendToSheet(parsed, userId);

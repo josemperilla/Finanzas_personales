@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listUsers, createUser, deleteUser, resetUserPin } from '../lib/api';
+import { listUsers, createUser, deleteUser, resetUserPin, generateEmergencyPin } from '../lib/api';
 import { getUserNickname } from '../lib/profiles';
 import { quickEase } from '../lib/motion';
 
@@ -14,7 +14,7 @@ interface UserRow {
   nickname: string;
 }
 
-type ActiveAction = { type: 'resetPin'; uid: string } | { type: 'delete'; uid: string } | null;
+type ActiveAction = { type: 'resetPin'; uid: string } | { type: 'delete'; uid: string } | { type: 'emergencyPin'; uid: string } | null;
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px',
@@ -43,6 +43,10 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   const [createSaving, setCreateSaving] = useState(false);
   const [createMsg, setCreateMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  // Emergency PIN state
+  const [emergResult, setEmergResult] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [emergLoading, setEmergLoading] = useState(false);
+
   // Link copy
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -64,6 +68,17 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
     setNewPinValue('');
     setPinMsg(null);
     setDeleteMsg(null);
+    setEmergResult(null);
+  }
+
+  async function handleGenerateEmergencyPin(uid: string) {
+    setEmergLoading(true); setEmergResult(null);
+    try {
+      const res = await generateEmergencyPin(adminId, uid);
+      setEmergResult(res);
+    } catch (e) {
+      setPinMsg({ text: e instanceof Error ? e.message : 'Error', ok: false });
+    } finally { setEmergLoading(false); }
   }
 
   async function handleResetPin(uid: string) {
@@ -158,6 +173,16 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                     PIN
                   </motion.button>
                   <motion.button whileTap={{ scale: 0.92 }}
+                    onClick={() => toggleAction({ type: 'emergencyPin', uid: u.id })}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8, border: '1px solid #fde68a',
+                      background: activeAction?.type === 'emergencyPin' && activeAction.uid === u.id ? '#fffbeb' : 'var(--card)',
+                      color: '#b45309', fontSize: 'var(--text-xs)', fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    }}>
+                    SOS
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.92 }}
                     onClick={() => toggleAction({ type: 'delete', uid: u.id })}
                     style={{
                       padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5',
@@ -231,6 +256,49 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                         Cancelar
                       </motion.button>
                     </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {/* Emergency PIN inline */}
+            <AnimatePresence>
+              {activeAction?.type === 'emergencyPin' && activeAction.uid === u.id && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={quickEase}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: '#92400e' }}>
+                      Genera un PIN de un solo uso válido por 24 horas para {u.nickname || u.id}.
+                    </div>
+                    {!emergResult ? (
+                      <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleGenerateEmergencyPin(u.id)} disabled={emergLoading}
+                        style={{ height: 40, background: '#f59e0b', border: 'none', borderRadius: 10, color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: emergLoading ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                        {emergLoading ? 'Generando…' : 'Generar PIN de emergencia'}
+                      </motion.button>
+                    ) : (
+                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 14px' }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: '#92400e', marginBottom: 4 }}>
+                          PIN de emergencia (válido 24h, uso único):
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 24, color: '#b45309', letterSpacing: '0.2em' }}>
+                          {emergResult.code}
+                        </div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: '#92400e', marginTop: 4 }}>
+                          Expira: {new Date(emergResult.expiresAt).toLocaleString('es-CO')}
+                        </div>
+                        <button type="button" onClick={() => { setEmergResult(null); setActiveAction(null); }}
+                          style={{ marginTop: 8, fontSize: 'var(--text-xs)', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)' }}>
+                          Cerrar
+                        </button>
+                      </div>
+                    )}
+                    {pinMsg && !pinMsg.ok && (
+                      <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626' }}>{pinMsg.text}</div>
+                    )}
                   </div>
                 </motion.div>
               )}
