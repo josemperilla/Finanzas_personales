@@ -54,23 +54,39 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
   const [dateRange, setDateRange]         = useState<DateRange>('all');
   const [bankFilter, setBankFilter]       = useState('Todos');
   const [typeFilter, setTypeFilter]       = useState('Todos');
+  const [dateFrom, setDateFrom]           = useState('');
+  const [dateTo, setDateTo]               = useState('');
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [viewMode, setViewMode]           = useState<'list' | 'calendar'>('list');
 
-  const filters = ['Todas', ...CATEGORIES.map(c => c.name)];
+  const filters = ['Todas', 'Sin categorizar', ...CATEGORIES.map(c => c.name)];
 
   const banks = useMemo(() => ['Todos', ...Array.from(new Set(transactions.map(tx => tx.Banco).filter(Boolean))).sort()], [transactions]);
   const types = useMemo(() => ['Todos', ...Array.from(new Set(transactions.map(tx => tx.Tipo).filter(Boolean))).sort()], [transactions]);
 
   const filtered = useMemo(() => (
-    (activeFilter === 'Todas' ? transactions : transactions.filter(tx => tx.Categoría === activeFilter))
-      .filter(tx => isInDateRange(tx.Fecha || tx.Timestamp, dateRange))
+    (activeFilter === 'Todas'
+      ? transactions
+      : activeFilter === 'Sin categorizar'
+        ? transactions.filter(tx => !tx.Categoría || tx.Categoría.trim() === '')
+        : transactions.filter(tx => tx.Categoría === activeFilter)
+    )
+      .filter(tx => {
+        if (dateFrom || dateTo) {
+          const d = new Date(tx.Fecha || tx.Timestamp);
+          if (isNaN(d.getTime())) return true;
+          if (dateFrom && d < new Date(dateFrom)) return false;
+          if (dateTo   && d > new Date(dateTo + 'T23:59:59')) return false;
+          return true;
+        }
+        return isInDateRange(tx.Fecha || tx.Timestamp, dateRange);
+      })
       .filter(tx => bankFilter === 'Todos' || tx.Banco === bankFilter)
       .filter(tx => typeFilter === 'Todos' || tx.Tipo === typeFilter)
       .filter(tx => !searchQuery ||
         cleanMerchant(tx.Comercio).toLowerCase().includes(searchQuery.toLowerCase()) ||
         tx.Comercio.toLowerCase().includes(searchQuery.toLowerCase()))
-  ), [transactions, activeFilter, dateRange, bankFilter, typeFilter, searchQuery]);
+  ), [transactions, activeFilter, dateRange, dateFrom, dateTo, bankFilter, typeFilter, searchQuery]);
 
   const grouped = useMemo(() => filtered.reduce<Record<string, Transaction[]>>((acc, tx) => {
     const key = getDateKey(tx.Fecha || tx.Timestamp);
@@ -159,7 +175,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
           {DATE_CHIPS.map(({ label, value }) => {
             const isActive = value === dateRange;
             return (
-              <motion.button key={value} whileTap={{ scale: 0.94 }} onClick={() => setDateRange(value)} style={{
+              <motion.button key={value} whileTap={{ scale: 0.94 }} onClick={() => { setDateRange(value); setDateFrom(''); setDateTo(''); }} style={{
                 position: 'relative', flexShrink: 0, padding: '5px 12px', borderRadius: 999,
                 border: `1.5px solid ${isActive ? 'transparent' : 'var(--line)'}`,
                 background: 'transparent',
@@ -223,6 +239,49 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
                       fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap',
                     }}>{t}</motion.button>
                   ))}
+                </div>
+              </div>
+              <div style={{ paddingBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rango de fechas</div>
+                  {(dateFrom || dateTo) && (
+                    <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 10.5, color: 'var(--blue-700)', fontFamily: 'var(--font-body)', padding: 0,
+                    }}>Limpiar</button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 3 }}>Desde</div>
+                    <input
+                      type="date"
+                      aria-label="Fecha desde"
+                      value={dateFrom}
+                      onChange={e => setDateFrom(e.target.value)}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', height: 34, padding: '0 8px',
+                        border: `1.5px solid ${dateFrom ? 'var(--blue-600)' : 'var(--line)'}`,
+                        borderRadius: 8, background: dateFrom ? 'var(--blue-50)' : 'var(--surface)',
+                        color: 'var(--ink)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 3 }}>Hasta</div>
+                    <input
+                      type="date"
+                      aria-label="Fecha hasta"
+                      value={dateTo}
+                      onChange={e => setDateTo(e.target.value)}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', height: 34, padding: '0 8px',
+                        border: `1.5px solid ${dateTo ? 'var(--blue-600)' : 'var(--line)'}`,
+                        borderRadius: 8, background: dateTo ? 'var(--blue-50)' : 'var(--surface)',
+                        color: 'var(--ink)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </motion.div>

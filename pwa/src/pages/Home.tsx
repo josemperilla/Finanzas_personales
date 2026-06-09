@@ -18,6 +18,7 @@ import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion
 import { getBudgets, getSharedBudgets } from '../lib/budgets';
 import { computeHealthScore, HealthScore } from '../lib/healthScore';
 import { detectUnusualCategories } from '../lib/analytics';
+import { RetosPanel } from '../components/RetosPanel';
 
 interface Props {
   transactions: Transaction[];
@@ -337,6 +338,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             </AnimatePresence>
           )}
         </motion.div>
+
+        {/* Retos */}
+        {!loading && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <RetosPanel userId={userId} transactions={transactions} />
+          </motion.div>
+        )}
 
         {/* End-of-month projection */}
         {projectedTotal !== null && (

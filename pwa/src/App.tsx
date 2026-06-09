@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
 import { Home } from './pages/Home';
@@ -251,7 +252,10 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
 
-      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />
+      {createPortal(
+        <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />,
+        document.body
+      )}
 
       <AnimatePresence>
         {!userId && (

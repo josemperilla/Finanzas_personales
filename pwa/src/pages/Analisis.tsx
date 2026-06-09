@@ -12,7 +12,6 @@ import { CategorySheet } from '../components/CategorySheet';
 
 import { WeekdayChart } from '../components/WeekdayChart';
 import { CategoryComparison } from '../components/CategoryComparison';
-import { RetosPanel } from '../components/RetosPanel';
 
 
 interface Props {
@@ -637,13 +636,6 @@ export function Analisis({ transactions, loading, userId }: Props) {
           style={{ margin: '0 16px 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}
         >
           <WeekdayChart transactions={transactions} />
-        </motion.div>
-      )}
-
-      {/* ── Mis retos ── */}
-      {!loading && (
-        <motion.div variants={riseItem} style={{ margin: '0 0 16px' }}>
-          <RetosPanel userId={userId} transactions={transactions} />
         </motion.div>
       )}
 

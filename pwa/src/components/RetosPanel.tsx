@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Reto, RetoTipo, getRetos, addReto, deleteReto, computeProgress, periodDates } from '../lib/retos';
 import { Transaction } from '../lib/api';
@@ -196,8 +197,9 @@ export function RetosPanel({ userId, transactions }: Props) {
         ))}
       </AnimatePresence>
 
-      {/* Create modal */}
-      <AnimatePresence>
+      {/* Create modal — rendered via portal to escape CSS transform containing block */}
+      {createPortal(
+        <AnimatePresence>
         {showForm && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -464,7 +466,9 @@ export function RetosPanel({ userId, transactions }: Props) {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
