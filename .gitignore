@@ -25,3 +25,4 @@ Extractos_lectura/
 .dev.vars*
 !.dev.vars.example
 !.env.example
+.gstack/
