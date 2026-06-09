@@ -41,6 +41,26 @@ export function setUserTimezone(userId: string, tz: string): void {
   localStorage.setItem(`fm_timezone_${userId}`, tz);
 }
 
+// ── Tab order (por usuario, excluyendo "agregar" que siempre es central) ─────
+
+export const DEFAULT_TAB_ORDER = ['home', 'historial', 'analisis', 'chat'] as const;
+export type ReorderableTab = (typeof DEFAULT_TAB_ORDER)[number];
+
+export function getUserTabOrder(userId: string): ReorderableTab[] {
+  try {
+    const stored = localStorage.getItem(`fm_tab_order_${userId}`);
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed) && parsed.length === 4) return parsed as ReorderableTab[];
+    }
+  } catch {}
+  return [...DEFAULT_TAB_ORDER];
+}
+
+export function setUserTabOrder(userId: string, order: ReorderableTab[]): void {
+  localStorage.setItem(`fm_tab_order_${userId}`, JSON.stringify(order));
+}
+
 export function getDisplayName(userId: string): string {
   const nick = getUserNickname(userId);
   if (nick) return nick;

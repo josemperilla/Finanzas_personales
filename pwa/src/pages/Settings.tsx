@@ -3,10 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
 import { exportToCSV, exportToJSON } from '../lib/export';
-import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone } from '../lib/profiles';
+import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
 import { TIMEZONE_OPTIONS } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
-import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
+import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode, COLOR_PRESETS, getUserColorScheme, setUserColorScheme, applyColorScheme } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { TutorialCanales } from '../components/TutorialCanales';
@@ -37,6 +37,28 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => getUserAvatar(userId));
   const [timezone, setTimezone] = useState(() => getUserTimezone(userId));
+  const [colorScheme, setColorScheme] = useState(() => getUserColorScheme(userId));
+  const [customHex, setCustomHex] = useState(() => {
+    const s = getUserColorScheme(userId);
+    return s.startsWith('#') ? s : '#1d4ed8';
+  });
+
+  const [tabOrder, setTabOrderState] = useState<ReorderableTab[]>(() => getUserTabOrder(userId));
+
+  function moveTab(index: number, dir: -1 | 1) {
+    const next = [...tabOrder];
+    const target = index + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setTabOrderState(next);
+    setUserTabOrder(userId, next);
+  }
+
+  function handleColorSchemeChange(scheme: string) {
+    setColorScheme(scheme);
+    setUserColorScheme(userId, scheme);
+    applyColorScheme(userId);
+  }
 
   function handleNicknameSave(value: string) {
     const trimmed = value.trim();
@@ -330,6 +352,51 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
                 Auto sigue la preferencia del sistema.
               </p>
 
+              {/* Color del tema */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 12 }}>
+                  Color de la app
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {COLOR_PRESETS.map(preset => (
+                    <motion.button
+                      key={preset.id}
+                      whileTap={{ scale: 0.88 }}
+                      onClick={() => handleColorSchemeChange(preset.id)}
+                      title={preset.name}
+                      style={{
+                        width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                        background: preset.swatch,
+                        boxShadow: colorScheme === preset.id
+                          ? `0 0 0 3px var(--card), 0 0 0 5px ${preset.swatch}`
+                          : '0 2px 6px rgba(0,0,0,0.15)',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                  {/* Custom hex picker */}
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <input
+                      type="color"
+                      value={customHex}
+                      aria-label="Color personalizado"
+                      onChange={e => setCustomHex(e.target.value)}
+                      onBlur={e => handleColorSchemeChange(e.target.value)}
+                      style={{
+                        width: 34, height: 34, borderRadius: '50%', border: 'none',
+                        padding: 2, cursor: 'pointer', background: 'none',
+                        boxShadow: colorScheme === customHex
+                          ? `0 0 0 3px var(--card), 0 0 0 5px ${customHex}`
+                          : '0 2px 6px rgba(0,0,0,0.15)',
+                      }}
+                    />
+                  </div>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                  Cambia el color principal de botones, íconos y acentos.
+                </p>
+              </div>
+
               {/* Modo accesible */}
               <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -411,6 +478,47 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
               <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
                 Se usa para calcular la fecha al agregar transacciones. Por defecto: Colombia (UTC-5).
               </p>
+            </div>
+          </Section>
+
+          {/* ── Orden de pestañas ── */}
+          <Section title="Orden de pestañas">
+            <div style={{ paddingTop: 10, paddingBottom: 4 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+                Los primeros 2 aparecen a la izquierda del botón +, los últimos 2 a la derecha.
+              </p>
+              {tabOrder.map((tabId, i) => {
+                const labels: Record<ReorderableTab, string> = { home: 'Inicio', historial: 'Historial', analisis: 'Análisis', chat: 'Chat' };
+                return (
+                  <div key={tabId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < tabOrder.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                    <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{labels[tabId]}</span>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.88 }}
+                      onClick={() => moveTab(i, -1)}
+                      disabled={i === 0}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--line)',
+                        background: 'var(--surface)', cursor: i === 0 ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        opacity: i === 0 ? 0.3 : 1, fontSize: 16, color: 'var(--ink)',
+                      }}
+                    >↑</motion.button>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.88 }}
+                      onClick={() => moveTab(i, 1)}
+                      disabled={i === tabOrder.length - 1}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--line)',
+                        background: 'var(--surface)', cursor: i === tabOrder.length - 1 ? 'default' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        opacity: i === tabOrder.length - 1 ? 0.3 : 1, fontSize: 16, color: 'var(--ink)',
+                      }}
+                    >↓</motion.button>
+                  </div>
+                );
+              })}
             </div>
           </Section>
 

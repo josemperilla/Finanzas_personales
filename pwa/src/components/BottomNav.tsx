@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { softSpring } from '../lib/motion';
+import { getUserTabOrder, ReorderableTab } from '../lib/profiles';
 
 export type Tab = 'home' | 'historial' | 'agregar' | 'analisis' | 'chat';
 
@@ -7,12 +8,28 @@ interface Props {
   active: Tab;
   onChange: (tab: Tab) => void;
   accessibleMode?: boolean;
+  userId?: string | null;
 }
 
-export function BottomNav({ active, onChange, accessibleMode = false }: Props) {
+const TAB_META: Record<ReorderableTab, { label: string; icon: (active: boolean, size: number) => React.ReactNode }> = {
+  home:     { label: 'Inicio',    icon: (a, s) => <HomeIcon  active={a} size={s} /> },
+  historial:{ label: 'Historial', icon: (a, s) => <ListIcon  active={a} size={s} /> },
+  analisis: { label: 'Análisis',  icon: (a, s) => <ChartIcon active={a} size={s} /> },
+  chat:     { label: 'Chat',      icon: (a, s) => <ChatIcon  active={a} size={s} /> },
+};
+
+export function BottomNav({ active, onChange, accessibleMode = false, userId }: Props) {
   const iconSize = accessibleMode ? 28 : 22;
   const navMinHeight = accessibleMode ? '72px' : undefined;
   const btnPadding = accessibleMode ? '6px 16px' : '4px 10px';
+
+  // In accessible mode show fixed Home + Historial; otherwise respect user order
+  const order = (accessibleMode || !userId)
+    ? (['home', 'historial', 'analisis', 'chat'] as ReorderableTab[])
+    : getUserTabOrder(userId);
+
+  const leftTabs  = order.slice(0, 2);
+  const rightTabs = order.slice(2, 4);
 
   return (
     <nav style={{
@@ -26,15 +43,25 @@ export function BottomNav({ active, onChange, accessibleMode = false }: Props) {
       boxShadow: '0 -10px 30px rgba(15,23,42,0.06)',
       minHeight: navMinHeight,
     }}>
-      <NavTab label="Inicio" icon={<HomeIcon active={active === 'home'} size={iconSize} />} active={active === 'home'} onClick={() => onChange('home')} padding={btnPadding} alwaysShowLabel={accessibleMode} />
-      <NavTab label="Historial" icon={<ListIcon active={active === 'historial'} size={iconSize} />} active={active === 'historial'} onClick={() => onChange('historial')} padding={btnPadding} alwaysShowLabel={accessibleMode} />
+      {leftTabs.map(tabId => {
+        if (accessibleMode && (tabId === 'analisis' || tabId === 'chat')) return null;
+        const meta = TAB_META[tabId];
+        return (
+          <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
+            active={active === tabId} onClick={() => onChange(tabId as Tab)}
+            padding={btnPadding} alwaysShowLabel={accessibleMode} />
+        );
+      })}
       <AddTab active={active === 'agregar'} onClick={() => onChange('agregar')} accessibleMode={accessibleMode} />
-      {!accessibleMode && (
-        <NavTab label="Análisis" icon={<ChartIcon active={active === 'analisis'} size={iconSize} />} active={active === 'analisis'} onClick={() => onChange('analisis')} padding={btnPadding} alwaysShowLabel={false} />
-      )}
-      {!accessibleMode && (
-        <NavTab label="Chat" icon={<ChatIcon active={active === 'chat'} size={iconSize} />} active={active === 'chat'} onClick={() => onChange('chat')} padding={btnPadding} alwaysShowLabel={false} />
-      )}
+      {rightTabs.map(tabId => {
+        if (accessibleMode && (tabId === 'analisis' || tabId === 'chat')) return null;
+        const meta = TAB_META[tabId];
+        return (
+          <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
+            active={active === tabId} onClick={() => onChange(tabId as Tab)}
+            padding={btnPadding} alwaysShowLabel={accessibleMode} />
+        );
+      })}
     </nav>
   );
 }

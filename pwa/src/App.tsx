@@ -12,7 +12,7 @@ import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
-import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode } from './lib/theme';
+import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
 import { fetchProfiles, Profile, getDisplayName } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
@@ -132,6 +132,7 @@ export default function App() {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
       applyAccessibleMode(userId);
+      applyColorScheme(userId);
       setAccessible(getAccessibleMode(userId));
       applyPersonalizedAppIcon(userId, getDisplayName(userId));
       setUnlocked(true);
@@ -214,7 +215,7 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
 
-      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} />
+      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} />
 
       <AnimatePresence>
         {!userId && (

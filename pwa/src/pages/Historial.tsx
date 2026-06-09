@@ -9,6 +9,7 @@ import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { exportToCSV } from '../lib/export';
+import { CalendarHeatmap } from '../components/CalendarHeatmap';
 
 type DateRange = 'month' | '3m' | '6m' | 'year' | 'all';
 
@@ -54,6 +55,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
   const [bankFilter, setBankFilter]       = useState('Todos');
   const [typeFilter, setTypeFilter]       = useState('Todos');
   const [showAdvanced, setShowAdvanced]   = useState(false);
+  const [viewMode, setViewMode]           = useState<'list' | 'calendar'>('list');
 
   const filters = ['Todas', ...CATEGORIES.map(c => c.name)];
 
@@ -98,18 +100,34 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
               Historial
             </h1>
           </div>
-          <button
-            onClick={() => exportToCSV(filtered, csvFilename(dateRange))}
-            title="Exportar CSV"
-            style={{
-              background: 'var(--blue-50)', border: '1.5px solid var(--blue-100)',
-              borderRadius: 10, padding: '7px 12px', cursor: 'pointer',
-              color: 'var(--blue-700)', fontSize: 12.5, fontWeight: 600,
-              fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5,
-            }}
-          >
-            <span style={{ fontSize: 14 }}>↓</span> CSV
-          </button>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setViewMode(v => v === 'list' ? 'calendar' : 'list')}
+              title={viewMode === 'list' ? 'Vista calendario' : 'Vista lista'}
+              style={{
+                background: viewMode === 'calendar' ? 'var(--blue-50)' : 'var(--surface)',
+                border: `1.5px solid ${viewMode === 'calendar' ? 'var(--blue-600)' : 'var(--line)'}`,
+                borderRadius: 10, padding: '7px 11px', cursor: 'pointer',
+                color: viewMode === 'calendar' ? 'var(--blue-700)' : 'var(--muted)',
+                fontSize: 15, display: 'flex', alignItems: 'center',
+              }}
+            >
+              {viewMode === 'list' ? '📅' : '☰'}
+            </button>
+            <button
+              onClick={() => exportToCSV(filtered, csvFilename(dateRange))}
+              title="Exportar CSV"
+              style={{
+                background: 'var(--blue-50)', border: '1.5px solid var(--blue-100)',
+                borderRadius: 10, padding: '7px 12px', cursor: 'pointer',
+                color: 'var(--blue-700)', fontSize: 12.5, fontWeight: 600,
+                fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>↓</span> CSV
+            </button>
+          </div>
         </div>
 
         {/* Search input */}
@@ -236,8 +254,28 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
         </div>
       </div>
 
+      {/* Calendar heatmap */}
+      {viewMode === 'calendar' && (
+        <div style={{ padding: '0 16px 100px' }}>
+          {(() => {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth();
+            const monthLabel = now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+            return (
+              <div style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '16px 14px', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14, textTransform: 'capitalize' }}>
+                  {monthLabel}
+                </div>
+                <CalendarHeatmap transactions={transactions} year={y} month={m} />
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* List */}
-      <div style={{ padding: '0 16px 100px' }}>
+      {viewMode === 'list' && <div style={{ padding: '0 16px 100px' }}>
         {loading ? (
           [1,2,3,4,5].map(i => <SkeletonCard key={i} />)
         ) : sortedKeys.length === 0 ? (
@@ -272,7 +310,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
             })}
           </motion.div>
         )}
-      </div>
+      </div>}
 
       <AnimatePresence>
         {selected && (

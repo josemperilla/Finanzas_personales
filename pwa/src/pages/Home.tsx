@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { MonthRecapModal } from '../components/MonthRecapModal';
 import { Transaction } from '../lib/api';
 import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
@@ -57,6 +58,18 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const [direction, setDirection] = useState(0);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
   const [showHealthModal, setShowHealthModal] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    const now = new Date();
+    if (now.getDate() !== 1) return;
+    const key = `fm_recap_seen_${userId}`;
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (localStorage.getItem(key) === thisMonth) return;
+    localStorage.setItem(key, thisMonth);
+    setShowRecap(true);
+  }, [loading, userId]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -514,6 +527,16 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             category={drillCategory}
             transactions={transactions}
             onClose={() => setDrillCategory(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRecap && (
+          <MonthRecapModal
+            transactions={transactions}
+            userId={userId}
+            onClose={() => setShowRecap(false)}
           />
         )}
       </AnimatePresence>
