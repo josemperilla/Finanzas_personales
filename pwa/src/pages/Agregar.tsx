@@ -365,6 +365,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
               value={form.nota}
               onChange={e => setForm(f => ({ ...f, nota: e.target.value }))}
               placeholder="Ej: almuerzo con familia, regalo cumpleaños…"
+              aria-label="Nota"
               rows={2}
               style={{
                 ...inputStyle, height: 'auto', padding: '12px 16px',
