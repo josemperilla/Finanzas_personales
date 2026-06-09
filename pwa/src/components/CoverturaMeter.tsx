@@ -3,6 +3,7 @@ import { Transaction } from '../lib/api';
 
 interface Props {
   transactions: Transaction[];
+  onChannelTutorial?: (channelId: string) => void;
 }
 
 interface Canal {
@@ -16,7 +17,7 @@ interface Canal {
 
 const DIAS = 30;
 
-export function CoverturaMeter({ transactions }: Props) {
+export function CoverturaMeter({ transactions, onChannelTutorial }: Props) {
   const canales = useMemo<Canal[]>(() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - DIAS);
@@ -152,6 +153,25 @@ export function CoverturaMeter({ transactions }: Props) {
                     Inactivo
                   </span>
                 </div>
+              )}
+
+              {/* Setup instructions button */}
+              {onChannelTutorial && (
+                <button
+                  type="button"
+                  onClick={() => onChannelTutorial(canal.id)}
+                  style={{
+                    flexShrink: 0, width: 22, height: 22,
+                    borderRadius: '50%', border: '1.5px solid var(--line)',
+                    background: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, color: 'var(--muted)', fontWeight: 700,
+                    lineHeight: 1, padding: 0,
+                  }}
+                  aria-label={`Instrucciones para ${canal.label}`}
+                >
+                  ?
+                </button>
               )}
             </div>
           </div>

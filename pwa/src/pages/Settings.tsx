@@ -45,22 +45,28 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
   function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d')!;
-      const size = Math.min(img.width, img.height);
-      const sx = (img.width - size) / 2;
-      const sy = (img.height - size) / 2;
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      URL.revokeObjectURL(objectUrl);
-      setAvatarUrl(dataUrl);
-      setUserAvatar(userId, dataUrl);
+    // Use FileReader (data: URL) instead of createObjectURL (blob:) because
+    // the CSP only allows data: in img-src, not blob:.
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const src = ev.target?.result as string;
+      if (!src) return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const size = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 128, 128);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setAvatarUrl(dataUrl);
+        setUserAvatar(userId, dataUrl);
+      };
+      img.src = src;
     };
-    img.src = objectUrl;
+    reader.readAsDataURL(file);
+    e.target.value = ''; // reset so same file can be re-selected
   }
 
   function handleThemeChange(mode: ThemeMode) {
@@ -78,6 +84,14 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
   const isAdmin = userId === ADMIN_USER;
   const [showImport, setShowImport] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialCard, setTutorialCard] = useState(0);
+
+  const CHANNEL_CARD: Record<string, number> = { sms: 0, notification: 1, email: 2, import: 3 };
+
+  function openChannelTutorial(channelId: string) {
+    setTutorialCard(CHANNEL_CARD[channelId] ?? 0);
+    setShowTutorial(true);
+  }
 
   // Change PIN
   const [showPinForm, setShowPinForm] = useState(false);
@@ -385,7 +399,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
 
           {/* ── Captura ── */}
           <Section title="Captura de transacciones">
-            <CoverturaMeter transactions={transactions} />
+            <CoverturaMeter transactions={transactions} onChannelTutorial={openChannelTutorial} />
             <Row
               label="Ver tutorial de canales"
               sublabel="Cómo activar SMS, notificaciones, Gmail o importar extractos"
@@ -418,7 +432,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
           <ImportarExtracto key="import" userId={userId} onClose={() => setShowImport(false)} />
         )}
         {showTutorial && (
-          <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
+          <TutorialCanales key="tutorial" userId={userId} initialCard={tutorialCard} onClose={() => setShowTutorial(false)} />
         )}
       </AnimatePresence>
     </>
