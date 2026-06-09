@@ -8,6 +8,7 @@ import { SuccessCheck } from '../components/ui/SuccessCheck';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { getUserTimezone } from '../lib/profiles';
 import { todayInTZ } from '../lib/utils';
+import { detectUnusualCategories } from '../lib/analytics';
 
 interface Props {
   onSaved: () => void | Promise<void>;
@@ -70,6 +71,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const suggRef = useRef<boolean>(false);
   const [splitCalc, setSplitCalc]     = useState<SplitCalc>(defaultSplit);
   const [dupePending, setDupePending] = useState<ManualTransaction | null>(null);
+  const [unusualAlert, setUnusualAlert] = useState<string | null>(null);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -146,6 +148,11 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     setShowSugg(false);
   }
 
+  function checkUnusualAlert(cat: string) {
+    const unusual = detectUnusualCategories(transactions);
+    if (unusual.has(cat)) setUnusualAlert(cat);
+  }
+
   function checkBudgetAlert(cat: string, monto: number) {
     const budgets = getBudgets(userId);
     const budget  = budgets[cat];
@@ -181,6 +188,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       setSaveState('success');
       showToast('Transacción guardada', true);
       checkBudgetAlert(data.categoria, data.monto);
+      checkUnusualAlert(data.categoria);
       await new Promise(resolve => window.setTimeout(resolve, 650));
       await onSaved();
     } catch (err) {
@@ -622,6 +630,28 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
                 }}>Guardar igual</button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Unusual spend toast */}
+      <AnimatePresence>
+        {unusualAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 14, scale: 0.98 }}
+            transition={{ ...softSpring, delay: 1.0 }}
+            onClick={() => setUnusualAlert(null)}
+            style={{
+              position: 'fixed', bottom: 'calc(160px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
+              border: '1px solid #fde68a',
+              color: '#92400e',
+              fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
+            }}
+          >
+            ⚠️ Gasto inusual en {unusualAlert}: supera el doble del promedio mensual
           </motion.div>
         )}
       </AnimatePresence>

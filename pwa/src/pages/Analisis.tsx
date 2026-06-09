@@ -10,6 +10,8 @@ import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 import { getBudgets, setBudget, clearBudget, getSharedBudgets, setSharedBudget, clearSharedBudget } from '../lib/budgets';
 import { CategorySheet } from '../components/CategorySheet';
 import { detectRecurring } from '../lib/recurring';
+import { WeekdayChart } from '../components/WeekdayChart';
+import { CategoryComparison } from '../components/CategoryComparison';
 
 
 interface Props {
@@ -636,6 +638,26 @@ export function Analisis({ transactions, loading, userId }: Props) {
           </>
         )}
       </motion.div>
+
+      {/* ── Comparativa mes a mes ── */}
+      {!loading && (
+        <motion.div
+          variants={riseItem}
+          style={{ margin: '0 16px 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}
+        >
+          <CategoryComparison transactions={transactions} />
+        </motion.div>
+      )}
+
+      {/* ── Análisis por día de la semana ── */}
+      {!loading && (
+        <motion.div
+          variants={riseItem}
+          style={{ margin: '0 16px 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}
+        >
+          <WeekdayChart transactions={transactions} />
+        </motion.div>
+      )}
 
       <AnimatePresence>
         {drillCategory && (

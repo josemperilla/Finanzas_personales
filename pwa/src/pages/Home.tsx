@@ -15,6 +15,8 @@ import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { getBudgets, getSharedBudgets } from '../lib/budgets';
+import { computeHealthScore, HealthScore } from '../lib/healthScore';
+import { detectUnusualCategories } from '../lib/analytics';
 
 interface Props {
   transactions: Transaction[];
@@ -54,6 +56,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
+  const [showHealthModal, setShowHealthModal] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -137,6 +140,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const projDiff = (projectedTotal !== null && totalPrev > 0)
     ? ((projectedTotal - totalPrev) / totalPrev) * 100
     : null;
+
+  const healthScore: HealthScore | null = (selectedOffset === 0 && !loading)
+    ? computeHealthScore(transactions, userId)
+    : null;
+  const unusualCats: Set<string> = (selectedOffset === 0 && !loading)
+    ? detectUnusualCategories(transactions)
+    : new Set();
 
   // Daily cumulative spend chart
   const daysInSelMonth = new Date(selYear, selMonth + 1, 0).getDate();
@@ -349,6 +359,61 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
+        {/* Health score badge */}
+        {healthScore && (
+          <motion.div
+            variants={riseItem}
+            transition={quickEase}
+            onClick={() => setShowHealthModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'var(--card)', borderRadius: 'var(--r-xl)',
+              padding: '11px 14px', marginBottom: 14,
+              boxShadow: 'var(--shadow-card)', cursor: 'pointer',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 2 }}>Salud financiera</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                {healthScore.label}
+              </div>
+            </div>
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              border: `3px solid ${healthScore.color}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 14,
+              color: healthScore.color,
+            }}>
+              {healthScore.score}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Unusual spend alert */}
+        {unusualCats.size > 0 && (
+          <motion.div
+            variants={riseItem}
+            transition={quickEase}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              background: '#fffbeb', borderRadius: 'var(--r-xl)',
+              padding: '11px 14px', marginBottom: 14,
+              border: '1.5px solid #fde68a',
+            }}
+          >
+            <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#92400e', marginBottom: 3 }}>
+                Gasto inusual detectado
+              </div>
+              <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
+                {Array.from(unusualCats).join(', ')}: más del doble del promedio de los últimos 3 meses.
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Budget alerts */}
         {!loading && alerts.length > 0 && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
@@ -450,6 +515,77 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             transactions={transactions}
             onClose={() => setDrillCategory(null)}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showHealthModal && healthScore && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowHealthModal(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+              zIndex: 200, display: 'flex', alignItems: 'flex-end',
+            }}
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 60, opacity: 0 }}
+              transition={softSpring}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--card)',
+                borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
+                padding: '20px 20px 40px', width: '100%',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
+                    Salud financiera
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Este mes · 100 puntos posibles</div>
+                </div>
+                <div style={{
+                  width: 52, height: 52, borderRadius: '50%',
+                  border: `3px solid ${healthScore.color}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 18,
+                  color: healthScore.color,
+                }}>
+                  {healthScore.score}
+                </div>
+              </div>
+              {[
+                { label: 'Presupuestos bajo control', pts: healthScore.breakdown.budget, max: 40 },
+                { label: 'Canales de captura', pts: healthScore.breakdown.channels, max: 30 },
+                { label: 'Categorización', pts: healthScore.breakdown.categorization, max: 30 },
+              ].map(row => (
+                <div key={row.label} style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink)' }}>{row.label}</span>
+                    <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
+                      {row.pts}/{row.max}
+                    </span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(row.pts / row.max) * 100}%` }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ height: '100%', borderRadius: 999, background: healthScore.color }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', textAlign: 'center', marginTop: 4 }}>
+                Toca fuera para cerrar
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
