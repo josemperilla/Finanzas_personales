@@ -193,7 +193,14 @@ function doPost(e) {
       var props = PropertiesService.getScriptProperties();
       props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
       if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
-      _getSheet(newId); // auto-crea el tab en el Sheet
+      // Crear el tab en Sheets con headers — _getSheet solo retorna ref, hay que insertarlo explícitamente
+      var newRef = _getSheet(newId);
+      if (!newRef.sheet) {
+        var newSheet = newRef.ss.insertSheet(newRef.tabName);
+        newSheet.appendRow(["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"]);
+        newSheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#f3f3f3");
+        newSheet.setFrozenRows(1);
+      }
       return jsonResponse({ ok: true, created: newId });
     }
 
