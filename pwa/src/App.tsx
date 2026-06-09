@@ -263,6 +263,7 @@ export default function App() {
         {showSettings && userId && (
           <Settings key="settings" userId={userId} transactions={transactions}
             onProfilesChanged={() => fetchProfiles().then(setProfiles)}
+            onCategoryChange={handleCategoryChange}
             onClose={() => {
               setShowSettings(false);
               setAccessible(getAccessibleMode(userId));

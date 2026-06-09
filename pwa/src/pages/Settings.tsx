@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
+import { CategorizarModal } from '../components/CategorizarModal';
 import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
 import { TIMEZONE_OPTIONS } from '../lib/utils';
@@ -24,9 +25,10 @@ interface Props {
   transactions: Transaction[];
   onClose: () => void;
   onProfilesChanged?: () => void;
+  onCategoryChange?: (timestamp: string, categoria: string) => void;
 }
 
-export function Settings({ userId, transactions, onClose, onProfilesChanged }: Props) {
+export function Settings({ userId, transactions, onClose, onProfilesChanged, onCategoryChange }: Props) {
   const profile = getProfile(userId);
 
   const [defaultBank, setDefaultBank] = useState(
@@ -107,6 +109,8 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
   // Admin: user management
   const isAdmin = userId === ADMIN_USER;
   const [showImport, setShowImport] = useState(false);
+  const [showCategorizar, setShowCategorizar] = useState(false);
+  const uncategorizedCount = transactions.filter(tx => !tx.Categoría || tx.Categoría === 'Otro').length;
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialCard, setTutorialCard] = useState(0);
 
@@ -543,6 +547,14 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
           {/* ── Datos ── */}
           <Section title="Datos">
             <Row
+              label="Categorizar transacciones faltantes"
+              sublabel={uncategorizedCount > 0 ? `${uncategorizedCount} sin categoría` : 'Todo categorizado ✓'}
+              note={uncategorizedCount > 0 ? String(uncategorizedCount) : undefined}
+              noteColor="var(--blue-700)"
+              onTap={() => setShowCategorizar(true)}
+              chevron="›"
+            />
+            <Row
               label="Importar extracto bancario"
               sublabel="CSV de Bancolombia, Bogotá, Itaú u otro"
               onTap={() => setShowImport(true)}
@@ -566,6 +578,14 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
       </motion.div>
 
       <AnimatePresence>
+        {showCategorizar && (
+          <CategorizarModal
+            key="categorizar"
+            transactions={transactions}
+            onCategoryChange={onCategoryChange}
+            onClose={() => setShowCategorizar(false)}
+          />
+        )}
         {showImport && (
           <ImportarExtracto key="import" userId={userId} onClose={() => setShowImport(false)} />
         )}
