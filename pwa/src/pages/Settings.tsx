@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
 import { exportToCSV } from '../lib/export';
-import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar } from '../lib/profiles';
+import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone } from '../lib/profiles';
+import { TIMEZONE_OPTIONS } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
@@ -35,6 +36,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
   const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => getUserAvatar(userId));
+  const [timezone, setTimezone] = useState(() => getUserTimezone(userId));
 
   function handleNicknameSave(value: string) {
     const trimmed = value.trim();
@@ -386,6 +388,28 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged }: P
               </div>
               <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
                 Se usa como valor por defecto al agregar transacciones manualmente.
+              </p>
+            </div>
+
+            <div style={{ paddingTop: 4, paddingBottom: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 8 }}>Zona horaria</div>
+              <select
+                value={timezone}
+                aria-label="Zona horaria"
+                onChange={e => { setTimezone(e.target.value); setUserTimezone(userId, e.target.value); }}
+                style={{
+                  width: '100%', height: 44, padding: '0 12px',
+                  background: 'var(--card)', border: '1.5px solid var(--line)',
+                  borderRadius: 12, color: 'var(--ink)', fontSize: 14,
+                  fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer',
+                }}
+              >
+                {TIMEZONE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                Se usa para calcular la fecha al agregar transacciones. Por defecto: Colombia (UTC-5).
               </p>
             </div>
           </Section>

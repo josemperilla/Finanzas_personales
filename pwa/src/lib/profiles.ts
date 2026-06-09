@@ -32,6 +32,15 @@ export function setUserAvatar(userId: string, dataUrl: string): void {
   localStorage.setItem(`fm_avatar_${userId}`, dataUrl);
 }
 
+export const DEFAULT_TIMEZONE = 'America/Bogota';
+
+export function getUserTimezone(userId: string): string {
+  return localStorage.getItem(`fm_timezone_${userId}`) || DEFAULT_TIMEZONE;
+}
+export function setUserTimezone(userId: string, tz: string): void {
+  localStorage.setItem(`fm_timezone_${userId}`, tz);
+}
+
 export function getDisplayName(userId: string): string {
   const nick = getUserNickname(userId);
   if (nick) return nick;

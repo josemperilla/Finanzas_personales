@@ -6,6 +6,8 @@ import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
+import { getUserTimezone } from '../lib/profiles';
+import { todayInTZ } from '../lib/utils';
 
 interface Props {
   onSaved: () => void | Promise<void>;
@@ -35,12 +37,12 @@ interface FormData {
   nota:      string;
 }
 
-function makeDefaultForm(): FormData {
+function makeDefaultForm(userId: string): FormData {
   return {
     monto: '', comercio: '', nota: '',
     banco: localStorage.getItem('fm_default_bank') || 'Otro',
     categoria: '', tipo: 'Compra',
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: todayInTZ(getUserTimezone(userId)),
   };
 }
 
@@ -57,7 +59,7 @@ const labelStyle: React.CSSProperties = {
 
 export function Agregar({ onSaved, transactions, userId }: Props) {
   const [mode, setMode]         = useState<Mode>('form');
-  const [form, setForm]         = useState<FormData>(makeDefaultForm);
+  const [form, setForm]         = useState<FormData>(() => makeDefaultForm(userId));
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [saveState, setSaveState]   = useState<SaveState>('idle');
@@ -171,7 +173,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         ...(form.nota.trim() && { nota: form.nota.trim() }),
       };
       await saveTransaction(data);
-      setForm(makeDefaultForm());
+      setForm(makeDefaultForm(userId));
       succeeded = true;
       setSaveState('success');
       showToast('Transacción guardada', true);
@@ -216,7 +218,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           banco:     parsed.banco || 'Otro',
           categoria: parsed.categoria || 'Otro',
           tipo:      parsed.tipo || 'Compra',
-          fecha:     new Date().toISOString().slice(0, 10),
+          fecha:     todayInTZ(getUserTimezone(userId)),
           nota:      '',
         });
         setMode('form'); setVoiceState('prefilled');

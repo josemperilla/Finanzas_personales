@@ -55,7 +55,7 @@ function _getSheet(userId) {
 // ── Rate limiting (per-user daily cap via CacheService) ───────
 function _checkRateLimit(action, userId) {
   var cache = CacheService.getScriptCache();
-  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var today = Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd");
   var key = "rate_" + action + "_" + (userId || "global") + "_" + today;
   var count = parseInt(cache.get(key) || "0", 10);
   var limits = { chat: 100, voice: 50 };
@@ -1015,10 +1015,10 @@ function appendToSheet(data, userId) {
     sheet.getRange(1, notaCol).setValue("Nota").setFontWeight("bold").setBackground("#f3f3f3");
   }
 
-  var fecha = data.fecha ? Utilities.formatDate(data.fecha, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss") : "";
+  var fecha = data.fecha ? Utilities.formatDate(data.fecha, 'America/Bogota', "yyyy-MM-dd HH:mm:ss") : "";
 
   sheet.appendRow([
-    Utilities.formatDate(data.timestamp, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
+    Utilities.formatDate(data.timestamp, 'America/Bogota', "yyyy-MM-dd HH:mm:ss"),
     fecha,
     data.banco        || "",
     data.tipo         || "",
