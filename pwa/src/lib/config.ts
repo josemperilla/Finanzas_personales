@@ -12,16 +12,18 @@ export const WEBHOOK_SECRET = import.meta.env.PROD
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
 export const CATEGORIES = [
-  { name: 'Comida',         color: '#f59e0b' },
-  { name: 'Transporte',     color: '#06b6d4' },
-  { name: 'Suscripciones',  color: '#8b5cf6' },
+  { name: 'Restaurantes',   color: '#f59e0b' },
+  { name: 'Domicilios',     color: '#fb923c' },
   { name: 'Mercado',        color: '#10b981' },
+  { name: 'Transporte',     color: '#06b6d4' },
+  { name: 'Hogar',          color: '#f97316' },
   { name: 'Salud',          color: '#f43f5e' },
   { name: 'Deporte',        color: '#3b82f6' },
   { name: 'Compras',        color: '#ec4899' },
-  { name: 'Alojamiento',    color: '#f97316' },
+  { name: 'Suscripciones',  color: '#8b5cf6' },
   { name: 'Viajes',         color: '#14b8a6' },
   { name: 'Software',       color: '#a855f7' },
+  { name: 'Bre-B',          color: '#0ea5e9' },
   { name: 'Otro',           color: '#6366f1' },
 ] as const;
 

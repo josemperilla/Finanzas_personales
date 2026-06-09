@@ -255,6 +255,13 @@ function doPost(e) {
       return jsonResponse({ ok: true, deleted: targetId });
     }
 
+    // Migración masiva de categorías (admin only) — renombra obsoletas y re-detecta
+    if (type === "migrateCategories") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede ejecutar migraciones" });
+      var migResult = migrateCategories();
+      return jsonResponse(migResult);
+    }
+
     // Resetear el PIN de un usuario (admin only)
     if (type === "resetPin") {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede resetear PINs" });
@@ -461,7 +468,7 @@ function parseVoice(text) {
     "Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: " +
     "monto (número sin símbolos ni puntos de miles, ej: 50000), " +
     "comercio (nombre del lugar o descripción, string), " +
-    "categoria (una de: Comida, Transporte, Suscripciones, Mercado, Salud, Deporte, Compras, Alojamiento, Viajes, Software, Otro), " +
+    "categoria (una de: Restaurantes, Domicilios, Mercado, Transporte, Hogar, Salud, Deporte, Compras, Suscripciones, Viajes, Software, Bre-B, Otro), " +
     "banco (Bogotá o Itaú u Otro), " +
     "tipo (Compra, Débito, Transferencia u Otro). " +
     "Si algún campo no está claro en el texto, usa el valor más probable.";
@@ -794,11 +801,15 @@ function detectCategory(merchant, userId) {
   }
 
   var rules = [
-    // ── Comida — restaurantes, cafés, delivery, fast food ──────────────────
-    { cat: "Comida", keywords: [
-      "RAPPI", "UBER EATS", "IFOOD", "DOMICILIOS", "OSAKI",
+    // ── Domicilios — plataformas de delivery ──────────────────────────────
+    { cat: "Domicilios", keywords: [
+      "RAPPI", "IFOOD", "UBER EATS", "UBEREATS", "PEDIDOSYA",
+      "DOMICILIOS.COM", "MERCADO LIBRE DOMICILIOS"
+    ]},
+    // ── Restaurantes — comida directa, cafés, fast food ──────────────────
+    { cat: "Restaurantes", keywords: [
       "MCDONALDS", "MC DONALD", "BURGER", "PIZZA", "SUBWAY", "KFC",
-      "TACO BELL", "POLLO CAMPERO", "CORRAL",
+      "TACO BELL", "POLLO CAMPERO", "CORRAL", "OSAKI",
       "CREPES", "WAFFLES", "RESTAURAN", "SUSHI", "BISTRO", "BRASSERIE",
       "CAFE", "COFFEE", "CAFECULTOR", "TOSTAO", "AZAHAR", "TRIGO Y MIEL",
       "CREPESYWAFFLES", "FOGON", "ASADERO", "CHIGUI", "FORTEZZA",
@@ -823,12 +834,16 @@ function detectCategory(merchant, userId) {
       "METRO BARCELON", "SAGALES", "ESTACION DE SERVICIO",
       "ACARLAR PETROL", "TEMBICI"
     ]},
-    // ── Alojamiento — hoteles, hostales, Airbnb ────────────────────────────
-    { cat: "Alojamiento", keywords: [
+    // ── Hogar — alojamiento, arriendo, servicios públicos, artículos del hogar
+    { cat: "Hogar", keywords: [
       "HOTEL", "AIRBNB", "BOOKING", "HOSPEDAJE", "HOSTAL",
       "HOSTELWORLD", "HAMARAT OTEL", "MARRIOT", "MARRIOTT",
       "AVENUE HOSTEL", "HOTEL PALACIO", "HOTEL INMACULADA",
-      "HOTEL PALACIO DE"
+      "HOTEL PALACIO DE",
+      "ARRIENDO", "ARRENDAMIENTO", "ADMINISTRACION", "ADMINISTRACIÓN",
+      "SERVICIOS PUBLICOS", "GAS NATURAL", "ACUEDUCTO", "ENERGIA",
+      "EPM", "ETB", "CLARO HOGAR",
+      "HOME SENTRY", "HOME DEPOT", "EASY HOME"
     ]},
     // ── Viajes — vuelos, transporte interurbano, agencias ──────────────────
     { cat: "Viajes", keywords: [
@@ -837,18 +852,17 @@ function detectCategory(merchant, userId) {
       "SELDAR ISTANBUL", "IZMIR 1888", "KAPADOKYA", "VOYNN GIDA",
       "MAVERICKCENTRALMAR", "DUFRY", "WAN TANACSADO"
     ]},
-    // ── Compras — tiendas, online, regalos ────────────────────────────────
+    // ── Compras — tiendas, online, ropa, regalos ──────────────────────────
     { cat: "Compras", keywords: [
       "AMAZON", "MERCADOLIBRE", "FALABELLA", "HOMECENTER", "EASY",
       "IKEA", "SAMSUNG", "TEMU", "OFFICE DEPOT", "LIBRERIA",
       "TIENDA RAMBLAS", "FOLKART", "BOMO ART", "PROEXSAL", "MAYAN GIFTS",
       "KAPADOKYA OTTOMAN", "YEMENICILER", "SOV MAGAZACILIK",
-      "DOLLARTICTY", "HELOPAY", "COMPRA PASARELA", "MERCADO PAGO"
-    ]},
-    // ── Ropa — ropa y accesorios ───────────────────────────────────────────
-    { cat: "Ropa", keywords: [
+      "DOLLARTICTY", "HELOPAY", "COMPRA PASARELA", "MERCADO PAGO",
       "ADIDAS", "UNIQLO", "BROOKS BROTHERS", "DECATHLON",
-      "TIENDA ADIDAS", "ALSANCAK MACROCENTER", "ALSANCAK COLOMBIA"
+      "TIENDA ADIDAS", "ALSANCAK MACROCENTER", "ALSANCAK COLOMBIA",
+      "PELUQUER", "BARBERIA", "BARBERIAS", "ESTETICA",
+      "ANA MILENA", "ANDERSON GOGREEN", "HF PELUQUERIA"
     ]},
     // ── Suscripciones — servicios digitales recurrentes ───────────────────
     { cat: "Suscripciones", keywords: [
@@ -867,29 +881,10 @@ function detectCategory(merchant, userId) {
       "TENIS", "PADEL", "FITNESS", "RUNNING", "ATLETISMO",
       "CLUB LOS LAGARTOS", "ANKARA DEMIRSPOR"
     ]},
-    // ── Entretenimiento — espectáculos, museos, ocio ──────────────────────
-    { cat: "Entretenimiento", keywords: [
-      "NETFLIX", "CINE", "TEATRO", "CONCIERTO", "PARQUE",
-      "BUDAPEST JAZZ CLUB", "CORFERIAS", "PONTOON",
-      "SUNA VE INAN", "PARK ELITE"
-    ]},
-    // ── Belleza — peluquerías, estética personal ──────────────────────────
-    { cat: "Belleza", keywords: [
-      "PELUQUER", "BARBERIA", "BARBERIAS", "LORD", "ESTETICA",
-      "ANA MILENA", "ANDERSON GOGREEN", "HF PELUQUERIA"
-    ]},
     // ── Software — herramientas y servicios digitales de trabajo ──────────
     { cat: "Software", keywords: [
       "GOOGLE", "MICROSOFT", "ADOBE", "CANVA", "NOTION",
       "AMAZON DIGI", "FOTOP"
-    ]},
-    // ── Hogar — artículos del hogar y servicios domésticos ────────────────
-    { cat: "Hogar", keywords: [
-      "HOMECENTER", "HOME SENTRY", "HOME DEPOT", "EASY HOME"
-    ]},
-    // ── Trámites — pagos oficiales, visas, impuestos ──────────────────────
-    { cat: "Trámites", keywords: [
-      "USEMBASSY", "MRVFEE", "GDIT"
     ]}
   ];
 
@@ -938,8 +933,76 @@ function recategorizeAll() {
   return { total: total, updated: updated };
 }
 
+// ── Migración masiva de categorías (v2 → nombres aprobados) ──────────────
+// Renombra categorías obsoletas y re-detecta Domicilios, Bre-B y Restaurantes.
+// Ejecutar una vez desde el editor de Apps Script o via webhook type=migrateCategories.
+function migrateCategories() {
+  var users = _getAllowedUsers();
+  var statsAll = {};
+
+  // Mapa de renombrado directo: antiguo → nuevo
+  var renameMap = {
+    "Alojamiento": "Hogar",
+    "Ropa":        "Compras",
+    "Entretenimiento": "Otro",
+    "Belleza":     "Compras",
+    "Trámites":    "Otro"
+  };
+
+  for (var u = 0; u < users.length; u++) {
+    var ref   = _getSheet(users[u]);
+    var sheet = ref.sheet;
+    if (!sheet) continue;
+
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var catCol      = hdrs.indexOf("Categoría");
+    var comercioCol = hdrs.indexOf("Comercio");
+    var tipoCol     = hdrs.indexOf("Tipo");
+    if (catCol < 0) continue;
+
+    var updated = 0;
+    for (var i = 1; i < data.length; i++) {
+      var cat      = String(data[i][catCol]      || "").trim();
+      var comercio = comercioCol >= 0 ? String(data[i][comercioCol] || "").trim() : "";
+      var tipo     = tipoCol     >= 0 ? String(data[i][tipoCol]     || "").trim() : "";
+
+      var newCat = null;
+
+      // Bre-B: detectar por campo Tipo (máxima prioridad)
+      if (/bre-?b/i.test(tipo) && cat !== "Bre-B") {
+        newCat = "Bre-B";
+      }
+      // "Comida" se re-detecta para separar en Restaurantes / Domicilios
+      else if (cat === "Comida") {
+        var detected = detectCategory(comercio, users[u]);
+        // Si detectCategory no lo reconoce, default a Restaurantes (era "Comida")
+        newCat = (detected !== "Otro") ? detected : "Restaurantes";
+      }
+      // Renombrados directos
+      else if (renameMap[cat] !== undefined) {
+        newCat = renameMap[cat];
+      }
+      // Re-detectar "Otro" por si ahora encaja en Domicilios u otro
+      else if (cat === "Otro" && comercio) {
+        var redetected = detectCategory(comercio, users[u]);
+        if (redetected !== "Otro") newCat = redetected;
+      }
+
+      if (newCat && newCat !== cat) {
+        sheet.getRange(i + 1, catCol + 1).setValue(newCat);
+        updated++;
+      }
+    }
+    statsAll[users[u]] = updated;
+    Logger.log("migrateCategories [" + users[u] + "]: " + updated + " filas actualizadas.");
+  }
+
+  return { ok: true, stats: statsAll };
+}
+
 // ── Actualizar categoría de una fila existente ────────────────
-var ALLOWED_CATEGORIES = ["Comida","Transporte","Suscripciones","Mercado","Salud","Deporte","Compras","Alojamiento","Viajes","Software","Otro"];
+var ALLOWED_CATEGORIES = ["Restaurantes","Domicilios","Mercado","Transporte","Hogar","Salud","Deporte","Compras","Suscripciones","Viajes","Software","Bre-B","Otro"];
 
 // Returns the merchant name (Comercio) of the updated row, or null if not found.
 function updateCategoryInSheet(timestamp, categoria, userId) {
