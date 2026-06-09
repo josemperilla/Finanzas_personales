@@ -410,17 +410,17 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             transition={quickEase}
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10,
-              background: '#fffbeb', borderRadius: 'var(--r-xl)',
+              background: '#fff7ed', borderRadius: 'var(--r-xl)',
               padding: '11px 14px', marginBottom: 14,
-              border: '1.5px solid #fde68a',
+              border: '1.5px solid #fed7aa',
             }}
           >
             <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>⚠️</span>
             <div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#92400e', marginBottom: 3 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#7c2d12', marginBottom: 3 }}>
                 Gasto inusual detectado
               </div>
-              <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12, color: '#7c2d12', lineHeight: 1.5 }}>
                 {Array.from(unusualCats).join(', ')}: más del doble del promedio de los últimos 3 meses.
               </div>
             </div>

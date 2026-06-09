@@ -1,5 +1,58 @@
 # TODOs y decisiones técnicas
 
+## TODO: Agregar framework de tests (vitest) al pwa
+
+El pwa no tiene ningún framework de tests automatizados. Todos los nuevos code paths
+se verifican manualmente. Con el sprint de Análisis Inteligente, se documentaron 14 paths
+que requieren verificación manual (badge lifecycle, dismissal, multi-usuario, colores, top merchants).
+
+**Por qué:** Sin tests, cada sprint agrega regresiones potenciales no detectables hasta QA manual.
+`vitest` + `@testing-library/react` es la combinación estándar para proyectos Vite+React.
+
+**Cómo:** `npm install -D vitest @testing-library/react @testing-library/user-event jsdom`.
+Agregar `test: vitest` en `package.json > scripts`. Primeras pruebas: `detectUnusualCategories`
+(funciones puras en `lib/analytics.ts`) — las más fáciles de testear sin DOM.
+
+**Depende de:** nada — puede hacerse en cualquier momento.
+
+Surfaced by: plan-eng-review 2026-06-09 (Test Coverage Gap)
+
+---
+
+## TODO: Alinear CategoryComparison a baseline de 3 meses
+
+`CategoryComparison` marca `anomaly: delta > 100%` comparando solo con el mes anterior.
+`detectUnusualCategories` usa promedio de los 3 meses anteriores. Ambos usan color naranja
+(señal unificada de "gasto inusual"), pero el criterio de activación es distinto.
+
+**Por qué:** Para un usuario con gasto variable, el mes anterior puede ser atípicamente bajo,
+disparando falsos positivos en CategoryComparison. El baseline de 3 meses sería más robusto.
+
+**Cómo:** Modificar `getCategoryComparison()` en `lib/analytics.ts` para aceptar `monthsBack: number`
+y usar el promedio, igual que `detectUnusualCategories`. Coordinar con `CategoryComparison.tsx`.
+
+**Riesgo:** Cambia el comportamiento visible de la comparativa MoM — evaluar antes de implementar.
+
+Surfaced by: plan-eng-review 2026-06-09 (Outside Voice finding 4)
+
+---
+
+## TODO: Crear DESIGN.md con sistema de diseño documentado
+
+Ejecutar `/design-consultation` para generar `DESIGN.md` con tokens de color, tipografía,
+espaciados, patrones de componentes y convenciones de interacción del app.
+
+**Por qué:** Sin DESIGN.md, cada revisión de diseño (plan-design-review, design-review)
+opera sin referencia y recalibra tokens desde cero. Con DESIGN.md, las revisiones automáticas
+calibran contra las decisiones de diseño ya tomadas, detectando inconsistencias de forma
+fiable.
+
+**Cómo:** El app ya tiene un sistema de diseño implícito en CSS vars (`var(--blue-700)`,
+`var(--card)`, `var(--r-xl)`, etc.) y patrones consistentes (riseItem, softSpring, FriendlyEmptyState).
+Solo falta documentarlo. Tiempo estimado: ~30 min con /design-consultation.
+
+Surfaced by: plan-design-review 2026-06-09 (Pass 5 — Design System Alignment)
+
 ## TODO: Migrar webhook a Cloudflare Workers
 
 Cuando haya >10 usuarios o se necesite dominio custom, migrar `apps_script/webhook.gs`

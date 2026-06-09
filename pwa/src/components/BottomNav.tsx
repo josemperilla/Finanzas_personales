@@ -9,6 +9,7 @@ interface Props {
   onChange: (tab: Tab) => void;
   accessibleMode?: boolean;
   userId?: string | null;
+  hasAnomaly?: boolean;
 }
 
 const TAB_META: Record<ReorderableTab, { label: string; icon: (active: boolean, size: number) => React.ReactNode }> = {
@@ -18,7 +19,7 @@ const TAB_META: Record<ReorderableTab, { label: string; icon: (active: boolean, 
   chat:     { label: 'Chat',      icon: (a, s) => <ChatIcon  active={a} size={s} /> },
 };
 
-export function BottomNav({ active, onChange, accessibleMode = false, userId }: Props) {
+export function BottomNav({ active, onChange, accessibleMode = false, userId, hasAnomaly }: Props) {
   const iconSize = accessibleMode ? 28 : 22;
   const navMinHeight = accessibleMode ? '72px' : undefined;
   const btnPadding = accessibleMode ? '6px 16px' : '4px 10px';
@@ -49,7 +50,9 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId }: 
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
             active={active === tabId} onClick={() => onChange(tabId as Tab)}
-            padding={btnPadding} alwaysShowLabel={accessibleMode} />
+            padding={btnPadding} alwaysShowLabel={accessibleMode}
+            badge={tabId === 'analisis' && !!hasAnomaly}
+            ariaLabel={tabId === 'analisis' ? (hasAnomaly ? 'Análisis — gasto inusual detectado' : 'Análisis') : undefined} />
         );
       })}
       <AddTab active={active === 'agregar'} onClick={() => onChange('agregar')} accessibleMode={accessibleMode} />
@@ -59,19 +62,21 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId }: 
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
             active={active === tabId} onClick={() => onChange(tabId as Tab)}
-            padding={btnPadding} alwaysShowLabel={accessibleMode} />
+            padding={btnPadding} alwaysShowLabel={accessibleMode}
+            badge={tabId === 'analisis' && !!hasAnomaly}
+            ariaLabel={tabId === 'analisis' ? (hasAnomaly ? 'Análisis — gasto inusual detectado' : 'Análisis') : undefined} />
         );
       })}
     </nav>
   );
 }
 
-function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel }: {
+function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge, ariaLabel }: {
   label: string; icon: React.ReactNode; active: boolean; onClick: () => void;
-  padding: string; alwaysShowLabel: boolean;
+  padding: string; alwaysShowLabel: boolean; badge?: boolean; ariaLabel?: string;
 }) {
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.92 }} style={{
+    <motion.button onClick={onClick} whileTap={{ scale: 0.92 }} aria-label={ariaLabel} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
       background: 'none', border: 'none', cursor: 'pointer', position: 'relative',
       padding,
@@ -94,6 +99,13 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel }: {
         style={{ display: 'flex', position: 'relative' }}
       >
         {icon}
+        {badge && (
+          <span style={{
+            position: 'absolute', top: -2, right: -2,
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#f97316',
+          }} />
+        )}
       </motion.span>
       <span style={{
         fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,

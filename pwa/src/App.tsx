@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
 import { Home } from './pages/Home';
@@ -11,6 +11,7 @@ import { ProfileSelector } from './components/ProfileSelector';
 import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
+import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
 import { fetchProfiles, Profile, getDisplayName } from './lib/profiles';
@@ -37,6 +38,16 @@ export default function App() {
     return 'home';
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const hasAnomaly = useMemo(
+    () => detectUnusualCategories(transactions).size > 0,
+    [transactions]
+  );
+  const [dismissed, setDismissed] = useState(
+    () => {
+      const month = new Date().toISOString().slice(0, 7);
+      return localStorage.getItem(`fm_anomaly_seen_${userId}_${month}`) === 'true';
+    }
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
@@ -163,6 +174,23 @@ export default function App() {
     if (accessible && (tab === 'analisis' || tab === 'chat')) setTab('home');
   }, [accessible, tab]);
 
+  // Dismiss anomaly badge when Análisis tab is opened
+  useEffect(() => {
+    if (tab === 'analisis' && userId) {
+      const month = new Date().toISOString().slice(0, 7);
+      localStorage.setItem(`fm_anomaly_seen_${userId}_${month}`, 'true');
+      setDismissed(true);
+    }
+  }, [tab, userId]);
+
+  // Re-read dismissal state when profile changes
+  useEffect(() => {
+    if (userId) {
+      const month = new Date().toISOString().slice(0, 7);
+      setDismissed(localStorage.getItem(`fm_anomaly_seen_${userId}_${month}`) === 'true');
+    }
+  }, [userId]);
+
   return (
     <motion.div
       initial={false}
@@ -223,7 +251,7 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
 
-      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} />
+      <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />
 
       <AnimatePresence>
         {!userId && (

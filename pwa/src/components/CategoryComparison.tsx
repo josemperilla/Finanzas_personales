@@ -57,7 +57,7 @@ export function CategoryComparison({ transactions }: Props) {
           display: 'grid', gridTemplateColumns: '1fr 80px 80px 64px', gap: 4,
           padding: '8px 0', borderBottom: '1px solid var(--line)',
           alignItems: 'center',
-          background: row.anomaly ? '#fffbeb' : 'transparent',
+          background: row.anomaly ? '#fff7ed' : 'transparent',
           marginLeft: row.anomaly ? -6 : 0,
           marginRight: row.anomaly ? -6 : 0,
           paddingLeft: row.anomaly ? 6 : 0,
@@ -89,7 +89,7 @@ export function CategoryComparison({ transactions }: Props) {
         </div>
       ))}
       {rows.some(r => r.anomaly) && (
-        <div style={{ fontSize: 11, color: '#92400e', marginTop: 8 }}>
+        <div style={{ fontSize: 11, color: '#7c2d12', marginTop: 8 }}>
           ⚠️ = más del doble vs. mes anterior
         </div>
       )}

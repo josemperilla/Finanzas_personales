@@ -37,6 +37,12 @@ function getMonthKey(dateStr: string): string {
   return (dateStr || '').slice(0, 7);
 }
 
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}k`;
+  return `$${n.toFixed(0)}`;
+}
+
 function shortLabel(key: string): string {
   if (!key) return '';
   const [y, m] = key.split('-');
@@ -78,8 +84,8 @@ function computeStats(txs: Transaction[], bank: string): MonthStats[] {
         merchantMap[name].count += 1;
       }
       const merchantEntries = Object.entries(merchantMap).map(([name, v]) => ({ name, ...v }));
-      const topMerchants = [...merchantEntries].sort((a, b) => b.amount - a.amount).slice(0, 5);
-      const topByCount   = [...merchantEntries].sort((a, b) => b.count - a.count).slice(0, 5);
+      const topMerchants = [...merchantEntries].sort((a, b) => b.amount - a.amount).slice(0, 10);
+      const topByCount   = [...merchantEntries].sort((a, b) => b.count - a.count).slice(0, 10);
 
       return { key, label: shortLabel(key), total, count, byCategory: byCat, topMerchants, topByCount };
     });
@@ -283,11 +289,11 @@ export function Analisis({ transactions, loading, userId }: Props) {
         {/* Bar chart */}
         <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 12px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Últimos {last6.length} meses</div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 100 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
             {last6.map((s, i) => {
               const isSelected = i === displayIdx;
               const isCompare = compareMode && i === compareIdx;
-              const heightPct = (s.total / maxBar) * 100;
+              const barH = maxBar > 0 ? Math.round(Math.max((s.total / maxBar) * 120, s.total > 0 ? 5 : 0)) : 0;
               return (
                 <motion.div key={s.key} whileTap={{ scale: 0.96 }} onClick={() => {
                   if (compareMode && i !== displayIdx) {
@@ -296,18 +302,25 @@ export function Analisis({ transactions, loading, userId }: Props) {
                     setSelectedIdx(i);
                     if (compareMode) setCompareIdx(-1);
                   }
-                }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
+                  <span style={{
+                    fontSize: 8.5, fontFamily: 'var(--font-mono)',
+                    color: isSelected ? 'var(--blue-700)' : 'var(--muted)',
+                    fontWeight: isSelected ? 700 : 400, whiteSpace: 'nowrap',
+                    marginBottom: 4, opacity: s.total > 0 ? 1 : 0,
+                  }}>
+                    {formatCompact(s.total)}
+                  </span>
                   <motion.div
-                    initial={{ height: '4%' }}
-                    animate={{ height: `${Math.max(heightPct, 4)}%` }}
+                    initial={{ height: 0 }}
+                    animate={{ height: barH }}
                     transition={{ ...quickEase, delay: i * 0.035 }}
                     style={{
                       width: '100%', borderRadius: '6px 6px 0 0',
-                      background: isSelected ? 'var(--grad-accent)' : isCompare ? 'rgba(249,115,22,0.35)' : 'var(--line)',
-                      transition: 'all 0.2s ease', minHeight: 4,
+                      background: isSelected ? 'var(--grad-accent)' : isCompare ? 'rgba(249,115,22,0.5)' : 'var(--blue-100)',
                     }}
                   />
-                  <span style={{ fontSize: 9.5, color: isSelected ? 'var(--blue-700)' : 'var(--muted-2)', fontWeight: isSelected ? 700 : 400, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 9.5, color: isSelected ? 'var(--blue-700)' : 'var(--muted-2)', fontWeight: isSelected ? 700 : 400, whiteSpace: 'nowrap', paddingTop: 5 }}>
                     {s.label}
                   </span>
                 </motion.div>
