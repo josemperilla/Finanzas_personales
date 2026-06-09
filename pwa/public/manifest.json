@@ -20,5 +20,21 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Balance del mes",
+      "short_name": "Balance",
+      "description": "Ver resumen de gastos del mes actual",
+      "url": "/?view=balance",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Agregar gasto",
+      "short_name": "Agregar",
+      "description": "Registrar un nuevo gasto rápidamente",
+      "url": "/?tab=agregar",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

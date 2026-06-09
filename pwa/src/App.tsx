@@ -18,6 +18,7 @@ import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
 import { ImportarExtracto } from './components/ImportarExtracto';
 import { TutorialCanales } from './components/TutorialCanales';
+import { BalanceWidget } from './components/BalanceWidget';
 
 export default function App() {
   // Apply saved theme preference immediately on mount
@@ -30,7 +31,11 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [needsSetupPin, setNeedsSetupPin] = useState(false);
   const [showWelcomeImport, setShowWelcomeImport] = useState(false);
-  const [tab, setTab] = useState<Tab>('home');
+  const [tab, setTab] = useState<Tab>(() => {
+    const p = new URLSearchParams(window.location.search).get('tab');
+    if (p === 'agregar') return 'agregar';
+    return 'home';
+  });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -39,6 +44,9 @@ export default function App() {
   const [showDirectImport, setShowDirectImport] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showBalanceWidget, setShowBalanceWidget] = useState(
+    () => new URLSearchParams(window.location.search).get('view') === 'balance'
+  );
 
   // Load dynamic profile list whenever no user is active (mount + every logout)
   useEffect(() => {
@@ -275,6 +283,15 @@ export default function App() {
         )}
         {showDirectImport && userId && (
           <ImportarExtracto key="direct-import" userId={userId} onClose={() => setShowDirectImport(false)} />
+        )}
+        {showBalanceWidget && userId && unlocked && (
+          <BalanceWidget
+            key="balance-widget"
+            transactions={transactions}
+            userId={userId}
+            onAdd={() => { setShowBalanceWidget(false); setTab('agregar'); }}
+            onClose={() => setShowBalanceWidget(false)}
+          />
         )}
       </AnimatePresence>
     </motion.div>
