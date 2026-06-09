@@ -9,7 +9,7 @@ import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 import { getBudgets, setBudget, clearBudget, getSharedBudgets, setSharedBudget, clearSharedBudget } from '../lib/budgets';
 import { CategorySheet } from '../components/CategorySheet';
-import { detectRecurring } from '../lib/recurring';
+
 import { WeekdayChart } from '../components/WeekdayChart';
 import { CategoryComparison } from '../components/CategoryComparison';
 import { RetosPanel } from '../components/RetosPanel';
@@ -124,8 +124,6 @@ export function Analisis({ transactions, loading, userId }: Props) {
     ? last6[compareIdx] : null;
 
   const maxBar = Math.max(...last6.map(s => s.total), 1);
-
-  const subscriptions = useMemo(() => detectRecurring(transactions), [transactions]);
 
   if (loading) {
     return (
@@ -605,37 +603,6 @@ export function Analisis({ transactions, loading, userId }: Props) {
               </motion.button>
             )}
 
-            {/* Suscripciones detectadas */}
-            {subscriptions.length > 0 && (
-              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 14px', boxShadow: 'var(--shadow-card)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
-                    Posibles suscripciones
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    ~{formatCOP(subscriptions.reduce((s, r) => s + r.monthlyAmount, 0))}/mes
-                  </div>
-                </div>
-                {subscriptions.map((item, i) => {
-                  const color = getCategoryColor(item.categoria || 'Otro');
-                  return (
-                    <div key={item.comercio} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.comercio}</div>
-                        <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.categoria || 'Otro'} · {item.occurrences} veces</div>
-                      </div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink)', fontWeight: 600, flexShrink: 0 }}>
-                        {formatCOP(item.monthlyAmount)}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div style={{ marginTop: 10, fontSize: 10.5, color: 'var(--muted)', textAlign: 'center' }}>
-                  Basado en cobros recurrentes del mismo monto
-                </div>
-              </motion.div>
-            )}
           </>
         )}
       </motion.div>
