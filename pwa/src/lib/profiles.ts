@@ -11,7 +11,17 @@ export const PROFILES: Profile[] = [
 ];
 
 export function getProfile(id: string): Profile | undefined {
-  return PROFILES.find(p => p.id === id);
+  const stat = PROFILES.find(p => p.id === id);
+  if (stat) return stat;
+  // Fall back to registry profiles cached by fetchProfiles(), so newly
+  // onboarded users show their real name/avatar on the PIN screen & Settings.
+  try {
+    const cached = JSON.parse(localStorage.getItem('fm_profiles_cache') || '[]') as
+      { id: string; name: string; avatar?: string }[];
+    const c = cached.find(p => p.id === id);
+    if (c) return { id: c.id, name: c.name || c.id, avatar: c.avatar || '', initial: (c.name || c.id).charAt(0).toUpperCase() };
+  } catch { /* noop */ }
+  return undefined;
 }
 
 // Merge the static floor with registry profiles coming from the server.

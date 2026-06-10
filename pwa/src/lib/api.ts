@@ -206,6 +206,9 @@ export async function fetchProfiles(): Promise<ProfileInfo[] | null> {
     const res = await fetch(secureUrl(WEBHOOK_URL, { action: 'profiles' }));
     const json = await res.json();
     if (!json.ok || !Array.isArray(json.data)) return null;
+    // Cache so getProfile() can resolve registry users (name/avatar) on the
+    // PIN screen and in Settings without an async call.
+    try { localStorage.setItem('fm_profiles_cache', JSON.stringify(json.data)); } catch { /* noop */ }
     return json.data as ProfileInfo[];
   } catch {
     return null;
