@@ -186,3 +186,85 @@ export async function askChat(question: string, context: object): Promise<string
   if (!json.ok) throw new Error(json.error || 'Error al consultar el asistente');
   return json.data.answer as string;
 }
+
+// ── Onboarding & user registry ───────────────────────────────
+// These degrade gracefully: if the webhook hasn't been redeployed with the
+// new endpoints yet, they resolve to a safe "feature off" value instead of
+// throwing, so the live jose/dani experience is never affected.
+
+export interface ProfileInfo {
+  id: string;
+  name: string;
+  avatar: string;
+}
+
+// Returns null on any failure or if the endpoint isn't deployed yet,
+// so callers keep their static profile list.
+export async function fetchProfiles(): Promise<ProfileInfo[] | null> {
+  try {
+    if (!WEBHOOK_URL) return null;
+    const res = await fetch(secureUrl(WEBHOOK_URL, { action: 'profiles' }));
+    const json = await res.json();
+    if (!json.ok || !Array.isArray(json.data)) return null;
+    return json.data as ProfileInfo[];
+  } catch {
+    return null;
+  }
+}
+
+export interface InviteValidation {
+  valid: boolean;
+  suggestedName?: string;
+  reason?: string; // 'unavailable' when the backend endpoint isn't deployed
+}
+
+export async function validateInvite(token: string): Promise<InviteValidation> {
+  try {
+    if (!WEBHOOK_URL) return { valid: false, reason: 'unavailable' };
+    const res = await fetch(secureUrl(WEBHOOK_URL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'validateInvite', token }),
+    });
+    const json = await res.json();
+    if (json.ok && json.data && typeof json.data.valid === 'boolean') {
+      return json.data as InviteValidation;
+    }
+    return { valid: false, reason: 'unavailable' };
+  } catch {
+    return { valid: false, reason: 'unavailable' };
+  }
+}
+
+export async function redeemInvite(params: {
+  token: string;
+  userId: string;
+  displayName: string;
+  pin: string;
+  avatar?: string;
+}): Promise<{ userId: string; name: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'redeemInvite', ...params }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'No se pudo crear el usuario');
+  return json.data as { userId: string; name: string };
+}
+
+export async function adminCreateInvite(
+  adminPin: string,
+  suggestedName: string,
+): Promise<{ token: string; expiresAt: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'adminCreateInvite', userId: 'jose', adminPin, suggestedName }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'No se pudo generar la invitación');
+  return json.data as { token: string; expiresAt: string };
+}

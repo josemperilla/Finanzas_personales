@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { PROFILES } from '../lib/profiles';
+import { PROFILES, mergeProfiles, type Profile } from '../lib/profiles';
+import { fetchProfiles } from '../lib/api';
 
 interface Props {
   onSelect: (userId: string) => void;
@@ -8,6 +9,18 @@ interface Props {
 
 export function ProfileSelector({ onSelect }: Props) {
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
+  // Start with the static floor so the UI is correct even offline; augment
+  // with registry users once the server responds. Any failure is ignored,
+  // leaving the static list intact.
+  const [profiles, setProfiles] = useState<Profile[]>(PROFILES);
+
+  useEffect(() => {
+    let active = true;
+    fetchProfiles()
+      .then(remote => { if (active && remote) setProfiles(mergeProfiles(remote)); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   return (
     <motion.div
@@ -34,7 +47,7 @@ export function ProfileSelector({ onSelect }: Props) {
       </div>
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {PROFILES.map(profile => {
+        {profiles.map(profile => {
           const avatarFailed = failedAvatars.has(profile.id);
           return (
             <motion.button

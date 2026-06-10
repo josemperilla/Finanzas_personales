@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin } from '../lib/api';
+import { Transaction, changePin, adminCreateInvite } from '../lib/api';
 import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
@@ -48,6 +48,40 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const [pinSaving, setPinSaving]     = useState(false);
   const [pinError, setPinError]       = useState<string | null>(null);
   const [pinSuccess, setPinSuccess]   = useState(false);
+
+  // Admin: generate one-time invite link (jose only)
+  const isAdmin = userId === 'jose';
+  const [showInvite, setShowInvite]   = useState(false);
+  const [inviteForm, setInviteForm]   = useState({ name: '', adminPin: '' });
+  const [inviteSaving, setInviteSaving] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteUrl, setInviteUrl]     = useState<string | null>(null);
+  const [copied, setCopied]           = useState(false);
+
+  async function handleCreateInvite() {
+    if (!inviteForm.adminPin) { setInviteError('Ingresa tu PIN de administrador'); return; }
+    setInviteError(null);
+    setInviteSaving(true);
+    try {
+      const { token } = await adminCreateInvite(inviteForm.adminPin, inviteForm.name.trim());
+      setInviteUrl(`${window.location.origin}/?invite=${token}`);
+      setInviteForm({ name: '', adminPin: '' });
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'No se pudo generar la invitación');
+    } finally {
+      setInviteSaving(false);
+    }
+  }
+
+  async function handleCopyInvite() {
+    if (!inviteUrl) return;
+    try {
+      if (navigator.share) { await navigator.share({ url: inviteUrl, title: 'Invitación a Finanzas' }); return; }
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* user dismissed share sheet */ }
+  }
 
   function handleBankChange(bank: string) {
     setDefaultBank(bank);
@@ -296,6 +330,90 @@ export function Settings({ userId, transactions, onClose }: Props) {
               chevron="↓"
             />
           </Section>
+
+          {/* ── Administración (solo Jose) ── */}
+          {isAdmin && (
+            <Section title="Administración">
+              <Row
+                label="Invitar nuevo usuario"
+                sublabel="Genera un enlace de un solo uso"
+                onTap={() => { setShowInvite(v => !v); setInviteError(null); setInviteUrl(null); }}
+                chevron={showInvite ? '↑' : '›'}
+              />
+              <AnimatePresence>
+                {showInvite && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={quickEase}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {!inviteUrl ? (
+                        <>
+                          <div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Nombre del nuevo usuario (opcional)</div>
+                            <input
+                              value={inviteForm.name}
+                              onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))}
+                              placeholder="Ej. Carlos"
+                              style={{ ...inputStyle, fontFamily: 'var(--font-body)', letterSpacing: 'normal' }}
+                            />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Tu PIN de administrador</div>
+                            <input
+                              type="password" inputMode="numeric"
+                              value={inviteForm.adminPin}
+                              onChange={e => setInviteForm(f => ({ ...f, adminPin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                              maxLength={6} placeholder="● ● ● ●"
+                              style={inputStyle}
+                            />
+                          </div>
+                          {inviteError && <p style={{ margin: 0, fontSize: 12.5, color: '#b91c1c' }}>{inviteError}</p>}
+                          <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateInvite} disabled={inviteSaving} style={{
+                            height: 44, background: inviteSaving ? 'var(--blue-300)' : 'var(--blue-700)',
+                            border: 'none', borderRadius: 10, color: 'var(--card)', fontSize: 14, fontWeight: 600,
+                            cursor: inviteSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
+                          }}>
+                            {inviteSaving ? 'Generando…' : 'Generar invitación'}
+                          </motion.button>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>
+                            Comparte este enlace con la persona. Es de un solo uso y expira en 7 días.
+                          </p>
+                          <div style={{
+                            fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink)',
+                            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
+                            padding: '10px 12px', wordBreak: 'break-all',
+                          }}>
+                            {inviteUrl}
+                          </div>
+                          <div style={{ display: 'flex', gap: 10 }}>
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={handleCopyInvite} style={{
+                              flex: 1, height: 44, background: 'var(--blue-700)', border: 'none', borderRadius: 10,
+                              color: 'var(--card)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                            }}>
+                              {copied ? '✓ Copiado' : 'Copiar / Compartir'}
+                            </motion.button>
+                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setInviteUrl(null)} style={{
+                              padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)',
+                              borderRadius: 10, color: 'var(--muted)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                            }}>
+                              Otra
+                            </motion.button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Section>
+          )}
 
         </div>
       </motion.div>

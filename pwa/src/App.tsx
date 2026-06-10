@@ -8,6 +8,7 @@ import { Analisis } from './pages/Analisis';
 import { Chat } from './pages/Chat';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
+import { Onboarding } from './components/Onboarding';
 import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
@@ -20,6 +21,12 @@ export default function App() {
 
   const [userId, setUserId] = useState<string | null>(
     () => localStorage.getItem('fm_profile')
+  );
+  // Invite-based onboarding is gated entirely on this token, read once on mount.
+  // For jose/dani (no ?invite in their installed PWA) it's null and every
+  // onboarding code path stays dead.
+  const [inviteToken, setInviteToken] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('invite')
   );
   const [unlocked, setUnlocked] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
@@ -183,7 +190,18 @@ export default function App() {
       <BottomNav active={tab} onChange={setTab} />
 
       <AnimatePresence>
-        {!userId && (
+        {inviteToken && !userId && (
+          <Onboarding
+            key="onboarding"
+            token={inviteToken}
+            onComplete={(id) => { setInviteToken(null); setUserId(id); setUnlocked(true); }}
+            onCancel={() => {
+              setInviteToken(null);
+              try { window.history.replaceState({}, '', window.location.pathname); } catch { /* noop */ }
+            }}
+          />
+        )}
+        {!userId && !inviteToken && (
           <ProfileSelector key="profile" onSelect={handleSelectProfile} />
         )}
         {userId && !unlocked && (
