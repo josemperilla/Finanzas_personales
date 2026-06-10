@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin, adminCreateInvite } from '../lib/api';
+import { Transaction, changePin, updateProfile } from '../lib/api';
 import { exportToCSV } from '../lib/export';
 import { getProfile } from '../lib/profiles';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
+import { AdminPanel } from '../components/AdminPanel';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -49,38 +50,56 @@ export function Settings({ userId, transactions, onClose }: Props) {
   const [pinError, setPinError]       = useState<string | null>(null);
   const [pinSuccess, setPinSuccess]   = useState(false);
 
-  // Admin: generate one-time invite link (jose only)
   const isAdmin = userId === 'jose';
-  const [showInvite, setShowInvite]   = useState(false);
-  const [inviteForm, setInviteForm]   = useState({ name: '', adminPin: '' });
-  const [inviteSaving, setInviteSaving] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteUrl, setInviteUrl]     = useState<string | null>(null);
-  const [copied, setCopied]           = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
-  async function handleCreateInvite() {
-    if (!inviteForm.adminPin) { setInviteError('Ingresa tu PIN de administrador'); return; }
-    setInviteError(null);
-    setInviteSaving(true);
-    try {
-      const { token } = await adminCreateInvite(inviteForm.adminPin, inviteForm.name.trim());
-      setInviteUrl(`${window.location.origin}/?invite=${token}`);
-      setInviteForm({ name: '', adminPin: '' });
-    } catch (err) {
-      setInviteError(err instanceof Error ? err.message : 'No se pudo generar la invitación');
-    } finally {
-      setInviteSaving(false);
-    }
+  // Profile editing (any user)
+  const [editProfile, setEditProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: profile?.name ?? '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [newAvatar, setNewAvatar] = useState<string | null>(null);
+
+  function handleAvatarFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 200;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        setNewAvatar(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
-  async function handleCopyInvite() {
-    if (!inviteUrl) return;
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    setProfileError(null);
     try {
-      if (navigator.share) { await navigator.share({ url: inviteUrl, title: 'Invitación a Finanzas' }); return; }
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* user dismissed share sheet */ }
+      const updates: { displayName?: string; avatar?: string } = {};
+      if (profileForm.name.trim()) updates.displayName = profileForm.name.trim();
+      if (newAvatar) updates.avatar = newAvatar;
+      await updateProfile(updates);
+      setEditProfile(false);
+      setNewAvatar(null);
+      setProfileSuccess(true);
+      // Refresh the cached profiles so the new name/avatar takes effect on next ProfileSelector load
+      try { localStorage.removeItem('fm_profiles_cache'); } catch { /* noop */ }
+      setTimeout(() => setProfileSuccess(false), 2500);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Error al guardar perfil');
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   function handleBankChange(bank: string) {
@@ -120,9 +139,8 @@ export function Settings({ userId, transactions, onClose }: Props) {
     fontFamily: 'var(--font-mono)', outline: 'none', letterSpacing: '0.18em',
   };
 
-  if (showImport) {
-    return <ImportarExtracto userId={userId} onClose={() => setShowImport(false)} />;
-  }
+  if (showImport) return <ImportarExtracto userId={userId} onClose={() => setShowImport(false)} />;
+  if (showAdmin)  return <AdminPanel onClose={() => setShowAdmin(false)} />;
 
   return (
     <>
@@ -162,24 +180,80 @@ export function Settings({ userId, transactions, onClose }: Props) {
 
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* Profile card */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '14px 16px',
-            boxShadow: 'var(--shadow-card)',
-          }}>
-            {profile?.avatar ? (
-              <img src={profile.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center', flexShrink: 0 }} />
-            ) : (
-              <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--grad-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--card)', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-display)', flexShrink: 0 }}>
-                {profile?.initial ?? '?'}
+          {/* Profile card (tappeable for editing) */}
+          <Section title="Perfil">
+            <motion.button whileTap={{ scale: 0.99 }} onClick={() => { setEditProfile(v => !v); setProfileError(null); setNewAvatar(null); }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+              <div style={{ width: 46, height: 46, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                background: (newAvatar || profile?.avatar) ? 'transparent' : 'var(--grad-brand)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--card)', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-display)',
+                boxShadow: '0 2px 8px rgba(15,23,42,0.1)',
+              }}>
+                {(newAvatar || profile?.avatar)
+                  ? <img src={newAvatar ?? profile!.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (profile?.initial ?? '?')}
               </div>
-            )}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{profile?.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Sesión activa · {userId}</div>
-            </div>
-          </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                  {profileSuccess ? <span style={{ color: '#16a34a' }}>✓ Perfil actualizado</span> : (profile?.name ?? userId)}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Toca para editar · {userId}</div>
+              </div>
+              <span style={{ color: 'var(--muted)', fontSize: 18 }}>{editProfile ? '↑' : '›'}</span>
+            </motion.button>
+            <AnimatePresence>
+              {editProfile && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={quickEase} style={{ overflow: 'hidden' }}>
+                  <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Nombre display</div>
+                      <input value={profileForm.name} onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder={profile?.name || userId}
+                        style={{ ...inputStyle, fontFamily: 'var(--font-body)', letterSpacing: 'normal' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Foto de perfil</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 54, height: 54, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                          background: (newAvatar || profile?.avatar) ? 'transparent' : 'var(--grad-brand)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {(newAvatar || profile?.avatar)
+                            ? <img src={newAvatar ?? profile!.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ color: '#fff', fontWeight: 800, fontSize: 20 }}>{profile?.initial ?? '?'}</span>}
+                        </div>
+                        <label style={{ flex: 1, height: 38, borderRadius: 10, border: '1.5px solid var(--line)', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 13.5, color: 'var(--ink)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>
+                          {newAvatar ? 'Cambiar foto' : 'Subir foto'}
+                          <input type="file" accept="image/*" style={{ display: 'none' }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleAvatarFile(f); }} />
+                        </label>
+                        {newAvatar && (
+                          <button onClick={() => setNewAvatar(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: '4px 6px' }}>✕</button>
+                        )}
+                      </div>
+                    </div>
+                    {profileError && <p style={{ margin: 0, fontSize: 12.5, color: '#b91c1c' }}>{profileError}</p>}
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <motion.button whileTap={{ scale: 0.97 }} onClick={handleSaveProfile} disabled={profileSaving} style={{
+                        flex: 1, height: 44, background: profileSaving ? 'var(--blue-300)' : 'var(--blue-700)',
+                        border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600,
+                        cursor: profileSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
+                      }}>
+                        {profileSaving ? 'Guardando…' : 'Guardar perfil'}
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.97 }} onClick={() => setEditProfile(false)} style={{
+                        padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)',
+                        borderRadius: 10, color: 'var(--muted)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      }}>
+                        Cancelar
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Section>
 
           {/* ── Cuenta ── */}
           <Section title="Cuenta">
@@ -335,83 +409,11 @@ export function Settings({ userId, transactions, onClose }: Props) {
           {isAdmin && (
             <Section title="Administración">
               <Row
-                label="Invitar nuevo usuario"
-                sublabel="Genera un enlace de un solo uso"
-                onTap={() => { setShowInvite(v => !v); setInviteError(null); setInviteUrl(null); }}
-                chevron={showInvite ? '↑' : '›'}
+                label="Panel de administración"
+                sublabel="Usuarios, invitaciones y accesos"
+                onTap={() => setShowAdmin(true)}
+                chevron="›"
               />
-              <AnimatePresence>
-                {showInvite && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={quickEase}
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, paddingBottom: 6, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {!inviteUrl ? (
-                        <>
-                          <div>
-                            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Nombre del nuevo usuario (opcional)</div>
-                            <input
-                              value={inviteForm.name}
-                              onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))}
-                              placeholder="Ej. Carlos"
-                              style={{ ...inputStyle, fontFamily: 'var(--font-body)', letterSpacing: 'normal' }}
-                            />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Tu PIN de administrador</div>
-                            <input
-                              type="password" inputMode="numeric"
-                              value={inviteForm.adminPin}
-                              onChange={e => setInviteForm(f => ({ ...f, adminPin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                              maxLength={6} placeholder="● ● ● ●"
-                              style={inputStyle}
-                            />
-                          </div>
-                          {inviteError && <p style={{ margin: 0, fontSize: 12.5, color: '#b91c1c' }}>{inviteError}</p>}
-                          <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateInvite} disabled={inviteSaving} style={{
-                            height: 44, background: inviteSaving ? 'var(--blue-300)' : 'var(--blue-700)',
-                            border: 'none', borderRadius: 10, color: 'var(--card)', fontSize: 14, fontWeight: 600,
-                            cursor: inviteSaving ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
-                          }}>
-                            {inviteSaving ? 'Generando…' : 'Generar invitación'}
-                          </motion.button>
-                        </>
-                      ) : (
-                        <>
-                          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>
-                            Comparte este enlace con la persona. Es de un solo uso y expira en 7 días.
-                          </p>
-                          <div style={{
-                            fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink)',
-                            background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
-                            padding: '10px 12px', wordBreak: 'break-all',
-                          }}>
-                            {inviteUrl}
-                          </div>
-                          <div style={{ display: 'flex', gap: 10 }}>
-                            <motion.button whileTap={{ scale: 0.97 }} onClick={handleCopyInvite} style={{
-                              flex: 1, height: 44, background: 'var(--blue-700)', border: 'none', borderRadius: 10,
-                              color: 'var(--card)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
-                            }}>
-                              {copied ? '✓ Copiado' : 'Copiar / Compartir'}
-                            </motion.button>
-                            <motion.button whileTap={{ scale: 0.97 }} onClick={() => setInviteUrl(null)} style={{
-                              padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)',
-                              borderRadius: 10, color: 'var(--muted)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)',
-                            }}>
-                              Otra
-                            </motion.button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </Section>
           )}
 

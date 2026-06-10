@@ -6,6 +6,28 @@ export function setActiveUser(id: string | null) {
   _activeUserId = id;
 }
 
+// ── Session token management ──────────────────────────────────
+// Stored in sessionStorage (dies when the browser tab closes, matching the
+// 12h server-side TTL). Falls back to legacy userId-only mode gracefully.
+
+function _sessionKey(userId: string) { return `fm_session_${userId}`; }
+
+export function setSessionToken(userId: string, token: string) {
+  try { sessionStorage.setItem(_sessionKey(userId), token); } catch { /* noop */ }
+}
+
+export function getSessionToken(userId?: string | null): string | null {
+  const uid = userId ?? _activeUserId;
+  if (!uid) return null;
+  try { return sessionStorage.getItem(_sessionKey(uid)); } catch { return null; }
+}
+
+export function clearSessionToken(userId?: string | null) {
+  const uid = userId ?? _activeUserId;
+  if (!uid) return;
+  try { sessionStorage.removeItem(_sessionKey(uid)); } catch { /* noop */ }
+}
+
 function assertWebhookUrl() {
   if (!WEBHOOK_URL) {
     throw new Error('Falta configurar WEBHOOK_URL en el servidor');
@@ -23,7 +45,10 @@ function secureUrl(base: string, extraParams?: Record<string, string>): string {
   return qs ? `${base}${sep}${qs}` : base;
 }
 
+// Auth payload: session token takes priority; falls back to userId for legacy backends.
 function withUser(body: Record<string, unknown>): Record<string, unknown> {
+  const token = getSessionToken();
+  if (token) return { ...body, sessionToken: token };
   return _activeUserId ? { ...body, userId: _activeUserId } : body;
 }
 
@@ -62,9 +87,14 @@ export interface VoiceParsed {
 
 export async function fetchTransactions(): Promise<Transaction[]> {
   assertWebhookUrl();
-  const uid = _activeUserId || localStorage.getItem('fm_profile');
   const extraParams: Record<string, string> = { action: 'transactions' };
-  if (uid) extraParams.userId = uid;
+  const token = getSessionToken();
+  if (token) {
+    extraParams.sessionToken = token;
+  } else {
+    const uid = _activeUserId || localStorage.getItem('fm_profile');
+    if (uid) extraParams.userId = uid;
+  }
   const res = await fetch(secureUrl(WEBHOOK_URL, extraParams));
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
@@ -116,6 +146,9 @@ export async function validatePin(pin: string, userId?: string): Promise<{ ok: b
     body: JSON.stringify(body),
   });
   const json = await res.json();
+  if (json.ok && json.sessionToken && uid) {
+    setSessionToken(uid, json.sessionToken);
+  }
   return { ok: json.ok === true, error: json.error };
 }
 
@@ -258,16 +291,93 @@ export async function redeemInvite(params: {
 }
 
 export async function adminCreateInvite(
-  adminPin: string,
   suggestedName: string,
+  adminPin?: string,
 ): Promise<{ token: string; expiresAt: string }> {
   assertWebhookUrl();
+  const token = getSessionToken();
+  const body: Record<string, unknown> = { type: 'adminCreateInvite', suggestedName };
+  if (token) {
+    body.sessionToken = token;
+  } else {
+    // Legacy: re-enter admin PIN when no session
+    body.userId   = 'jose';
+    body.adminPin = adminPin ?? '';
+  }
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'adminCreateInvite', userId: 'jose', adminPin, suggestedName }),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'No se pudo generar la invitación');
   return json.data as { token: string; expiresAt: string };
+}
+
+// ── Admin: user management ────────────────────────────────────
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  status: 'active' | 'disabled' | 'deleted';
+  createdAt: string;
+  txCount: number;
+  lastActivity: string | null;
+}
+
+export interface AdminInvite {
+  token: string;
+  status: string;
+  suggestedName: string;
+  createdAt: string;
+  expiresAt: string;
+  expired: boolean;
+}
+
+export interface AdminListData {
+  users: AdminUser[];
+  pendingInvites: AdminInvite[];
+}
+
+export async function adminListUsers(): Promise<AdminListData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'adminListUsers' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al listar usuarios');
+  return json.data as AdminListData;
+}
+
+async function adminUserAction(type: string, targetUserId: string, extra?: Record<string, unknown>): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type, targetUserId, ...extra })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error en operación admin');
+}
+
+export const adminDisableUser  = (id: string) => adminUserAction('adminDisableUser', id);
+export const adminEnableUser   = (id: string) => adminUserAction('adminEnableUser', id);
+export const adminDeleteUser   = (id: string, deleteData: boolean) => adminUserAction('adminDeleteUser', id, { deleteData });
+export const adminRevokeInvite = (token: string) => adminUserAction('adminRevokeInvite', '', { inviteToken: token });
+
+// ── Profile editing ───────────────────────────────────────────
+
+export async function updateProfile(updates: { displayName?: string; avatar?: string }): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'updateProfile', ...updates })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al actualizar perfil');
+  // Bust the local profile cache so changes show immediately.
+  try { localStorage.removeItem('fm_profiles_cache'); } catch { /* noop */ }
 }
