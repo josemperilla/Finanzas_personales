@@ -69,6 +69,95 @@ function _invalidateRegistryCache() {
   CacheService.getScriptCache().remove("registry_user_ids");
 }
 
+// ── PIN hashing (SHA-256 + salt) ──────────────────────────────
+// Stored format: "sha256:<salt>:<hex-digest>"
+// Legacy (plaintext) format: bare digits — auto-upgraded on first successful login.
+function _byteToHex(b) {
+  var h = (b < 0 ? b + 256 : b).toString(16);
+  return h.length === 1 ? "0" + h : h;
+}
+
+function _computePinHash(userId, salt, pin) {
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    userId + ":" + salt + ":" + pin
+  );
+  return bytes.map(_byteToHex).join("");
+}
+
+function _hashPin(userId, pin) {
+  var props   = PropertiesService.getScriptProperties();
+  var saltKey = "APP_PIN_SALT_" + userId;
+  var salt    = props.getProperty(saltKey);
+  if (!salt) {
+    salt = Utilities.getUuid().replace(/-/g, "");
+    props.setProperty(saltKey, salt);
+  }
+  return "sha256:" + salt + ":" + _computePinHash(userId, salt, pin);
+}
+
+function _verifyPin(userId, pin, stored) {
+  if (!stored || !pin) return false;
+  if (stored.indexOf("sha256:") === 0) {
+    var parts = stored.split(":");
+    if (parts.length !== 3) return false;
+    return _computePinHash(userId, parts[1], pin) === parts[2];
+  }
+  return pin === stored; // legacy plaintext
+}
+
+// ── Session tokens ────────────────────────────────────────────
+// Format: "userId|expiryMs.SHA256(userId|expiryMs|SESSION_SECRET)"
+// TTL: 12 hours. Returns null if SESSION_SECRET is not configured (feature off).
+function _issueSessionToken(userId) {
+  var secret = PropertiesService.getScriptProperties().getProperty("SESSION_SECRET");
+  if (!secret) return null;
+  var expiry  = String(Date.now() + 12 * 60 * 60 * 1000);
+  var payload = userId + "|" + expiry;
+  var sig     = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, payload + "|" + secret)
+                  .map(_byteToHex).join("");
+  return payload + "." + sig;
+}
+
+function _verifySessionToken(token) {
+  if (!token) return null;
+  var secret = PropertiesService.getScriptProperties().getProperty("SESSION_SECRET");
+  if (!secret) return null;
+  var dotIdx = token.lastIndexOf(".");
+  if (dotIdx === -1) return null;
+  var payload = token.substring(0, dotIdx);
+  var givenSig = token.substring(dotIdx + 1);
+  var expectedSig = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, payload + "|" + secret
+  ).map(_byteToHex).join("");
+  if (givenSig !== expectedSig) return null;
+  var pipeIdx = payload.lastIndexOf("|");
+  if (pipeIdx === -1) return null;
+  var uid    = payload.substring(0, pipeIdx);
+  var expiry = parseInt(payload.substring(pipeIdx + 1), 10);
+  if (isNaN(expiry) || Date.now() > expiry) return null;
+  try { _validateUserId(uid); } catch(e) { return null; }
+  return uid;
+}
+
+// Resolve the caller's identity from the payload: session token (new) or
+// declared userId (legacy). Throws if neither is valid.
+function _resolveUser(payload) {
+  var token = payload.sessionToken;
+  if (token) {
+    var uid = _verifySessionToken(token);
+    if (!uid) throw new Error("Sesión expirada, vuelve a ingresar tu PIN");
+    return uid;
+  }
+  var uid = (payload.userId || "").toLowerCase();
+  _validateUserId(uid);
+  return uid;
+}
+
+function _isAdmin(userId) {
+  return userId === "jose";
+}
+
 // Union of the hardcoded floor and the dynamic registry.
 function _allowedUsers() {
   var all = ALLOWED_USERS.slice();
@@ -214,8 +303,7 @@ function _handleRedeemInvite(payload) {
   var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
   usersSheet.appendRow([newUserId, displayName, tabName, avatar, "active", nowStr, inv.createdBy || ""]);
 
-  // PIN stored plaintext — same model as existing users; hashing is Phase 2.
-  PropertiesService.getScriptProperties().setProperty("APP_PIN_" + newUserId, pin);
+  PropertiesService.getScriptProperties().setProperty("APP_PIN_" + newUserId, _hashPin(newUserId, pin));
 
   _updateInvite(inv._row, { status: "redeemed", redeemedBy: newUserId });
   _invalidateRegistryCache();
@@ -224,16 +312,21 @@ function _handleRedeemInvite(payload) {
 }
 
 function _handleAdminCreateInvite(payload) {
-  var adminId   = String(payload.userId || "").toLowerCase();
-  var adminPin  = String(payload.adminPin || "");
-  var suggested = String(payload.suggestedName || "").trim();
-
-  // Interim admin auth: only jose, verified by current plaintext PIN. Phase 2 = sessions.
-  if (adminId !== "jose") return jsonResponse({ ok: false, error: "No autorizado" });
-  var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_jose");
-  if (!storedPin || adminPin !== storedPin) {
-    return jsonResponse({ ok: false, error: "PIN de administrador incorrecto" });
+  // Auth: session token (new clients) OR adminPin re-verification (legacy clients).
+  var adminId;
+  if (payload.sessionToken) {
+    adminId = _verifySessionToken(payload.sessionToken);
+    if (!adminId) return jsonResponse({ ok: false, error: "Sesión inválida" });
+  } else {
+    adminId = String(payload.userId || "").toLowerCase();
+    var adminPin  = String(payload.adminPin || "");
+    var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + adminId);
+    if (!_verifyPin(adminId, adminPin, storedPin)) {
+      return jsonResponse({ ok: false, error: "PIN de administrador incorrecto" });
+    }
   }
+  if (!_isAdmin(adminId)) return jsonResponse({ ok: false, error: "No autorizado" });
+  var suggested = String(payload.suggestedName || "").trim();
 
   var invitesSheet = _getRegistrySheet(REGISTRY_INVITES_TAB);
   if (!invitesSheet) return jsonResponse({ ok: false, error: "Registro no inicializado (ejecuta setupRegistry)" });
@@ -245,6 +338,155 @@ function _handleAdminCreateInvite(payload) {
   invitesSheet.appendRow([token, "pending", fmt(now), fmt(expires), adminId, "", suggested]);
 
   return jsonResponse({ ok: true, data: { token: token, expiresAt: fmt(expires) } });
+}
+
+// ── Admin management helpers ──────────────────────────────────
+
+// Update a column value on a row in _Users by userId.
+function _updateUserRow(targetId, fields) {
+  var sheet = _getRegistrySheet(REGISTRY_USERS_TAB);
+  if (!sheet) return false;
+  var users = _readRegistry(REGISTRY_USERS_TAB, USERS_HEADERS);
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].userId || "").toLowerCase() === targetId) {
+      for (var key in fields) {
+        var col = USERS_HEADERS.indexOf(key);
+        if (col !== -1) sheet.getRange(users[i]._row, col + 1).setValue(fields[key]);
+      }
+      _invalidateRegistryCache();
+      return true;
+    }
+  }
+  return false;
+}
+
+function _setUserStatus(targetId, status) {
+  if (!_updateUserRow(targetId, { status: status })) {
+    throw new Error("Usuario no encontrado en el registro: " + targetId);
+  }
+}
+
+function _deleteUser(targetId, deleteData) {
+  _setUserStatus(targetId, "deleted");
+  if (deleteData) {
+    var props   = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty("SHEET_ID");
+    if (sheetId) {
+      var ss      = SpreadsheetApp.openById(sheetId);
+      var tabName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
+      var sheet   = ss.getSheetByName(tabName);
+      if (sheet) ss.deleteSheet(sheet);
+    }
+  }
+  PropertiesService.getScriptProperties().deleteProperty("APP_PIN_" + targetId);
+  PropertiesService.getScriptProperties().deleteProperty("APP_PIN_SALT_" + targetId);
+  _invalidateRegistryCache();
+}
+
+function _revokeInvite(token) {
+  var invites = _readRegistry(REGISTRY_INVITES_TAB, INVITES_HEADERS);
+  for (var i = 0; i < invites.length; i++) {
+    if (String(invites[i].token) === String(token)) {
+      _updateInvite(invites[i]._row, { status: "revoked" });
+      return;
+    }
+  }
+  throw new Error("Invitación no encontrada");
+}
+
+// Fast per-user stats: tx count and last activity date.
+function _getUserStats(userId) {
+  var ref = _getSheet(userId);
+  if (!ref.sheet) return { txCount: 0, lastActivity: null };
+  var last = ref.sheet.getLastRow();
+  var txCount = Math.max(0, last - 1);
+  var lastActivity = null;
+  if (txCount > 0) {
+    var ts = ref.sheet.getRange(last, 1).getValue();
+    if (ts) lastActivity = String(ts).substring(0, 10);
+  }
+  return { txCount: txCount, lastActivity: lastActivity };
+}
+
+// Full user list + pending invites for the admin panel.
+function _adminListUsersData() {
+  var users   = _readRegistry(REGISTRY_USERS_TAB, USERS_HEADERS);
+  var invites = _readRegistry(REGISTRY_INVITES_TAB, INVITES_HEADERS);
+  var now     = new Date();
+  var result  = [];
+  var seenIds = {};
+
+  for (var i = 0; i < users.length; i++) {
+    var uid = String(users[i].userId || "").toLowerCase();
+    if (!uid) continue;
+    var stats = _getUserStats(uid);
+    result.push({
+      id:           uid,
+      name:         users[i].displayName || uid,
+      status:       users[i].status || "active",
+      createdAt:    users[i].createdAt || "",
+      txCount:      stats.txCount,
+      lastActivity: stats.lastActivity
+    });
+    seenIds[uid] = true;
+  }
+
+  for (var j = 0; j < ALLOWED_USERS.length; j++) {
+    var fid = ALLOWED_USERS[j];
+    if (seenIds[fid]) continue;
+    var fstats = _getUserStats(fid);
+    result.push({
+      id:           fid,
+      name:         fid.charAt(0).toUpperCase() + fid.slice(1),
+      status:       "active",
+      createdAt:    "",
+      txCount:      fstats.txCount,
+      lastActivity: fstats.lastActivity
+    });
+  }
+
+  var pendingInvites = [];
+  for (var k = 0; k < invites.length; k++) {
+    var st = String(invites[k].status || "").toLowerCase();
+    if (st !== "pending" && st !== "revoked") continue;
+    var expDate = invites[k].expiresAt ? new Date(invites[k].expiresAt) : null;
+    pendingInvites.push({
+      token:         String(invites[k].token),
+      status:        st,
+      suggestedName: invites[k].suggestedName || "",
+      createdAt:     invites[k].createdAt || "",
+      expiresAt:     invites[k].expiresAt || "",
+      expired:       expDate ? expDate.getTime() < now.getTime() : false
+    });
+  }
+
+  return { users: result, pendingInvites: pendingInvites };
+}
+
+// Update displayName / avatar in the registry for any user.
+// Creates a registry row for ALLOWED_USERS floor users if not already there.
+function _updateUserProfile(userId, updates) {
+  var sheet = _getRegistrySheet(REGISTRY_USERS_TAB);
+  if (!sheet) throw new Error("Registro no inicializado (ejecuta setupRegistry)");
+
+  var existing = _getRegistryUser(userId);
+  if (existing) {
+    _updateUserRow(userId, updates);
+  } else {
+    // Floor user (jose/dani) — create their registry row on first profile edit.
+    var nowStr  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
+    var tabName = userId.charAt(0).toUpperCase() + userId.slice(1);
+    sheet.appendRow([
+      userId,
+      updates.displayName || tabName,
+      tabName,
+      updates.avatar || "",
+      "active",
+      nowStr,
+      "system"
+    ]);
+    _invalidateRegistryCache();
+  }
 }
 
 // ── Per-user Sheet accessor ───────────────────────────────────
@@ -302,9 +544,17 @@ function doGet(e) {
     return jsonResponse({ ok: true, data: _buildProfiles() });
   }
 
-  var userId = (e && e.parameter && e.parameter.userId || "").toLowerCase();
-  try { _validateUserId(userId); } catch(err) {
-    return jsonResponse({ ok: false, error: err.message });
+  // Resolve caller: session token takes priority over declared userId.
+  var userId;
+  var sessionToken = e && e.parameter && e.parameter.sessionToken;
+  if (sessionToken) {
+    userId = _verifySessionToken(sessionToken);
+    if (!userId) return jsonResponse({ ok: false, error: "Sesión expirada, vuelve a ingresar tu PIN" });
+  } else {
+    userId = (e && e.parameter && e.parameter.userId || "").toLowerCase();
+    try { _validateUserId(userId); } catch(err) {
+      return jsonResponse({ ok: false, error: err.message });
+    }
   }
 
   if (action === "transactions") {
@@ -326,16 +576,14 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents);
     var type    = payload.type || "";
     var bank    = (payload.bank || "").toLowerCase();
-    var userId  = (payload.userId || "").toLowerCase();
 
-    // ── Onboarding dispatch — MUST run before _validateUserId ──
-    // A new user has no valid userId yet, so these short-circuit here.
-    if (type === "validateInvite")    return _handleValidateInvite(payload);
-    if (type === "redeemInvite")      return _handleRedeemInvite(payload);
-    if (type === "adminCreateInvite") return _handleAdminCreateInvite(payload);
+    // ── Onboarding dispatch — runs before user resolution ─────
+    // New users have no valid userId/sessionToken yet.
+    if (type === "validateInvite") return _handleValidateInvite(payload);
+    if (type === "redeemInvite")   return _handleRedeemInvite(payload);
 
-    // Validate userId for all request types
-    _validateUserId(userId);
+    // Resolve the caller's identity (session token or legacy userId).
+    var userId = _resolveUser(payload);
 
     // Ensure Fuente column exists (cached — runs once per user per 6h)
     _migrateSheetHeaders(userId);
@@ -381,10 +629,15 @@ function doPost(e) {
     if (type === "validatePin") {
       var pin = String(payload.pin || "");
       if (!pin) return jsonResponse({ ok: false, error: "PIN requerido" });
-      var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
-      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado en Script Properties" });
-      if (pin === storedPin) return jsonResponse({ ok: true });
-      return jsonResponse({ ok: false, error: "PIN incorrecto" });
+      var props     = PropertiesService.getScriptProperties();
+      var pinKey    = "APP_PIN_" + userId;
+      var storedPin = props.getProperty(pinKey);
+      if (!storedPin) return jsonResponse({ ok: false, error: pinKey + " no configurado en Script Properties" });
+      if (!_verifyPin(userId, pin, storedPin)) return jsonResponse({ ok: false, error: "PIN incorrecto" });
+      // Auto-upgrade plaintext PINs to hashed format on first successful login.
+      if (storedPin.indexOf("sha256:") !== 0) props.setProperty(pinKey, _hashPin(userId, pin));
+      var sessionToken = _issueSessionToken(userId);
+      return jsonResponse({ ok: true, sessionToken: sessionToken });
     }
 
     // Eliminar una transacción
@@ -409,11 +662,67 @@ function doPost(e) {
       var newPin     = String(payload.newPin     || "");
       if (!currentPin || !newPin) return jsonResponse({ ok: false, error: "Faltan campos" });
       var pinKey    = "APP_PIN_" + userId;
-      var storedPin = PropertiesService.getScriptProperties().getProperty(pinKey);
-      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado" });
-      if (currentPin !== storedPin) return jsonResponse({ ok: false, error: "PIN incorrecto" });
+      var props     = PropertiesService.getScriptProperties();
+      var storedPin = props.getProperty(pinKey);
+      if (!storedPin) return jsonResponse({ ok: false, error: pinKey + " no configurado" });
+      if (!_verifyPin(userId, currentPin, storedPin)) return jsonResponse({ ok: false, error: "PIN incorrecto" });
       if (!/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "El nuevo PIN debe tener 4–6 dígitos" });
-      PropertiesService.getScriptProperties().setProperty(pinKey, newPin);
+      props.setProperty(pinKey, _hashPin(userId, newPin));
+      return jsonResponse({ ok: true });
+    }
+
+    // Admin: create invite link
+    if (type === "adminCreateInvite") return _handleAdminCreateInvite(payload);
+
+    // Admin: list all users + pending invites
+    if (type === "adminListUsers") {
+      if (!_isAdmin(userId)) return jsonResponse({ ok: false, error: "No autorizado" });
+      return jsonResponse({ ok: true, data: _adminListUsersData() });
+    }
+
+    // Admin: disable a user
+    if (type === "adminDisableUser") {
+      if (!_isAdmin(userId)) return jsonResponse({ ok: false, error: "No autorizado" });
+      var targetId = String(payload.targetUserId || "").toLowerCase();
+      if (targetId === "jose") return jsonResponse({ ok: false, error: "No puedes desactivar al administrador" });
+      _setUserStatus(targetId, "disabled");
+      return jsonResponse({ ok: true });
+    }
+
+    // Admin: re-enable a user
+    if (type === "adminEnableUser") {
+      if (!_isAdmin(userId)) return jsonResponse({ ok: false, error: "No autorizado" });
+      var targetId = String(payload.targetUserId || "").toLowerCase();
+      _setUserStatus(targetId, "active");
+      return jsonResponse({ ok: true });
+    }
+
+    // Admin: delete a user (optionally purge their data sheet)
+    if (type === "adminDeleteUser") {
+      if (!_isAdmin(userId)) return jsonResponse({ ok: false, error: "No autorizado" });
+      var targetId = String(payload.targetUserId || "").toLowerCase();
+      if (targetId === "jose") return jsonResponse({ ok: false, error: "No puedes eliminar al administrador" });
+      _deleteUser(targetId, payload.deleteData === true);
+      return jsonResponse({ ok: true });
+    }
+
+    // Admin: revoke a pending invite
+    if (type === "adminRevokeInvite") {
+      if (!_isAdmin(userId)) return jsonResponse({ ok: false, error: "No autorizado" });
+      _revokeInvite(String(payload.inviteToken || ""));
+      return jsonResponse({ ok: true });
+    }
+
+    // Update display name / avatar
+    if (type === "updateProfile") {
+      var updates = {};
+      if (payload.displayName !== undefined) updates.displayName = String(payload.displayName || "").trim().slice(0, 60);
+      if (payload.avatar !== undefined) {
+        var av = String(payload.avatar || "");
+        updates.avatar = av.length > 100000 ? "" : av;
+      }
+      _updateUserProfile(userId, updates);
+      _invalidateRegistryCache();
       return jsonResponse({ ok: true });
     }
 
