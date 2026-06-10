@@ -13,6 +13,7 @@ import { ImportarExtracto } from '../components/ImportarExtracto';
 import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
 import { TutorialCanales } from '../components/TutorialCanales';
 import { isBiometricSupported, hasBiometric, registerBiometric, clearBiometric } from '../lib/webauthn';
+import { resizeImageToAvatar } from '../lib/avatar';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -70,31 +71,15 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     setUserNickname(userId, trimmed);
   }
 
-  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    // Use FileReader (data: URL) instead of createObjectURL (blob:) because
-    // the CSP only allows data: in img-src, not blob:.
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const src = ev.target?.result as string;
-      if (!src) return;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 128; canvas.height = 128;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        const size = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 128, 128);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        setAvatarUrl(dataUrl);
-        setUserAvatar(userId, dataUrl);
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
     e.target.value = ''; // reset so same file can be re-selected
+    if (!file) return;
+    try {
+      const dataUrl = await resizeImageToAvatar(file);
+      setAvatarUrl(dataUrl);
+      setUserAvatar(userId, dataUrl);
+    } catch { /* imagen inválida — ignorar */ }
   }
 
   function handleThemeChange(mode: ThemeMode) {

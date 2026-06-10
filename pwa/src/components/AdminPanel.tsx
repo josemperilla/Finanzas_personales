@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listUsers, createUser, deleteUser, resetUserPin, generateEmergencyPin } from '../lib/api';
+import { listUsers, createUser, deleteUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite } from '../lib/api';
 import { getUserNickname } from '../lib/profiles';
 import { quickEase } from '../lib/motion';
 
@@ -50,6 +50,16 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   // Link copy
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Invitations state
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [showNewInvite, setShowNewInvite] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteCreating, setInviteCreating] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [lastInvite, setLastInvite] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [revokingCode, setRevokingCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
   const reload = useCallback(() => {
     setLoading(true);
     listUsers(adminId)
@@ -58,7 +68,47 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
       .finally(() => setLoading(false));
   }, [adminId]);
 
-  useEffect(() => { reload(); }, [reload]);
+  const reloadInvites = useCallback(() => {
+    listInvites(adminId).then(setInvites).catch(() => {});
+  }, [adminId]);
+
+  useEffect(() => { reload(); reloadInvites(); }, [reload, reloadInvites]);
+
+  async function handleCreateInvite() {
+    if (!inviteName.trim()) {
+      setInviteMsg({ text: 'Escribe el nombre visible', ok: false }); return;
+    }
+    setInviteCreating(true); setInviteMsg(null);
+    try {
+      const res = await createInvite(adminId, inviteName.trim());
+      setLastInvite({ code: res.code, expiresAt: res.expiresAt });
+      setInviteName('');
+      setShowNewInvite(false);
+      reloadInvites();
+      onProfilesChanged();
+    } catch (e) {
+      setInviteMsg({ text: e instanceof Error ? e.message : 'Error al crear invitación', ok: false });
+    } finally { setInviteCreating(false); }
+  }
+
+  async function handleRevokeInvite(code: string) {
+    setRevokingCode(code);
+    try {
+      await revokeInvite(adminId, code);
+      setInvites(prev => prev.filter(i => i.code !== code));
+      if (lastInvite?.code === code) setLastInvite(null);
+      onProfilesChanged();
+    } catch { /* ignore */ }
+    finally { setRevokingCode(null); }
+  }
+
+  function copyInviteCode(code: string) {
+    const link = `${window.location.origin}?invite=${code}`;
+    navigator.clipboard.writeText(`Tu código para entrar a la app: ${code}\n${link}`).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  }
 
   function toggleAction(action: ActiveAction) {
     setActiveAction(prev => {
@@ -305,6 +355,109 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
             </AnimatePresence>
           </div>
         ))}
+      </div>
+
+      {/* ── Invitaciones ──────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, paddingBottom: 4 }}>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+          Invitaciones
+        </div>
+
+        {/* Código recién generado */}
+        <AnimatePresence>
+          {lastInvite && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={quickEase}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-300)', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--blue-700)', marginBottom: 4 }}>
+                  Código de invitación (válido 7 días, uso único):
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 26, color: 'var(--blue-700)', letterSpacing: '0.16em' }}>
+                  {lastInvite.code}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => copyInviteCode(lastInvite.code)}
+                    style={{ flex: 1, height: 38, background: 'var(--blue-700)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    {copiedCode === lastInvite.code ? '✓ Copiado' : 'Copiar código + enlace'}
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => setLastInvite(null)}
+                    style={{ padding: '0 14px', height: 38, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    Cerrar
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Lista de invitaciones pendientes */}
+        {invites.map(inv => (
+          <div key={inv.code} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ink)' }}>{inv.displayName}</div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                {inv.code} · expira {new Date(inv.expiresAt).toLocaleDateString('es-CO')}
+              </div>
+            </div>
+            <motion.button whileTap={{ scale: 0.94 }} onClick={() => copyInviteCode(inv.code)}
+              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--blue-700)', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              {copiedCode === inv.code ? '✓' : '⎘'}
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.94 }} onClick={() => handleRevokeInvite(inv.code)} disabled={revokingCode === inv.code}
+              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5', background: 'var(--card)', color: '#dc2626', fontSize: 'var(--text-xs)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              {revokingCode === inv.code ? '…' : 'Revocar'}
+            </motion.button>
+          </div>
+        ))}
+
+        {/* Generar invitación */}
+        <motion.button whileTap={{ scale: 0.99 }} onClick={() => { setShowNewInvite(v => !v); setInviteMsg(null); }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--blue-700)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+            Generar invitación
+          </span>
+          <span style={{ color: 'var(--muted)', fontSize: 18 }}>{showNewInvite ? '↑' : '+'}</span>
+        </motion.button>
+
+        <AnimatePresence>
+          {showNewInvite && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={quickEase} style={{ overflow: 'hidden' }}>
+              <div style={{ paddingBottom: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginBottom: 5 }}>Nombre visible (ej: María)</div>
+                  <input
+                    type="text"
+                    value={inviteName}
+                    onChange={e => setInviteName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreateInvite(); }}
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+                  Se crea un perfil sin PIN. La persona ingresa el código en la app y define su propio PIN.
+                </div>
+                {inviteMsg && !inviteMsg.ok && (
+                  <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: '#dc2626' }}>{inviteMsg.text}</p>
+                )}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateInvite} disabled={inviteCreating}
+                    style={{ flex: 1, height: 44, background: inviteCreating ? 'var(--blue-300)' : 'var(--blue-700)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: inviteCreating ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                    {inviteCreating ? 'Generando…' : 'Generar código'}
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowNewInvite(false)}
+                    style={{ padding: '0 16px', height: 44, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    Cancelar
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Agregar usuario */}

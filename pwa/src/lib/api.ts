@@ -1,9 +1,24 @@
 import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
 
 let _activeUserId: string | null = null;
+let _token: string | null = null;
 
 export function setActiveUser(id: string | null) {
   _activeUserId = id;
+  _token = id ? localStorage.getItem(`fm_token_${id}`) : null;
+}
+
+// Guarda el token de sesión emitido por el backend tras validar/crear el PIN.
+// Vive en localStorage para sobrevivir reinicios de la PWA (desbloqueo biométrico).
+function storeToken(userId: string, token?: string) {
+  if (!token) return;
+  localStorage.setItem(`fm_token_${userId}`, token);
+  if (userId === _activeUserId) _token = token;
+}
+
+// Añade el token de sesión al cuerpo de una petición autenticada.
+function withAuth(body: Record<string, unknown>): Record<string, unknown> {
+  return _token ? { ...body, token: _token } : body;
 }
 
 function assertWebhookUrl() {
@@ -24,7 +39,8 @@ function secureUrl(base: string, extraParams?: Record<string, string>): string {
 }
 
 function withUser(body: Record<string, unknown>): Record<string, unknown> {
-  return _activeUserId ? { ...body, userId: _activeUserId } : body;
+  const withId = _activeUserId ? { ...body, userId: _activeUserId } : body;
+  return withAuth(withId);
 }
 
 export interface Transaction {
@@ -65,6 +81,7 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   const uid = _activeUserId || localStorage.getItem('fm_profile');
   const extraParams: Record<string, string> = { action: 'transactions' };
   if (uid) extraParams.userId = uid;
+  if (_token) extraParams.token = _token;
   const res = await fetch(secureUrl(WEBHOOK_URL, extraParams));
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
@@ -119,6 +136,7 @@ export async function validatePin(pin: string, userId?: string): Promise<{ ok: b
     body: JSON.stringify(body),
   });
   const json = await res.json();
+  if (json.ok === true && uid) storeToken(uid, json.token);
   return { ok: json.ok === true, error: json.error };
 }
 
@@ -162,7 +180,7 @@ export async function listUsers(adminUserId: string): Promise<string[]> {
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'listUsers', userId: adminUserId }),
+    body: JSON.stringify(withAuth({ type: 'listUsers', userId: adminUserId })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al listar usuarios');
@@ -179,7 +197,7 @@ export async function createUser(
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'createUser', userId: adminUserId, newUserId, displayName, initialPin }),
+    body: JSON.stringify(withAuth({ type: 'createUser', userId: adminUserId, newUserId, displayName, initialPin })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al crear usuario');
@@ -190,7 +208,7 @@ export async function deleteUser(adminUserId: string, targetUserId: string): Pro
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId }),
+    body: JSON.stringify(withAuth({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al eliminar usuario');
@@ -201,7 +219,7 @@ export async function resetUserPin(adminUserId: string, targetUserId: string, ne
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'resetPin', userId: adminUserId, targetId: targetUserId, newPin }),
+    body: JSON.stringify(withAuth({ type: 'resetPin', userId: adminUserId, targetId: targetUserId, newPin })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al resetear PIN');
@@ -218,15 +236,16 @@ export async function hasPin(userId: string): Promise<boolean> {
   return json.ok && json.exists === true;
 }
 
-export async function setupPin(userId: string, pin: string): Promise<void> {
+export async function setupPin(userId: string, pin: string, code?: string): Promise<void> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'setupPin', userId, pin }),
+    body: JSON.stringify({ type: 'setupPin', userId, pin, ...(code ? { code } : {}) }),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al configurar PIN');
+  storeToken(userId, json.token);
 }
 
 export async function importTransactions(
@@ -272,9 +291,70 @@ export async function generateEmergencyPin(
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ type: 'generateEmergencyPin', userId: adminUserId, targetId: targetUserId }),
+    body: JSON.stringify(withAuth({ type: 'generateEmergencyPin', userId: adminUserId, targetId: targetUserId })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error generando PIN de emergencia');
   return { code: json.code as string, expiresAt: json.expiresAt as string };
+}
+
+// ── Invitaciones de un solo uso ───────────────────────────────
+
+export interface Invite {
+  code: string;
+  userId: string;
+  displayName: string;
+  expiresAt: string;
+}
+
+export async function createInvite(
+  adminUserId: string,
+  displayName: string,
+  newUserId?: string,
+): Promise<{ code: string; userId: string; displayName: string; expiresAt: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'createInvite', userId: adminUserId, displayName, ...(newUserId ? { newUserId } : {}) })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al crear invitación');
+  return { code: json.code as string, userId: json.userId as string, displayName: json.displayName as string, expiresAt: json.expiresAt as string };
+}
+
+export async function listInvites(adminUserId: string): Promise<Invite[]> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'listInvites', userId: adminUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al listar invitaciones');
+  return json.data as Invite[];
+}
+
+export async function revokeInvite(adminUserId: string, code: string): Promise<{ userDeleted: boolean }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'revokeInvite', userId: adminUserId, code })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al revocar invitación');
+  return { userDeleted: json.userDeleted === true };
+}
+
+export async function redeemInvite(code: string): Promise<{ userId: string; displayName: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ type: 'redeemInvite', code }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Código inválido o expirado');
+  return { userId: json.userId as string, displayName: json.displayName as string };
 }

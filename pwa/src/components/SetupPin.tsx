@@ -6,6 +6,7 @@ import { getProfile } from '../lib/profiles';
 
 interface Props {
   userId: string;
+  inviteCode?: string;
   onComplete: () => void;
   onSwitchProfile: () => void;
 }
@@ -19,7 +20,7 @@ const rows = [
 
 type Step = 'enter' | 'confirm';
 
-export function SetupPin({ userId, onComplete, onSwitchProfile }: Props) {
+export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Props) {
   const profile = getProfile(userId);
   const [step, setStep]       = useState<Step>('enter');
   const [first, setFirst]     = useState('');
@@ -62,7 +63,7 @@ export function SetupPin({ userId, onComplete, onSwitchProfile }: Props) {
 
     setStatus('saving');
     try {
-      await setupPin(userId, d);
+      await setupPin(userId, d, inviteCode);
       onComplete();
     } catch (e) {
       setStatus('error');

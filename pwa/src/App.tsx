@@ -15,11 +15,12 @@ import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
-import { fetchProfiles, Profile, getDisplayName } from './lib/profiles';
+import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
-import { ImportarExtracto } from './components/ImportarExtracto';
 import { TutorialCanales } from './components/TutorialCanales';
+import { InviteRedeem } from './components/InviteRedeem';
+import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
 
 export default function App() {
@@ -32,7 +33,13 @@ export default function App() {
   );
   const [unlocked, setUnlocked] = useState(false);
   const [needsSetupPin, setNeedsSetupPin] = useState(false);
-  const [showWelcomeImport, setShowWelcomeImport] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardDisplayName, setOnboardDisplayName] = useState<string | null>(null);
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [initialInviteCode, setInitialInviteCode] = useState(
+    () => new URLSearchParams(window.location.search).get('invite') || ''
+  );
   const [tab, setTab] = useState<Tab>(() => {
     const p = new URLSearchParams(window.location.search).get('tab');
     if (p === 'agregar') return 'agregar';
@@ -53,16 +60,29 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showDirectImport, setShowDirectImport] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showBalanceWidget, setShowBalanceWidget] = useState(
     () => new URLSearchParams(window.location.search).get('view') === 'balance'
   );
 
-  // Load dynamic profile list whenever no user is active (mount + every logout)
+  // Migración: un dispositivo ya logueado antes de esta versión no tiene
+  // fm_known_profiles — sembrar con su perfil actual para que no caiga a la
+  // landing vacía.
   useEffect(() => {
-    if (!userId) fetchProfiles().then(setProfiles);
+    const current = localStorage.getItem('fm_profile');
+    if (current && getKnownProfileIds().length === 0) addKnownProfile(current);
+  }, []);
+
+  // Auto-abrir la redención si llegan con ?invite=CODE
+  useEffect(() => {
+    if (!userId && initialInviteCode) setShowRedeem(true);
+  }, [userId, initialInviteCode]);
+
+  // Lista de perfiles de la landing: solo los conocidos por ESTE dispositivo
+  // (datos locales, sin red ni listUsers admin-only).
+  useEffect(() => {
+    if (!userId) setProfiles(getKnownProfiles());
   }, [userId]);
 
   // When userId changes, register it in api.ts and check session
@@ -148,9 +168,23 @@ export default function App() {
     } catch { /* red de error — dejar que PinLock maneje */ }
   }, []);
 
+  const handleRedeemed = useCallback(async (newUserId: string, displayName: string, code: string) => {
+    setShowRedeem(false);
+    setInitialInviteCode('');
+    setRedeemCode(code); // SetupPin lo envía para vincularse a la invitación (fix H1)
+    localStorage.setItem('fm_profile', newUserId);
+    setUserId(newUserId);
+    setOnboardDisplayName(displayName);
+    try {
+      const exists = await hasPin(newUserId);
+      setNeedsSetupPin(!exists); // tras redimir, normalmente no tiene PIN aún
+    } catch { setNeedsSetupPin(true); }
+  }, []);
+
   const handleUnlock = useCallback(() => {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+      addKnownProfile(userId); // recordar este perfil en este dispositivo
       applyAccessibleMode(userId);
       applyColorScheme(userId);
       setAccessible(getAccessibleMode(userId));
@@ -258,8 +292,16 @@ export default function App() {
       )}
 
       <AnimatePresence>
-        {!userId && (
-          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} />
+        {!userId && !showRedeem && (
+          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} onRedeemInvite={() => setShowRedeem(true)} />
+        )}
+        {!userId && showRedeem && (
+          <InviteRedeem
+            key="redeem"
+            initialCode={initialInviteCode}
+            onRedeemed={handleRedeemed}
+            onCancel={() => { setShowRedeem(false); setInitialInviteCode(''); }}
+          />
         )}
         {userId && !unlocked && !needsSetupPin && (
           <PinLock key="pin" userId={userId} onUnlock={handleUnlock} onSwitchProfile={handleSwitchProfile} />
@@ -268,41 +310,22 @@ export default function App() {
           <SetupPin
             key="setup"
             userId={userId}
-            onComplete={() => { setNeedsSetupPin(false); setShowWelcomeImport(true); handleUnlock(); }}
+            inviteCode={redeemCode || undefined}
+            onComplete={() => { setNeedsSetupPin(false); setRedeemCode(''); handleUnlock(); setShowOnboarding(true); }}
             onSwitchProfile={handleSwitchProfile}
           />
         )}
-        {showWelcomeImport && userId && (
-          <motion.div
-            key="welcome-import"
-            initial={{ opacity: 0, y: '4%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            style={{ position: 'fixed', inset: 0, zIndex: 9995, background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: '32px 24px', textAlign: 'center' }}
-          >
-            <div style={{ fontSize: 56 }}>🎉</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-2xl)', color: 'var(--ink)' }}>
-              ¡Bienvenido!
-            </div>
-            <div style={{ fontSize: 'var(--text-base)', color: 'var(--muted)', maxWidth: 280 }}>
-              ¿Quieres cargar tus movimientos de meses anteriores? Puedes importar un CSV de tu banco ahora o hacerlo después desde Ajustes.
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setShowWelcomeImport(false); setShowDirectImport(true); }}
-                style={{ height: 50, background: 'var(--blue-700)', border: 'none', borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                Importar ahora
-              </motion.button>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowWelcomeImport(false)}
-                style={{ height: 50, background: 'none', border: '1px solid var(--line)', borderRadius: 14, color: 'var(--muted)', fontSize: 'var(--text-base)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                Saltar por ahora
-              </motion.button>
-            </div>
-          </motion.div>
+        {showOnboarding && userId && (
+          <Onboarding
+            key="onboarding"
+            userId={userId}
+            initialDisplayName={onboardDisplayName ?? undefined}
+            onFinish={() => { setShowOnboarding(false); setOnboardDisplayName(null); }}
+          />
         )}
         {showSettings && userId && (
           <Settings key="settings" userId={userId} transactions={transactions}
-            onProfilesChanged={() => fetchProfiles().then(setProfiles)}
+            onProfilesChanged={() => setProfiles(getKnownProfiles())}
             onCategoryChange={handleCategoryChange}
             onClose={() => {
               setShowSettings(false);
@@ -312,9 +335,6 @@ export default function App() {
         )}
         {showTutorial && userId && (
           <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
-        )}
-        {showDirectImport && userId && (
-          <ImportarExtracto key="direct-import" userId={userId} onClose={() => setShowDirectImport(false)} />
         )}
         {showBalanceWidget && userId && unlocked && (
           <BalanceWidget

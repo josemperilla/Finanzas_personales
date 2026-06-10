@@ -69,6 +69,43 @@ export function getDisplayName(userId: string): string {
   return userId.charAt(0).toUpperCase() + userId.slice(1);
 }
 
+// ── Perfiles recordados por dispositivo (privacidad al escalar) ───
+// Solo se muestran en la landing los perfiles que han desbloqueado en ESTE
+// dispositivo. No depende del listUsers admin-only.
+const KNOWN_KEY = 'fm_known_profiles';
+
+export function getKnownProfileIds(): string[] {
+  try {
+    const a = JSON.parse(localStorage.getItem(KNOWN_KEY) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addKnownProfile(userId: string): void {
+  const ids = getKnownProfileIds();
+  if (!ids.includes(userId)) localStorage.setItem(KNOWN_KEY, JSON.stringify([...ids, userId]));
+}
+
+export function removeKnownProfile(userId: string): void {
+  localStorage.setItem(KNOWN_KEY, JSON.stringify(getKnownProfileIds().filter(i => i !== userId)));
+}
+
+// Construye Profile[] solo con datos locales (nickname/avatar). Sin red.
+export function getKnownProfiles(): Profile[] {
+  return getKnownProfileIds().map(id => {
+    const seed = PROFILES.find(p => p.id === id);
+    const name = getUserNickname(id) || seed?.name || (id.charAt(0).toUpperCase() + id.slice(1));
+    return {
+      id,
+      name,
+      avatar: getUserAvatar(id) || seed?.avatar || '',
+      initial: name.charAt(0).toUpperCase(),
+    };
+  });
+}
+
 // ── Carga dinámica de usuarios desde el webhook ───────────────
 // Usa el array estático como fallback si el webhook falla.
 export async function fetchProfiles(): Promise<Profile[]> {

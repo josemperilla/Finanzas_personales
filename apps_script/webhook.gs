@@ -40,6 +40,118 @@ function _getAdminUser() {
   return PropertiesService.getScriptProperties().getProperty("ADMIN_USER") || ADMIN_USER;
 }
 
+// ── Provisioning helpers (compartidos por createUser/createInvite) ────
+// Crea el usuario: lo agrega a USERS_LIST, fija PIN opcional y crea su tab en Sheets.
+function _provisionUser(newId, displayName, initPin) {
+  var currentUsers = _getAllowedUsers();
+  if (currentUsers.indexOf(newId) !== -1) {
+    throw new Error("El usuario '" + newId + "' ya existe");
+  }
+  currentUsers.push(newId);
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
+  if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
+  // Crear el tab en Sheets con headers si no existe.
+  var newRef = _getSheet(newId);
+  if (!newRef.sheet) {
+    var newSheet = newRef.ss.insertSheet(newRef.tabName);
+    newSheet.appendRow(["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"]);
+    newSheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#f3f3f3");
+    newSheet.setFrozenRows(1);
+  }
+}
+
+// Elimina el usuario: lo quita de USERS_LIST, borra su PIN y su tab en Sheets.
+function _deprovisionUser(targetId) {
+  var delProps = PropertiesService.getScriptProperties();
+  var allUsers = _getAllowedUsers();
+  delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
+  delProps.deleteProperty("APP_PIN_" + targetId);
+  try {
+    var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
+    var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
+    var delSheet = delSs.getSheetByName(sheetName);
+    if (delSheet) delSs.deleteSheet(delSheet);
+  } catch(delErr) { /* hoja no existe — continuar */ }
+}
+
+// ── Invitaciones de un solo uso (persistidas en Script Properties) ────
+function _getInvites() {
+  var raw = PropertiesService.getScriptProperties().getProperty("INVITES");
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  return {};
+}
+function _saveInvites(map) {
+  PropertiesService.getScriptProperties().setProperty("INVITES", JSON.stringify(map));
+}
+// 8 chars de alfabeto sin ambigüedad (sin 0/O/1/I/L). Se guarda sin guion.
+function _genInviteCode() {
+  var alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  var code = "";
+  for (var i = 0; i < 8; i++) code += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+  return code;
+}
+function _formatInviteCode(code) {
+  return code.length === 8 ? code.slice(0,4) + "-" + code.slice(4) : code;
+}
+function _normalizeCode(s) {
+  return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+// Deriva un userId válido y único desde el nombre visible.
+function _deriveUserId(displayName) {
+  var base = String(displayName || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // quita acentos (María → maria)
+    .replace(/[^a-z0-9]/g, "").slice(0, 18);
+  if (base.length < 2) base = "user";
+  var users = _getAllowedUsers();
+  var candidate = base, n = 1;
+  while (users.indexOf(candidate) !== -1) { candidate = (base + n).slice(0, 20); n++; }
+  return candidate;
+}
+// Poda invitaciones usadas/expiradas con más de 24h de antigüedad. Devuelve true si cambió.
+function _pruneInvites(map) {
+  var now = Date.now(), changed = false;
+  Object.keys(map).forEach(function(code) {
+    var inv = map[code];
+    var staleExpired = !inv.used && now > inv.expiry + 86400000;
+    var staleUsed    =  inv.used && inv.usedAt && now > inv.usedAt + 86400000;
+    if (staleExpired || staleUsed) { delete map[code]; changed = true; }
+  });
+  return changed;
+}
+
+// ── Redención de invitación (público, sin userId) ────────────────────
+// NOTA: WEBHOOK_SECRET viaja al cliente, así que no es barrera por-usuario.
+// El código de invitación es la barrera real: un solo uso + expiración +
+// "usuario aún sin PIN" + límite anti-fuerza-bruta vía CacheService.
+function _handleRedeemInvite(payload) {
+  var cache = CacheService.getScriptCache();
+  var hour = Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd-HH");
+  var rlKey = "rl_redeem_" + hour;
+  var n = parseInt(cache.get(rlKey) || "0", 10);
+  if (n >= 30) return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta más tarde." });
+  cache.put(rlKey, String(n + 1), 3600);
+
+  var key = _normalizeCode(payload.code);
+  if (!key) return jsonResponse({ ok: false, error: "Código requerido" });
+
+  var codeRlKey = "rl_redeem_code_" + key;
+  var cn = parseInt(cache.get(codeRlKey) || "0", 10);
+  if (cn >= 8) return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta más tarde." });
+  cache.put(codeRlKey, String(cn + 1), 3600);
+
+  var inv = _getInvites()[key];
+  if (!inv) return jsonResponse({ ok: false, error: "Código inválido o expirado" });
+  if (inv.used) return jsonResponse({ ok: false, error: "Esta invitación ya fue usada" });
+  if (Date.now() >= inv.expiry) return jsonResponse({ ok: false, error: "Código inválido o expirado" });
+  if (PropertiesService.getScriptProperties().getProperty("APP_PIN_" + inv.userId)) {
+    return jsonResponse({ ok: false, error: "Esta invitación ya fue completada" });
+  }
+  // No se marca usada aquí: el consumo ocurre al fijar el PIN (setupPin),
+  // permitiendo reanudar si el usuario abandona antes de crear el PIN.
+  return jsonResponse({ ok: true, userId: inv.userId, displayName: inv.displayName });
+}
+
 // ── Per-user Sheet accessor ───────────────────────────────────
 // Single spreadsheet; each user gets a tab named after them (e.g. "Jose", "Dani").
 function _getSheet(userId) {
@@ -67,9 +179,17 @@ function _checkRateLimit(action, userId) {
 }
 
 // ── Auth check ───────────────────────────────────────────────
+// Verifica el secreto y devuelve el CANAL de la llamada:
+//   "shortcut" -> iOS Shortcuts / dispositivo de confianza (WEBHOOK_SECRET).
+//   "web"      -> trafico del proxy de la PWA (WEB_SECRET). Requiere token de sesion.
+// Migracion segura: si WEB_SECRET no esta configurado, el proxy sigue enviando
+// WEBHOOK_SECRET -> canal "shortcut" -> la app funciona sin tokens hasta que se
+// configure WEB_SECRET y se actualice el proxy para enviarlo.
 function _checkSecret(e) {
-  var secret = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
-  if (!secret) throw new Error("WEBHOOK_SECRET no configurado en Script Properties");
+  var props = PropertiesService.getScriptProperties();
+  var shortcutSecret = props.getProperty("WEBHOOK_SECRET");
+  if (!shortcutSecret) throw new Error("WEBHOOK_SECRET no configurado en Script Properties");
+  var webSecret = props.getProperty("WEB_SECRET");
   // Secret travels as _secret query param (GET) or _secret body field (POST).
   var fromParam = e && e.parameter && e.parameter["_secret"];
   var fromBody = null;
@@ -77,18 +197,49 @@ function _checkSecret(e) {
     try { fromBody = JSON.parse(e.postData.contents || "{}")["_secret"]; } catch(err) {}
   }
   var incoming = fromParam || fromBody;
-  if (incoming !== secret) throw new Error("Unauthorized");
+  if (webSecret && incoming === webSecret) return "web";
+  if (incoming === shortcutSecret) return "shortcut";
+  throw new Error("Unauthorized");
+}
+
+// -- Tokens de sesion (emitidos tras validar PIN; viven 6h en CacheService) --
+function _issueToken(userId) {
+  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+  CacheService.getScriptCache().put("tok_" + token, String(userId), 21600);
+  return token;
+}
+function _userFromToken(token) {
+  if (!token) return null;
+  var cache = CacheService.getScriptCache();
+  var uid = cache.get("tok_" + token);
+  if (!uid) return null;
+  cache.put("tok_" + token, uid, 21600); // refresco deslizante mientras este activo
+  return uid;
+}
+// Resuelve el userId AUTENTICADO. Token valido -> ese usuario. Sin token pero
+// canal "shortcut" (dispositivo de confianza) -> se acepta el userId
+// auto-declarado. Canal "web" sin token -> null (no autenticado).
+function _authUserId(e, channel, payload) {
+  var token = (payload && payload.token) || (e && e.parameter && e.parameter.token);
+  var uid = _userFromToken(token);
+  if (uid) return uid;
+  if (channel === "shortcut") {
+    return String((payload && payload.userId) || (e && e.parameter && e.parameter.userId) || "").toLowerCase();
+  }
+  return null;
 }
 
 // ── GET endpoint — leer transacciones (usado por la PWA) ─────
 function doGet(e) {
+  var channel;
   try {
-    _checkSecret(e);
+    channel = _checkSecret(e);
   } catch(err) {
     return jsonResponse({ ok: false, error: "Unauthorized" });
   }
 
-  var userId = (e && e.parameter && e.parameter.userId || "").toLowerCase();
+  var userId = _authUserId(e, channel, {});
+  if (!userId) return jsonResponse({ ok: false, error: "Unauthorized" });
   try { _validateUserId(userId); } catch(err) {
     return jsonResponse({ ok: false, error: err.message });
   }
@@ -104,8 +255,9 @@ function doGet(e) {
 
 // ── POST endpoint — recibir SMS del iPhone o entrada manual ──
 function doPost(e) {
+  var channel;
   try {
-    _checkSecret(e);
+    channel = _checkSecret(e);
   } catch(err) {
     return jsonResponse({ ok: false, error: "Unauthorized" });
   }
@@ -114,12 +266,85 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents);
     var type    = payload.type || "";
     var bank    = (payload.bank || "").toLowerCase();
-    var userId  = (payload.userId || "").toLowerCase();
+    var claimedUserId = (payload.userId || "").toLowerCase();
 
-    // Validate userId for all request types
+    // Redencion de invitacion: el redentor aun no tiene userId, asi que se
+    // resuelve antes de cualquier validacion de userId.
+    if (type === "redeemInvite") return _handleRedeemInvite(payload);
+
+    // -- Acciones de arranque: DEFINEN la autenticacion, usan userId auto-declarado --
+
+    // Verificar si el usuario ya tiene PIN configurado (para detectar primer login)
+    if (type === "hasPin") {
+      var hp = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + claimedUserId);
+      return jsonResponse({ ok: true, exists: !!hp && hp.length > 0 });
+    }
+
+    // Validar PIN del usuario -- emite token de sesion al acertar
+    if (type === "validatePin") {
+      var pin = String(payload.pin || "");
+      if (!pin) return jsonResponse({ ok: false, error: "PIN requerido" });
+      _validateUserId(claimedUserId);
+      // Anti fuerza-bruta de red: como el token emitido aqui es la barrera de
+      // autenticacion, se limita el numero de fallos por usuario/hora.
+      var pinCache = CacheService.getScriptCache();
+      var pinRlKey = "rl_pin_" + claimedUserId + "_" + Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd-HH");
+      if (parseInt(pinCache.get(pinRlKey) || "0", 10) >= 20) {
+        return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta mas tarde." });
+      }
+      var vProps = PropertiesService.getScriptProperties();
+      var storedPin = vProps.getProperty("APP_PIN_" + claimedUserId);
+      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + claimedUserId + " no configurado en Script Properties" });
+      if (pin === storedPin) return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+      // Check emergency PIN (single-use, 24h TTL)
+      var emergRaw = vProps.getProperty("EMERGENCY_PIN_" + claimedUserId);
+      if (emergRaw) {
+        try {
+          var ep = JSON.parse(emergRaw);
+          if (ep.code === pin && Date.now() < ep.expiry) {
+            vProps.deleteProperty("EMERGENCY_PIN_" + claimedUserId);
+            return jsonResponse({ ok: true, emergency: true, token: _issueToken(claimedUserId) });
+          }
+        } catch(e) {}
+      }
+      // Contar el intento fallido (TTL 1h).
+      pinCache.put(pinRlKey, String(parseInt(pinCache.get(pinRlKey) || "0", 10) + 1), 3600);
+      return jsonResponse({ ok: false, error: "PIN incorrecto" });
+    }
+
+    // Configurar PIN por primera vez (solo si no existe aun) -- emite token de sesion
+    if (type === "setupPin") {
+      var newPin = String(payload.pin || "");
+      if (!newPin || !/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 digitos" });
+      _validateUserId(claimedUserId);
+      var spProps = PropertiesService.getScriptProperties();
+      var existing = spProps.getProperty("APP_PIN_" + claimedUserId);
+      if (existing) return jsonResponse({ ok: false, error: "Este usuario ya tiene PIN. Usa changePin para cambiarlo." });
+      // H1: vincular setupPin a la posesion del codigo. Si hay una invitacion
+      // pendiente para este userId, exige el codigo que la redime; impide que un
+      // atacante fije el PIN antes que el invitado real reclame su perfil.
+      var invMap = _getInvites(), nowMs = Date.now();
+      var reqCode = _normalizeCode(payload.code || "");
+      var matchCode = (reqCode && invMap[reqCode] && invMap[reqCode].userId === claimedUserId &&
+                       !invMap[reqCode].used && nowMs < invMap[reqCode].expiry) ? reqCode : null;
+      var hasPendingInvite = Object.keys(invMap).some(function(c) {
+        return invMap[c].userId === claimedUserId && !invMap[c].used && nowMs < invMap[c].expiry;
+      });
+      if (hasPendingInvite && !matchCode) {
+        return jsonResponse({ ok: false, error: "Codigo de invitacion invalido o expirado" });
+      }
+      spProps.setProperty("APP_PIN_" + claimedUserId, newPin);
+      // Consumir la invitacion redimida (un solo uso).
+      if (matchCode) { invMap[matchCode].used = true; invMap[matchCode].usedAt = nowMs; _saveInvites(invMap); }
+      return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+    }
+
+    // -- A partir de aqui toda accion exige autenticacion real --
+    var userId = _authUserId(e, channel, payload);
+    if (!userId) return jsonResponse({ ok: false, error: "Unauthorized" });
     _validateUserId(userId);
 
-    // Ensure Fuente column exists (cached — runs once per user per 6h)
+    // Ensure Fuente column exists (cached -- runs once per user per 6h)
     _migrateSheetHeaders(userId);
 
     // Entrada manual desde la PWA
@@ -168,28 +393,6 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
-    // Validar PIN del usuario
-    if (type === "validatePin") {
-      var pin = String(payload.pin || "");
-      if (!pin) return jsonResponse({ ok: false, error: "PIN requerido" });
-      var vProps = PropertiesService.getScriptProperties();
-      var storedPin = vProps.getProperty("APP_PIN_" + userId);
-      if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado en Script Properties" });
-      if (pin === storedPin) return jsonResponse({ ok: true });
-      // Check emergency PIN (single-use, 24h TTL)
-      var emergRaw = vProps.getProperty("EMERGENCY_PIN_" + userId);
-      if (emergRaw) {
-        try {
-          var ep = JSON.parse(emergRaw);
-          if (ep.code === pin && Date.now() < ep.expiry) {
-            vProps.deleteProperty("EMERGENCY_PIN_" + userId);
-            return jsonResponse({ ok: true, emergency: true });
-          }
-        } catch(e) {}
-      }
-      return jsonResponse({ ok: false, error: "PIN incorrecto" });
-    }
-
     // Generar PIN de emergencia de un solo uso (24h) — solo admin
     if (type === "generateEmergencyPin") {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "No autorizado" });
@@ -218,21 +421,81 @@ function doPost(e) {
       if (!newId) return jsonResponse({ ok: false, error: "newUserId requerido" });
       if (!/^[a-z0-9]{2,20}$/.test(newId)) return jsonResponse({ ok: false, error: "userId debe tener 2-20 caracteres alfanuméricos en minúsculas" });
       if (initPin && !/^\d{4,6}$/.test(initPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
-      var currentUsers = _getAllowedUsers();
-      if (currentUsers.indexOf(newId) !== -1) return jsonResponse({ ok: false, error: "El usuario '" + newId + "' ya existe" });
-      currentUsers.push(newId);
-      var props = PropertiesService.getScriptProperties();
-      props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
-      if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
-      // Crear el tab en Sheets con headers — _getSheet solo retorna ref, hay que insertarlo explícitamente
-      var newRef = _getSheet(newId);
-      if (!newRef.sheet) {
-        var newSheet = newRef.ss.insertSheet(newRef.tabName);
-        newSheet.appendRow(["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"]);
-        newSheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#f3f3f3");
-        newSheet.setFrozenRows(1);
+      if (_getAllowedUsers().length >= 10) return jsonResponse({ ok: false, error: "Límite de 10 usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más." });
+      try {
+        _provisionUser(newId, newName, initPin);
+      } catch (provErr) {
+        return jsonResponse({ ok: false, error: provErr.message });
       }
       return jsonResponse({ ok: true, created: newId });
+    }
+
+    // Crear una invitación de un solo uso (admin only)
+    if (type === "createInvite") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede crear invitaciones" });
+      var invName = String(payload.displayName || "").trim();
+      if (!invName) return jsonResponse({ ok: false, error: "displayName requerido" });
+      if (_getAllowedUsers().length >= 10) return jsonResponse({ ok: false, error: "Límite de 10 usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más." });
+      var invId;
+      if (payload.newUserId) {
+        invId = String(payload.newUserId).toLowerCase().trim();
+        if (!/^[a-z0-9]{2,20}$/.test(invId)) return jsonResponse({ ok: false, error: "userId debe tener 2-20 caracteres alfanuméricos en minúsculas" });
+      } else {
+        invId = _deriveUserId(invName);
+      }
+      try {
+        _provisionUser(invId, invName, "");  // sin PIN — lo fija el usuario al redimir
+      } catch (provErr) {
+        return jsonResponse({ ok: false, error: provErr.message });
+      }
+      var invMap = _getInvites();
+      var code = _genInviteCode();
+      while (invMap[code]) code = _genInviteCode();
+      var nowMs = Date.now();
+      var expMs = nowMs + 7 * 86400000;
+      invMap[code] = { userId: invId, displayName: invName, createdAt: nowMs, expiry: expMs, used: false, usedAt: null };
+      _saveInvites(invMap);
+      return jsonResponse({ ok: true, code: _formatInviteCode(code), userId: invId, displayName: invName, expiresAt: new Date(expMs).toISOString() });
+    }
+
+    // Listar invitaciones pendientes (admin only)
+    if (type === "listInvites") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede ver invitaciones" });
+      var liMap = _getInvites();
+      if (_pruneInvites(liMap)) _saveInvites(liMap);
+      var liNow = Date.now();
+      var pending = Object.keys(liMap)
+        .filter(function(c) { return !liMap[c].used && liNow < liMap[c].expiry; })
+        .map(function(c) {
+          return {
+            code: _formatInviteCode(c),
+            userId: liMap[c].userId,
+            displayName: liMap[c].displayName,
+            createdAt: liMap[c].createdAt,
+            expiresAt: new Date(liMap[c].expiry).toISOString()
+          };
+        })
+        .sort(function(a, b) { return b.createdAt - a.createdAt; });
+      return jsonResponse({ ok: true, data: pending });
+    }
+
+    // Revocar una invitación (admin only) — borra el código y, si el usuario nunca
+    // fijó PIN, también elimina el usuario fantasma y su tab.
+    if (type === "revokeInvite") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede revocar invitaciones" });
+      var rvKey = _normalizeCode(payload.code);
+      var rvMap = _getInvites();
+      if (!rvMap[rvKey]) return jsonResponse({ ok: false, error: "Invitación no encontrada" });
+      var rvTarget = rvMap[rvKey].userId;
+      delete rvMap[rvKey];
+      _saveInvites(rvMap);
+      var userDeleted = false;
+      if (rvTarget && rvTarget !== _getAdminUser() &&
+          !PropertiesService.getScriptProperties().getProperty("APP_PIN_" + rvTarget)) {
+        _deprovisionUser(rvTarget);
+        userDeleted = true;
+      }
+      return jsonResponse({ ok: true, revoked: rvKey, userDeleted: userDeleted });
     }
 
     // Eliminar un usuario (admin only) — borra PIN, lo remueve de USERS_LIST y elimina su tab en Sheets
@@ -243,15 +506,7 @@ function doPost(e) {
       if (targetId === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes eliminar al administrador" });
       var allUsers = _getAllowedUsers();
       if (allUsers.indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "El usuario '" + targetId + "' no existe" });
-      var delProps = PropertiesService.getScriptProperties();
-      delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
-      delProps.deleteProperty("APP_PIN_" + targetId);
-      try {
-        var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
-        var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
-        var delSheet = delSs.getSheetByName(sheetName);
-        if (delSheet) delSs.deleteSheet(delSheet);
-      } catch(delErr) { /* hoja no existe — continuar */ }
+      _deprovisionUser(targetId);
       return jsonResponse({ ok: true, deleted: targetId });
     }
 
@@ -271,22 +526,6 @@ function doPost(e) {
       if (!resetPin || !/^\d{4,6}$/.test(resetPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
       PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, resetPin);
       return jsonResponse({ ok: true, reset: resetTarget });
-    }
-
-    // Verificar si el usuario ya tiene PIN configurado (para detectar primer login)
-    if (type === "hasPin") {
-      var p = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
-      return jsonResponse({ ok: true, exists: !!p && p.length > 0 });
-    }
-
-    // Configurar PIN por primera vez (solo si no existe aún)
-    if (type === "setupPin") {
-      var newPin = String(payload.pin || "");
-      if (!newPin || !/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
-      var existing = PropertiesService.getScriptProperties().getProperty("APP_PIN_" + userId);
-      if (existing) return jsonResponse({ ok: false, error: "Este usuario ya tiene PIN. Usa changePin para cambiarlo." });
-      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + userId, newPin);
-      return jsonResponse({ ok: true });
     }
 
     // ─────────────────────────────────────────────────────────────

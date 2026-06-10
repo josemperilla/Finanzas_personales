@@ -1,15 +1,52 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PROFILES, Profile, getUserNickname, getUserAvatar } from '../lib/profiles';
+import { Profile, getUserNickname, getUserAvatar } from '../lib/profiles';
 
 interface Props {
   onSelect: (userId: string) => void;
-  profiles?: Profile[];
+  onRedeemInvite: () => void;
+  profiles: Profile[];
 }
 
-export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) {
+export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
-  const displayProfiles = (dynamicProfiles && dynamicProfiles.length > 0) ? dynamicProfiles : PROFILES;
+
+  const containerStyle: React.CSSProperties = {
+    position: 'fixed', inset: 0, zIndex: 9999,
+    background: 'var(--surface)',
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    padding: 'max(56px, env(safe-area-inset-top)) 32px max(48px, env(safe-area-inset-bottom))',
+    gap: 40,
+  };
+
+  // Landing mínima: dispositivo sin perfiles conocidos. No se filtran nombres.
+  if (profiles.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: '6%' }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.22 } }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+        style={containerStyle}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-2xl)', color: 'var(--ink)', letterSpacing: '-0.02em', marginBottom: 6 }}>
+            Tus finanzas, claras
+          </div>
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)', maxWidth: 280 }}>
+            Crea tu perfil con el código de invitación que te compartieron.
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
+          <motion.button whileTap={{ scale: 0.97 }} onClick={onRedeemInvite}
+            style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            Tengo una invitación
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -17,14 +54,7 @@ export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.22 } }}
       transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'var(--surface)',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: 'max(56px, env(safe-area-inset-top)) 32px max(48px, env(safe-area-inset-bottom))',
-        gap: 40,
-      }}
+      style={containerStyle}
     >
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-2xl)', color: 'var(--ink)', letterSpacing: '-0.02em', marginBottom: 6 }}>
@@ -36,7 +66,7 @@ export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) 
       </div>
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {displayProfiles.map(profile => {
+        {profiles.map(profile => {
           const customAvatar = getUserAvatar(profile.id);
           const displayName = getUserNickname(profile.id) || profile.name;
           const avatarSrc = customAvatar || profile.avatar;
@@ -79,6 +109,21 @@ export function ProfileSelector({ onSelect, profiles: dynamicProfiles }: Props) 
           );
         })}
       </div>
+
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        onClick={onRedeemInvite}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)',
+          padding: '12px 16px', borderRadius: 8,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        ¿No ves tu perfil? <span style={{ color: 'var(--blue-700)', fontWeight: 600 }}>Tengo invitación</span>
+      </motion.button>
     </motion.div>
   );
 }
