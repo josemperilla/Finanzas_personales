@@ -908,14 +908,14 @@ function parseVoice(text) {
 
   // FIX: user input goes in the user message (not concatenated into system prompt)
   // This prevents prompt injection via voice input.
-  var systemPrompt = "Extrae la información de una transacción financiera en pesos colombianos. " +
-    "Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: " +
-    "monto (número sin símbolos ni puntos de miles, ej: 50000), " +
-    "comercio (nombre del lugar o descripción, string), " +
+  var systemPrompt = "Extrae la informaci\u00f3n de una transacci\u00f3n financiera en pesos colombianos. " +
+    "Responde ÚNICAMENTE con un objeto JSON v\u00e1lido con exactamente estos campos: " +
+    "monto (n\u00famero sin s\u00edmbolos ni puntos de miles, ej: 50000), " +
+    "comercio (nombre del lugar o descripci\u00f3n, string), " +
     "categoria (una de: Restaurantes, Domicilios, Mercado, Transporte, Hogar, Salud, Deporte, Compras, Suscripciones, Viajes, Software, Bre-B, Entretenimiento, Otro), " +
-    "banco (Bogotá o Itaú u Otro), " +
-    "tipo (Compra, Débito, Transferencia u Otro). " +
-    "Si algún campo no está claro en el texto, usa el valor más probable.";
+    "banco (Bogot\u00e1 o Ita\u00fa u Otro), " +
+    "tipo (Compra, D\u00e9bito, Transferencia u Otro). " +
+    "Si alg\u00fan campo no est\u00e1 claro en el texto, usa el valor m\u00e1s probable.";
 
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
@@ -949,14 +949,14 @@ function handleChat(question, context) {
   if (!key) throw new Error("ANTHROPIC_API_KEY no configurada en Script Properties");
 
   // System prompt contains server-generated context (safe). User question is isolated in the user turn.
-  var systemPrompt = "Eres un asistente financiero personal del usuario. El usuario habla español colombiano. " +
-    "Responde siempre en español. Puedes responder cualquier pregunta sobre los datos financieros del usuario, " +
-    "sin importar qué tan específica o abierta sea. " +
-    "Cuando el análisis lo requiera, sé detallado y usa listas o viñetas para mayor claridad. " +
-    "Tienes acceso a la lista completa de transacciones en 'transacciones' y también a resúmenes pre-calculados " +
-    "como 'comerciosPorCategoria' que ya agrupa los comercios por categoría con monto y número de compras. " +
-    "Usa los datos más convenientes para responder con precisión. " +
-    "Datos financieros del usuario (últimos 6 meses): " + JSON.stringify(context);
+  var systemPrompt = "Eres un asistente financiero personal del usuario. El usuario habla espa\u00f1ol colombiano. " +
+    "Responde siempre en espa\u00f1ol. Puedes responder cualquier pregunta sobre los datos financieros del usuario, " +
+    "sin importar qu\u00e9 tan espec\u00edfica o abierta sea. " +
+    "Cuando el an\u00e1lisis lo requiera, s\u00e9 detallado y usa listas o vi\u00f1etas para mayor claridad. " +
+    "Tienes acceso a la lista completa de transacciones en 'transacciones' y tambi\u00e9n a res\u00famenes pre-calculados " +
+    "como 'comerciosPorCategoria' que ya agrupa los comercios por categor\u00eda con monto y n\u00famero de compras. " +
+    "Usa los datos m\u00e1s convenientes para responder con precisi\u00f3n. " +
+    "Datos financieros del usuario (\u00faltimos 6 meses): " + JSON.stringify(context);
 
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
@@ -1153,12 +1153,12 @@ function reverseTransaction(parsed, userId) {
 // "Banco de Bogota: Tu compra por 130,456 fue aprobada con
 //  Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB ¿Dudas?..."
 function parseBogota(sms) {
-  var re = /Tu\s+(\w+)\s+por\s+([\d,.]+)\s+fue\s+\w+\s+con\s+(Tarjeta\s+(?:Cr[eé]dito|D[eé]bito)|Cuenta)\s+(\d+)\s+el\s+(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})\s+en\s+(.+?)(?:\s*[¿?]Dudas|$)/i;
+  var re = /Tu\s+(\w+)\s+por\s+([\d,.]+)\s+fue\s+\w+\s+con\s+(Tarjeta\s+(?:Cr[e\u00e9]dito|D[e\u00e9]bito)|Cuenta)\s+(\d+)\s+el\s+(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})\s+en\s+(.+?)(?:\s*[¿?]Dudas|$)/i;
   var m = sms.match(re);
   if (!m) return null;
 
   return {
-    banco:    "Bogotá",
+    banco:    "Bogot\u00e1",
     tipo:     normalizeTipo(m[1]),
     monto:    parseMonto(m[2]),
     tarjeta:  m[3].trim() + " " + m[4],
@@ -1186,7 +1186,7 @@ function parseItau(sms) {
   var mp = sms.match(rePurchase);
   if (mp) {
     return {
-      banco:    "Itaú",
+      banco:    "Ita\u00fa",
       tipo:     normalizeTipo(mp[1]),
       comercio: normalizeComercio(mp[2].trim()),
       tarjeta:  mp[3].trim() + " ****" + mp[4],
@@ -1199,7 +1199,7 @@ function parseItau(sms) {
   var md = sms.match(reDebit);
   if (md) {
     return {
-      banco:    "Itaú",
+      banco:    "Ita\u00fa",
       tipo:     normalizeTipo(md[1]),
       comercio: md[2].trim(),
       tarjeta:  md[2].trim() + " ****" + md[3],
@@ -1225,8 +1225,8 @@ function parseMonto(str) {
 
 function normalizeTipo(raw) {
   var map = {
-    compra: "Compra", debito: "Débito", retiro: "Retiro",
-    transferencia: "Transferencia", credito: "Crédito", abono: "Abono"
+    compra: "Compra", debito: "D\u00e9bito", retiro: "Retiro",
+    transferencia: "Transferencia", credito: "Cr\u00e9dito", abono: "Abono"
   };
   return map[raw.toLowerCase()] || (raw.charAt(0).toUpperCase() + raw.slice(1));
 }
@@ -1393,7 +1393,7 @@ function migrateCategories() {
     "Alojamiento": "Hogar",
     "Ropa":        "Compras",
     "Belleza":     "Compras",
-    "Trámites":    "Otro"
+    "Tr\u00e1mites":    "Otro"
   };
 
   for (var u = 0; u < users.length; u++) {
@@ -1966,7 +1966,7 @@ function parseNotifItau(title, body) {
   var ms = text.match(reShort);
   if (ms) {
     return {
-      banco:   "Itaú",
+      banco:   "Ita\u00fa",
       tipo:    "Compra",
       monto:   parseMonto(ms[1]),
       comercio: normalizeComercio(ms[2].trim()),
@@ -2081,7 +2081,7 @@ function _parseNotifAval(nombreBanco, title, body) {
   var text = body || title;
 
   // Same pattern as Bogotá SMS — Aval banks share transaction notification wording
-  var re = /(?:Tu\s+)?(\w+)\s+por\s+([\d,.]+)\s+(?:fue\s+\w+\s+)?con\s+(?:Tarjeta\s+(?:Cr[eé]dito|D[eé]bito)|Cuenta)\s+(\d+)\s+(?:el\s+[\d/]+\s+[\d:]+\s+)?en\s+(.+?)(?:\s*[¿?]|$)/i;
+  var re = /(?:Tu\s+)?(\w+)\s+por\s+([\d,.]+)\s+(?:fue\s+\w+\s+)?con\s+(?:Tarjeta\s+(?:Cr[e\u00e9]dito|D[e\u00e9]bito)|Cuenta)\s+(\d+)\s+(?:el\s+[\d/]+\s+[\d:]+\s+)?en\s+(.+?)(?:\s*[¿?]|$)/i;
   var m = text.match(re);
   if (m) {
     return {
@@ -2169,7 +2169,7 @@ function parseNotifRappi(title, body) {
 
 // ── Test manual — ejecutar desde el editor de Apps Script ─────
 function testParsers() {
-  var smsBogota       = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
+  var smsBogota       = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Cr\u00e9dito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
   var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
   var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
   var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
@@ -2203,7 +2203,7 @@ function testParsers() {
   Logger.log("Notif DAV compra: " + JSON.stringify(parseNotifDavivienda("Davivienda", pushDav)));
 
   // Bogotá push (reuses SMS parser)
-  var pushBdb = "Tu compra por 130,456 fue aprobada con Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA";
+  var pushBdb = "Tu compra por 130,456 fue aprobada con Tarjeta Cr\u00e9dito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA";
   Logger.log("Notif BDB compra: " + JSON.stringify(parseNotifBogota("Banco de Bogotá", pushBdb)));
 
   // Itaú push (reuses SMS parser)
@@ -2211,8 +2211,8 @@ function testParsers() {
   Logger.log("Notif ITA compra: " + JSON.stringify(parseNotifItau("Itaú", pushIta)));
 
   // Nequi push (no tarjeta)
-  var pushNeqPago   = "Pagaste $23,000 a Juan Pérez";
-  var pushNeqRecibio = "Recibiste $50,000 de María López";
+  var pushNeqPago   = "Pagaste $23,000 a Juan P\u00e9rez";
+  var pushNeqRecibio = "Recibiste $50,000 de Mar\u00eda L\u00f3pez";
   var pushNeqCompra = "Compraste $15,900 en Rappi";
   Logger.log("Notif NEQ pago:   " + JSON.stringify(parseNotifNequi("Nequi", pushNeqPago)));
   Logger.log("Notif NEQ recibio:" + JSON.stringify(parseNotifNequi("Nequi", pushNeqRecibio)));
@@ -2223,13 +2223,13 @@ function testParsers() {
   Logger.log("Notif DPL recibio:" + JSON.stringify(parseNotifDaviplata("Daviplata", pushDpl)));
 
   // Aval banks push
-  var pushAval = "Tu compra por 45,000 fue aprobada con Tarjeta Crédito 1234 en JUMP FITNESS";
+  var pushAval = "Tu compra por 45,000 fue aprobada con Tarjeta Cr\u00e9dito 1234 en JUMP FITNESS";
   Logger.log("Notif OCC compra: " + JSON.stringify(parseNotifOccidente("Occidente", pushAval)));
   Logger.log("Notif POP compra: " + JSON.stringify(parseNotifPopular("Popular", pushAval)));
   Logger.log("Notif AVV compra: " + JSON.stringify(parseNotifAvVillas("AV Villas", pushAval)));
 
   // dale! push
-  var pushDal = "Enviaste $15,000 a Pedro González";
+  var pushDal = "Enviaste $15,000 a Pedro Gonz\u00e1lez";
   Logger.log("Notif DAL envio:  " + JSON.stringify(parseNotifDale("dale!", pushDal)));
 
   // Rappi push
@@ -2237,7 +2237,7 @@ function testParsers() {
   Logger.log("Notif RAP pedido: " + JSON.stringify(parseNotifRappi("Rappi", pushRap)));
 
   // NO_RECONOCIDO fallback
-  var pushUnknown = "Tienes una nueva notificación";
+  var pushUnknown = "Tienes una nueva notificaci\u00f3n";
   Logger.log("Notif UNKNOWN:    " + JSON.stringify(parseNotification("bancolombia", "Bancolombia", pushUnknown)));
 
   // dispatcher routing check
