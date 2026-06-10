@@ -4,6 +4,11 @@
 
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 
+// Tipos de imagen aceptados por Claude Vision (y por nosotros).
+const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+// Tope del base64 de la imagen (~7.3 MB binarios). Evita abusar de la API de Anthropic.
+const MAX_IMAGE_B64_LENGTH = 10 * 1024 * 1024;
+
 export async function onRequest(context) {
   const { request, env } = context;
 
@@ -23,12 +28,41 @@ export async function onRequest(context) {
     return json({ ok: false, error: 'Cuerpo de solicitud inválido' }, 400);
   }
 
+  // Autenticación: solo usuarios con un token de sesión válido pueden gastar la
+  // API de Anthropic. El token se valida contra el webhook (Apps Script), que es
+  // el único que conoce los tokens (viven en su CacheService).
+  const token = typeof body.token === 'string' ? body.token : '';
+  if (!token) {
+    return json({ ok: false, error: 'No autorizado' }, 401);
+  }
+  const WEBHOOK_URL = env.WEBHOOK_URL || '';
+  if (!WEBHOOK_URL) {
+    return json({ ok: false, error: 'WEBHOOK_URL no configurado en Cloudflare' }, 500);
+  }
+  const SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
+  try {
+    const authRes = await fetch(`${WEBHOOK_URL}?_secret=${encodeURIComponent(SECRET)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'validateToken', token }),
+    });
+    const authData = await authRes.json().catch(() => ({}));
+    if (!authData || !authData.ok) {
+      return json({ ok: false, error: 'No autorizado' }, 401);
+    }
+  } catch {
+    return json({ ok: false, error: 'No se pudo verificar la sesión' }, 502);
+  }
+
   const { image, mediaType } = body;
   if (!image || typeof image !== 'string') {
     return json({ ok: false, error: 'Se requiere el campo "image" en base64' }, 400);
   }
+  if (image.length > MAX_IMAGE_B64_LENGTH) {
+    return json({ ok: false, error: 'La imagen es demasiado grande' }, 413);
+  }
 
-  const imageMediaType = mediaType || 'image/jpeg';
+  const imageMediaType = ALLOWED_MEDIA_TYPES.includes(mediaType) ? mediaType : 'image/jpeg';
 
   const claudeBody = {
     model: 'claude-opus-4-8',

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { saveTransaction } from '../lib/api';
+import { saveTransaction, getToken } from '../lib/api';
 import { quickEase, softSpring } from '../lib/motion';
 import { formatCOP } from '../lib/utils';
 
@@ -56,7 +56,7 @@ export function ImportarExtractoPorFoto({ userId, onClose, onImported }: Props) 
       const res = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mediaType }),
+        body: JSON.stringify({ image: base64, mediaType, token: getToken() }),
       });
       const data = await res.json();
       if (!data.ok) {

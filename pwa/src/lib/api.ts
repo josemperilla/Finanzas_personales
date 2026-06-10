@@ -21,6 +21,12 @@ function withAuth(body: Record<string, unknown>): Record<string, unknown> {
   return _token ? { ...body, token: _token } : body;
 }
 
+// Expone el token de sesión activo para llamadas que no pasan por este módulo
+// (p. ej. el endpoint /api/ocr de Cloudflare, que lo valida contra el webhook).
+export function getToken(): string | null {
+  return _token;
+}
+
 function assertWebhookUrl() {
   if (!WEBHOOK_URL) {
     throw new Error('Falta configurar WEBHOOK_URL en el servidor');

@@ -280,6 +280,15 @@ function doPost(e) {
       return jsonResponse({ ok: true, exists: !!hp && hp.length > 0 });
     }
 
+    // Validar un token de sesion sin ejecutar ninguna accion. Lo usa el endpoint
+    // /api/ocr (Cloudflare) para autenticar al llamante antes de gastar la API de
+    // Anthropic: resuelve el token a un userId o devuelve ok:false.
+    if (type === "validateToken") {
+      var tkUser = _userFromToken(payload.token);
+      if (!tkUser) return jsonResponse({ ok: false, error: "Unauthorized" });
+      return jsonResponse({ ok: true, userId: tkUser });
+    }
+
     // Validar PIN del usuario -- emite token de sesion al acertar
     if (type === "validatePin") {
       var pin = String(payload.pin || "");
