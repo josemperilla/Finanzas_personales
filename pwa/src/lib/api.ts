@@ -409,10 +409,14 @@ export async function revokeInvite(adminUserId: string, code: string): Promise<{
 
 export async function updateProfile(updates: { displayName?: string; avatar?: string }): Promise<void> {
   assertWebhookUrl();
+  // GAS Script Properties has a 9 KB per-value limit; skip avatar sync if too large
+  const safeUpdates = { ...updates };
+  if (safeUpdates.avatar && safeUpdates.avatar.length > 8000) delete safeUpdates.avatar;
+  if (!safeUpdates.displayName && !safeUpdates.avatar) return;
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(withUser({ type: 'updateProfile', ...updates })),
+    body: JSON.stringify(withUser({ type: 'updateProfile', ...safeUpdates })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al actualizar perfil');

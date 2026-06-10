@@ -44,6 +44,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
 
   // Disable/enable state
   const [togglingDisabled, setTogglingDisabled] = useState<string | null>(null);
+  const [disableError, setDisableError] = useState<{ uid: string; text: string } | null>(null);
 
   // Create user state
   const [newUser, setNewUser] = useState({ id: '', name: '', pin: '' });
@@ -111,8 +112,9 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
       setInvites(prev => prev.filter(i => i.code !== code));
       if (lastInvite?.code === code) setLastInvite(null);
       onProfilesChanged();
-    } catch { /* ignore */ }
-    finally { setRevokingCode(null); }
+    } catch (e) {
+      setInviteMsg({ text: e instanceof Error ? e.message : 'Error al revocar invitación', ok: false });
+    } finally { setRevokingCode(null); }
   }
 
   function copyInviteCode(code: string) {
@@ -173,12 +175,14 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
 
   async function handleDisableToggle(uid: string, currentStatus: 'active' | 'disabled') {
     setTogglingDisabled(uid);
+    setDisableError(null);
     try {
       if (currentStatus === 'active') await disableUser(adminId, uid);
       else await enableUser(adminId, uid);
       reload();
-    } catch { /* ignore */ }
-    finally { setTogglingDisabled(null); }
+    } catch (e) {
+      setDisableError({ uid, text: e instanceof Error ? e.message : 'Error al cambiar estado' });
+    } finally { setTogglingDisabled(null); }
   }
 
   async function handleCreateUser() {
@@ -288,6 +292,9 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                     ✕
                   </motion.button>
                 </div>
+              )}
+              {disableError?.uid === u.id && (
+                <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626', marginTop: 4 }}>{disableError.text}</div>
               )}
             </div>
 
