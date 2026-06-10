@@ -1,17 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listUsers, createUser, deleteUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite } from '../lib/api';
+import { listUsers, createUser, deleteUser, disableUser, enableUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite, UserInfo } from '../lib/api';
 import { getUserNickname } from '../lib/profiles';
 import { quickEase } from '../lib/motion';
 
 interface Props {
   adminId: string;
   onProfilesChanged: () => void;
-}
-
-interface UserRow {
-  id: string;
-  nickname: string;
 }
 
 type ActiveAction = { type: 'resetPin'; uid: string } | { type: 'delete'; uid: string } | { type: 'emergencyPin'; uid: string } | null;
@@ -24,7 +19,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export function AdminPanel({ adminId, onProfilesChanged }: Props) {
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [showNewUser, setShowNewUser] = useState(false);
@@ -37,6 +32,10 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   // Delete state
   const [deleting, setDeleting] = useState(false);
   const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
+  const [deleteWithData, setDeleteWithData] = useState(false);
+
+  // Disable/enable state
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Create user state
   const [newUser, setNewUser] = useState({ id: '', name: '', pin: '' });
@@ -63,7 +62,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   const reload = useCallback(() => {
     setLoading(true);
     listUsers(adminId)
-      .then(ids => setUsers(ids.map(id => ({ id, nickname: getUserNickname(id) }))))
+      .then(data => setUsers(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [adminId]);
@@ -149,13 +148,27 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   async function handleDelete(uid: string) {
     setDeleting(true); setDeleteMsg(null);
     try {
-      await deleteUser(adminId, uid);
+      await deleteUser(adminId, uid, deleteWithData);
       setActiveAction(null);
       setUsers(prev => prev.filter(u => u.id !== uid));
       onProfilesChanged();
     } catch (e) {
       setDeleteMsg(e instanceof Error ? e.message : 'Error al eliminar');
     } finally { setDeleting(false); }
+  }
+
+  async function handleToggleStatus(u: UserInfo) {
+    setTogglingId(u.id);
+    try {
+      if (u.status === 'disabled') {
+        await enableUser(adminId, u.id);
+        setUsers(prev => prev.map(x => x.id === u.id ? { ...x, status: 'active' } : x));
+      } else {
+        await disableUser(adminId, u.id);
+        setUsers(prev => prev.map(x => x.id === u.id ? { ...x, status: 'disabled' } : x));
+      }
+    } catch { /* ignore */ }
+    finally { setTogglingId(null); }
   }
 
   async function handleCreateUser() {
@@ -195,23 +208,29 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)' }}>
               <div style={{
                 width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                background: u.id === adminId ? 'var(--blue-700)' : 'var(--grad-brand)',
+                background: u.id === adminId ? 'var(--blue-700)' : u.status === 'disabled' ? 'var(--muted)' : 'var(--grad-brand)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)',
+                opacity: u.status === 'disabled' ? 0.5 : 1,
               }}>
                 {u.id.charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ink)' }}>
-                  {u.nickname || u.id}
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: u.status === 'disabled' ? 'var(--muted)' : 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  {getUserNickname(u.id) || u.id}
                   {u.id === adminId && (
-                    <span style={{ marginLeft: 6, fontSize: 'var(--text-xs)', color: 'var(--blue-700)', fontWeight: 500 }}>Admin</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--blue-700)', fontWeight: 500 }}>Admin</span>
+                  )}
+                  {u.status === 'disabled' && (
+                    <span style={{ fontSize: 'var(--text-xs)', color: '#dc2626', fontWeight: 500, background: '#fef2f2', padding: '1px 6px', borderRadius: 4 }}>Deshabilitado</span>
                   )}
                 </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{u.id}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+                  @{u.id} · {u.txCount} tx{u.lastActivity ? ` · última: ${u.lastActivity.slice(0, 10)}` : ''}
+                </div>
               </div>
               {u.id !== adminId && (
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <motion.button whileTap={{ scale: 0.92 }}
                     onClick={() => toggleAction({ type: 'resetPin', uid: u.id })}
                     style={{
@@ -233,7 +252,20 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                     SOS
                   </motion.button>
                   <motion.button whileTap={{ scale: 0.92 }}
-                    onClick={() => toggleAction({ type: 'delete', uid: u.id })}
+                    onClick={() => handleToggleStatus(u)}
+                    disabled={togglingId === u.id}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8,
+                      border: u.status === 'disabled' ? '1px solid #bbf7d0' : '1px solid #fde68a',
+                      background: 'var(--card)',
+                      color: u.status === 'disabled' ? '#16a34a' : '#b45309',
+                      fontSize: 'var(--text-xs)', fontWeight: 600,
+                      cursor: togglingId === u.id ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
+                    }}>
+                    {togglingId === u.id ? '…' : u.status === 'disabled' ? 'Activar' : 'Pausar'}
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.92 }}
+                    onClick={() => { setDeleteWithData(false); toggleAction({ type: 'delete', uid: u.id }); }}
                     style={{
                       padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5',
                       background: activeAction?.type === 'delete' && activeAction.uid === u.id ? '#fef2f2' : 'var(--card)',
@@ -257,7 +289,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                   style={{ overflow: 'hidden' }}
                 >
                   <div style={{ padding: '12px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Nuevo PIN para {u.nickname || u.id} (4–6 dígitos)</div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>Nuevo PIN para {getUserNickname(u.id) || u.id} (4–6 dígitos)</div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input
                         type="password" inputMode="numeric" maxLength={6}
@@ -293,13 +325,17 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                 >
                   <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626', fontWeight: 500 }}>
-                      Se eliminarán TODAS las transacciones de {u.nickname || u.id}. Esta acción no se puede deshacer.
+                      Eliminar acceso de {getUserNickname(u.id) || u.id}
                     </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 'var(--text-xs)', color: 'var(--ink)' }}>
+                      <input type="checkbox" checked={deleteWithData} onChange={e => setDeleteWithData(e.target.checked)} />
+                      Borrar también todas las transacciones (irreversible)
+                    </label>
                     {deleteMsg && <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626' }}>{deleteMsg}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleDelete(u.id)} disabled={deleting}
                         style={{ flex: 1, height: 40, background: '#dc2626', border: 'none', borderRadius: 10, color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: deleting ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
-                        {deleting ? 'Eliminando…' : 'Sí, eliminar'}
+                        {deleting ? 'Eliminando…' : deleteWithData ? 'Eliminar con datos' : 'Eliminar acceso'}
                       </motion.button>
                       <motion.button whileTap={{ scale: 0.97 }} onClick={() => setActiveAction(null)}
                         style={{ padding: '0 16px', height: 40, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -322,7 +358,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                 >
                   <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ fontSize: 'var(--text-xs)', color: '#92400e' }}>
-                      Genera un PIN de un solo uso válido por 24 horas para {u.nickname || u.id}.
+                      Genera un PIN de un solo uso válido por 24 horas para {getUserNickname(u.id) || u.id}.
                     </div>
                     {!emergResult ? (
                       <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleGenerateEmergencyPin(u.id)} disabled={emergLoading}

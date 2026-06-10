@@ -33,11 +33,66 @@ function _validateUserId(userId) {
   if (!userId || allowed.indexOf(userId) === -1) {
     throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + allowed.join(", "));
   }
+  var status = PropertiesService.getScriptProperties().getProperty("APP_STATUS_" + userId);
+  if (status === "disabled") {
+    throw new Error("Esta cuenta está deshabilitada. Contacta al administrador.");
+  }
 }
 
 // ── Admin check ───────────────────────────────────────────────
 function _getAdminUser() {
   return PropertiesService.getScriptProperties().getProperty("ADMIN_USER") || ADMIN_USER;
+}
+
+// ── PIN hashing (SHA-256 + per-user salt) ─────────────────────
+// Apps Script has no bcrypt; SHA-256+salt is the strongest option available.
+// Format stored in APP_PIN_<id>: "sha256:<salt>:<hexdigest>"
+// Legacy plaintext PINs auto-upgrade on first successful login.
+function _byteToHex(b) {
+  var h = (b < 0 ? b + 256 : b).toString(16);
+  return h.length === 1 ? "0" + h : h;
+}
+function _hashPin(userId, pin) {
+  var props = PropertiesService.getScriptProperties();
+  var saltKey = "APP_PIN_SALT_" + userId;
+  var salt = props.getProperty(saltKey);
+  if (!salt) {
+    salt = Utilities.getUuid().replace(/-/g, "");
+    props.setProperty(saltKey, salt);
+  }
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    userId + ":" + salt + ":" + pin
+  );
+  return "sha256:" + salt + ":" + bytes.map(_byteToHex).join("");
+}
+function _verifyPin(userId, pin, stored) {
+  if (!stored || !pin) return false;
+  if (stored.indexOf("sha256:") === 0) {
+    var parts = stored.split(":");
+    if (parts.length !== 3) return false;
+    var bytes = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256,
+      userId + ":" + parts[1] + ":" + pin
+    );
+    return bytes.map(_byteToHex).join("") === parts[2];
+  }
+  return pin === stored; // legacy plaintext — auto-upgraded on success
+}
+
+// ── User stats helper ─────────────────────────────────────────
+function _getUserStats(userId) {
+  try {
+    var ref = _getSheet(userId);
+    if (!ref.sheet) return { txCount: 0, lastActivity: null };
+    var lastRow = ref.sheet.getLastRow();
+    var txCount = Math.max(0, lastRow - 1); // minus header row
+    if (txCount === 0) return { txCount: 0, lastActivity: null };
+    var lastTs = ref.sheet.getRange(lastRow, 1).getValue();
+    return { txCount: txCount, lastActivity: lastTs ? String(lastTs) : null };
+  } catch(e) {
+    return { txCount: 0, lastActivity: null };
+  }
 }
 
 // ── Provisioning helpers (compartidos por createUser/createInvite) ────
@@ -50,7 +105,7 @@ function _provisionUser(newId, displayName, initPin) {
   currentUsers.push(newId);
   var props = PropertiesService.getScriptProperties();
   props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
-  if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
+  if (initPin) props.setProperty("APP_PIN_" + newId, _hashPin(newId, initPin));
   // Crear el tab en Sheets con headers si no existe.
   var newRef = _getSheet(newId);
   if (!newRef.sheet) {
@@ -61,12 +116,14 @@ function _provisionUser(newId, displayName, initPin) {
   }
 }
 
-// Elimina el usuario: lo quita de USERS_LIST, borra su PIN y su tab en Sheets.
+// Elimina el usuario: lo quita de USERS_LIST, borra su PIN, salt, status y su tab en Sheets.
 function _deprovisionUser(targetId) {
   var delProps = PropertiesService.getScriptProperties();
   var allUsers = _getAllowedUsers();
   delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
   delProps.deleteProperty("APP_PIN_" + targetId);
+  delProps.deleteProperty("APP_PIN_SALT_" + targetId);
+  delProps.deleteProperty("APP_STATUS_" + targetId);
   try {
     var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
     var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
@@ -304,7 +361,13 @@ function doPost(e) {
       var vProps = PropertiesService.getScriptProperties();
       var storedPin = vProps.getProperty("APP_PIN_" + claimedUserId);
       if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + claimedUserId + " no configurado en Script Properties" });
-      if (pin === storedPin) return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+      if (_verifyPin(claimedUserId, pin, storedPin)) {
+        // Auto-upgrade plaintext PIN to hashed on first successful login
+        if (storedPin.indexOf("sha256:") !== 0) {
+          vProps.setProperty("APP_PIN_" + claimedUserId, _hashPin(claimedUserId, pin));
+        }
+        return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+      }
       // Check emergency PIN (single-use, 24h TTL)
       var emergRaw = vProps.getProperty("EMERGENCY_PIN_" + claimedUserId);
       if (emergRaw) {
@@ -342,7 +405,7 @@ function doPost(e) {
       if (hasPendingInvite && !matchCode) {
         return jsonResponse({ ok: false, error: "Codigo de invitacion invalido o expirado" });
       }
-      spProps.setProperty("APP_PIN_" + claimedUserId, newPin);
+      spProps.setProperty("APP_PIN_" + claimedUserId, _hashPin(claimedUserId, newPin));
       // Consumir la invitacion redimida (un solo uso).
       if (matchCode) { invMap[matchCode].used = true; invMap[matchCode].usedAt = nowMs; _saveInvites(invMap); }
       return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
@@ -418,7 +481,41 @@ function doPost(e) {
     // Listar usuarios registrados
     if (type === "listUsers") {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede listar usuarios" });
-      return jsonResponse({ ok: true, data: _getAllowedUsers() });
+      var props = PropertiesService.getScriptProperties();
+      var usersData = _getAllowedUsers().map(function(uid) {
+        var stats = _getUserStats(uid);
+        var status = props.getProperty("APP_STATUS_" + uid) || "active";
+        var hasPin = !!(props.getProperty("APP_PIN_" + uid));
+        return {
+          id: uid,
+          status: status,
+          hasPin: hasPin,
+          txCount: stats.txCount,
+          lastActivity: stats.lastActivity
+        };
+      });
+      return jsonResponse({ ok: true, data: usersData });
+    }
+
+    // Deshabilitar un usuario (admin only) — impide login sin borrar datos
+    if (type === "disableUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede deshabilitar usuarios" });
+      var targetId = String(payload.targetId || "").toLowerCase().trim();
+      if (!targetId) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (targetId === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes deshabilitar al administrador" });
+      if (_getAllowedUsers().indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "Usuario no encontrado" });
+      PropertiesService.getScriptProperties().setProperty("APP_STATUS_" + targetId, "disabled");
+      return jsonResponse({ ok: true, disabled: targetId });
+    }
+
+    // Habilitar un usuario previamente deshabilitado (admin only)
+    if (type === "enableUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede habilitar usuarios" });
+      var targetId = String(payload.targetId || "").toLowerCase().trim();
+      if (!targetId) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (_getAllowedUsers().indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "Usuario no encontrado" });
+      PropertiesService.getScriptProperties().deleteProperty("APP_STATUS_" + targetId);
+      return jsonResponse({ ok: true, enabled: targetId });
     }
 
     // Crear un nuevo usuario (admin only)
@@ -515,8 +612,18 @@ function doPost(e) {
       if (targetId === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes eliminar al administrador" });
       var allUsers = _getAllowedUsers();
       if (allUsers.indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "El usuario '" + targetId + "' no existe" });
-      _deprovisionUser(targetId);
-      return jsonResponse({ ok: true, deleted: targetId });
+      var deleteData = payload.deleteData === true;
+      if (deleteData) {
+        _deprovisionUser(targetId); // removes from USERS_LIST, deletes PIN, salt, status, and tab
+      } else {
+        // Soft-delete: remove from allowed list and clear credentials, keep the data tab
+        var delProps = PropertiesService.getScriptProperties();
+        delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
+        delProps.deleteProperty("APP_PIN_" + targetId);
+        delProps.deleteProperty("APP_PIN_SALT_" + targetId);
+        delProps.deleteProperty("APP_STATUS_" + targetId);
+      }
+      return jsonResponse({ ok: true, deleted: targetId, dataDeleted: deleteData });
     }
 
     // Migración masiva de categorías (admin only) — renombra obsoletas y re-detecta
@@ -533,7 +640,7 @@ function doPost(e) {
       var resetPin = String(payload.newPin || "");
       if (!resetTarget) return jsonResponse({ ok: false, error: "targetId requerido" });
       if (!resetPin || !/^\d{4,6}$/.test(resetPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
-      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, resetPin);
+      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, _hashPin(resetTarget, resetPin));
       return jsonResponse({ ok: true, reset: resetTarget });
     }
 

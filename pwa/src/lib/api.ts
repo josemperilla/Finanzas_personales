@@ -181,7 +181,15 @@ export async function changePin(currentPin: string, newPin: string): Promise<voi
 
 // ── Gestión de usuarios ───────────────────────────────────────
 
-export async function listUsers(adminUserId: string): Promise<string[]> {
+export interface UserInfo {
+  id: string;
+  status: 'active' | 'disabled';
+  hasPin: boolean;
+  txCount: number;
+  lastActivity: string | null;
+}
+
+export async function listUsers(adminUserId: string): Promise<UserInfo[]> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
@@ -190,7 +198,7 @@ export async function listUsers(adminUserId: string): Promise<string[]> {
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al listar usuarios');
-  return json.data as string[];
+  return json.data as UserInfo[];
 }
 
 export async function createUser(
@@ -209,15 +217,37 @@ export async function createUser(
   if (!json.ok) throw new Error(json.error || 'Error al crear usuario');
 }
 
-export async function deleteUser(adminUserId: string, targetUserId: string): Promise<void> {
+export async function deleteUser(adminUserId: string, targetUserId: string, deleteData = false): Promise<void> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(withAuth({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId })),
+    body: JSON.stringify(withAuth({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId, deleteData })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al eliminar usuario');
+}
+
+export async function disableUser(adminUserId: string, targetUserId: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'disableUser', userId: adminUserId, targetId: targetUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al deshabilitar usuario');
+}
+
+export async function enableUser(adminUserId: string, targetUserId: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'enableUser', userId: adminUserId, targetId: targetUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al habilitar usuario');
 }
 
 export async function resetUserPin(adminUserId: string, targetUserId: string, newPin: string): Promise<void> {

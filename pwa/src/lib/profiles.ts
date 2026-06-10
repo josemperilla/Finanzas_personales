@@ -111,12 +111,12 @@ export function getKnownProfiles(): Profile[] {
 export async function fetchProfiles(): Promise<Profile[]> {
   try {
     const adminId = localStorage.getItem('fm_profile') || 'jose';
-    const ids = await listUsers(adminId);
-    return ids.map(id => {
-      const known = PROFILES.find(p => p.id === id);
+    const userInfos = await listUsers(adminId);
+    return userInfos.map(u => {
+      const known = PROFILES.find(p => p.id === u.id);
       if (known) return known;
-      const initial = id.charAt(0).toUpperCase();
-      return { id, name: id.charAt(0).toUpperCase() + id.slice(1), avatar: '', initial };
+      const name = u.id.charAt(0).toUpperCase() + u.id.slice(1);
+      return { id: u.id, name, avatar: '', initial: u.id.charAt(0).toUpperCase() };
     });
   } catch {
     return PROFILES;
