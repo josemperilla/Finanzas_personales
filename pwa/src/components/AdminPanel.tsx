@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listUsers, createUser, deleteUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite } from '../lib/api';
+import { listUsersData, createUser, deleteUser, disableUser, enableUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite } from '../lib/api';
 import { getUserNickname } from '../lib/profiles';
 import { quickEase } from '../lib/motion';
 
@@ -12,6 +12,9 @@ interface Props {
 interface UserRow {
   id: string;
   nickname: string;
+  status: 'active' | 'disabled';
+  txCount: number;
+  lastActivity: string | null;
 }
 
 type ActiveAction = { type: 'resetPin'; uid: string } | { type: 'delete'; uid: string } | { type: 'emergencyPin'; uid: string } | null;
@@ -37,6 +40,10 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   // Delete state
   const [deleting, setDeleting] = useState(false);
   const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
+  const [deleteData, setDeleteData] = useState(true);
+
+  // Disable/enable state
+  const [togglingDisabled, setTogglingDisabled] = useState<string | null>(null);
 
   // Create user state
   const [newUser, setNewUser] = useState({ id: '', name: '', pin: '' });
@@ -62,8 +69,14 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
 
   const reload = useCallback(() => {
     setLoading(true);
-    listUsers(adminId)
-      .then(ids => setUsers(ids.map(id => ({ id, nickname: getUserNickname(id) }))))
+    listUsersData(adminId)
+      .then(data => setUsers(data.users.map(u => ({
+        id: u.id,
+        nickname: getUserNickname(u.id),
+        status: u.status,
+        txCount: u.txCount,
+        lastActivity: u.lastActivity,
+      }))))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [adminId]);
@@ -149,13 +162,23 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
   async function handleDelete(uid: string) {
     setDeleting(true); setDeleteMsg(null);
     try {
-      await deleteUser(adminId, uid);
+      await deleteUser(adminId, uid, deleteData);
       setActiveAction(null);
       setUsers(prev => prev.filter(u => u.id !== uid));
       onProfilesChanged();
     } catch (e) {
       setDeleteMsg(e instanceof Error ? e.message : 'Error al eliminar');
     } finally { setDeleting(false); }
+  }
+
+  async function handleDisableToggle(uid: string, currentStatus: 'active' | 'disabled') {
+    setTogglingDisabled(uid);
+    try {
+      if (currentStatus === 'active') await disableUser(adminId, uid);
+      else await enableUser(adminId, uid);
+      reload();
+    } catch { /* ignore */ }
+    finally { setTogglingDisabled(null); }
   }
 
   async function handleCreateUser() {
@@ -202,16 +225,38 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                 {u.id.charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ink)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: u.status === 'disabled' ? 'var(--muted)' : 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   {u.nickname || u.id}
                   {u.id === adminId && (
-                    <span style={{ marginLeft: 6, fontSize: 'var(--text-xs)', color: 'var(--blue-700)', fontWeight: 500 }}>Admin</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--blue-700)', fontWeight: 500 }}>Admin</span>
+                  )}
+                  {u.status === 'disabled' && (
+                    <span style={{ fontSize: 'var(--text-xs)', color: '#dc2626', fontWeight: 500, background: '#fef2f2', padding: '1px 6px', borderRadius: 4 }}>deshabilitado</span>
                   )}
                 </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{u.id}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
+                  {u.id}
+                  {' · '}
+                  {u.txCount > 0
+                    ? `${u.txCount} tx${u.lastActivity ? ` · última ${u.lastActivity}` : ''}`
+                    : 'sin transacciones'}
+                </div>
               </div>
               {u.id !== adminId && (
                 <div style={{ display: 'flex', gap: 6 }}>
+                  <motion.button whileTap={{ scale: 0.92 }}
+                    onClick={() => handleDisableToggle(u.id, u.status)}
+                    disabled={togglingDisabled === u.id}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8,
+                      border: u.status === 'disabled' ? '1px solid #bbf7d0' : '1px solid var(--line)',
+                      background: u.status === 'disabled' ? '#f0fdf4' : 'var(--card)',
+                      color: u.status === 'disabled' ? '#16a34a' : 'var(--muted)',
+                      fontSize: 'var(--text-xs)', fontWeight: 600,
+                      cursor: togglingDisabled === u.id ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
+                    }}>
+                    {togglingDisabled === u.id ? '…' : u.status === 'disabled' ? 'Activar' : 'Pausar'}
+                  </motion.button>
                   <motion.button whileTap={{ scale: 0.92 }}
                     onClick={() => toggleAction({ type: 'resetPin', uid: u.id })}
                     style={{
@@ -233,7 +278,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                     SOS
                   </motion.button>
                   <motion.button whileTap={{ scale: 0.92 }}
-                    onClick={() => toggleAction({ type: 'delete', uid: u.id })}
+                    onClick={() => { setDeleteData(true); toggleAction({ type: 'delete', uid: u.id }); }}
                     style={{
                       padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5',
                       background: activeAction?.type === 'delete' && activeAction.uid === u.id ? '#fef2f2' : 'var(--card)',
@@ -293,8 +338,17 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                 >
                   <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626', fontWeight: 500 }}>
-                      Se eliminarán TODAS las transacciones de {u.nickname || u.id}. Esta acción no se puede deshacer.
+                      Eliminar usuario {u.nickname || u.id}. Esta acción no se puede deshacer.
                     </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-xs)', color: 'var(--ink)', cursor: 'pointer', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={deleteData}
+                        onChange={e => setDeleteData(e.target.checked)}
+                        style={{ width: 14, height: 14, cursor: 'pointer' }}
+                      />
+                      Borrar también las transacciones ({u.txCount} registros)
+                    </label>
                     {deleteMsg && <div style={{ fontSize: 'var(--text-xs)', color: '#dc2626' }}>{deleteMsg}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <motion.button whileTap={{ scale: 0.97 }} onClick={() => handleDelete(u.id)} disabled={deleting}

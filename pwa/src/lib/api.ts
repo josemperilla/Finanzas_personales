@@ -209,12 +209,12 @@ export async function createUser(
   if (!json.ok) throw new Error(json.error || 'Error al crear usuario');
 }
 
-export async function deleteUser(adminUserId: string, targetUserId: string): Promise<void> {
+export async function deleteUser(adminUserId: string, targetUserId: string, deleteData = true): Promise<void> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(withAuth({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId })),
+    body: JSON.stringify(withAuth({ type: 'deleteUser', userId: adminUserId, targetId: targetUserId, deleteData })),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al eliminar usuario');
@@ -302,6 +302,58 @@ export async function generateEmergencyPin(
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error generando PIN de emergencia');
   return { code: json.code as string, expiresAt: json.expiresAt as string };
+}
+
+export interface UserStats {
+  id: string;
+  status: 'active' | 'disabled';
+  txCount: number;
+  lastActivity: string | null;
+}
+
+export interface UsersData {
+  users: UserStats[];
+  pendingInvites: {
+    code: string;
+    userId: string;
+    displayName: string;
+    expiresAt: string;
+    expired: boolean;
+  }[];
+}
+
+export async function listUsersData(adminUserId: string): Promise<UsersData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'listUsersData', userId: adminUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar datos de usuarios');
+  return json.data as UsersData;
+}
+
+export async function disableUser(adminUserId: string, targetUserId: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'disableUser', userId: adminUserId, targetId: targetUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al deshabilitar usuario');
+}
+
+export async function enableUser(adminUserId: string, targetUserId: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withAuth({ type: 'enableUser', userId: adminUserId, targetId: targetUserId })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al habilitar usuario');
 }
 
 // ── Invitaciones de un solo uso ───────────────────────────────

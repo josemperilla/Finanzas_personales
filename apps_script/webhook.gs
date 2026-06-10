@@ -33,6 +33,9 @@ function _validateUserId(userId) {
   if (!userId || allowed.indexOf(userId) === -1) {
     throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + allowed.join(", "));
   }
+  if (PropertiesService.getScriptProperties().getProperty("APP_USER_DISABLED_" + userId) === "true") {
+    throw new Error("Usuario deshabilitado");
+  }
 }
 
 // ── Admin check ───────────────────────────────────────────────
@@ -61,18 +64,71 @@ function _provisionUser(newId, displayName, initPin) {
   }
 }
 
-// Elimina el usuario: lo quita de USERS_LIST, borra su PIN y su tab en Sheets.
-function _deprovisionUser(targetId) {
+// Elimina el usuario: lo quita de USERS_LIST, borra su PIN y opcionalmente su tab en Sheets.
+// deleteData: si es true (por defecto) borra el tab; si es false conserva los datos.
+function _deprovisionUser(targetId, deleteData) {
   var delProps = PropertiesService.getScriptProperties();
   var allUsers = _getAllowedUsers();
   delProps.setProperty("USERS_LIST", JSON.stringify(allUsers.filter(function(u) { return u !== targetId; })));
   delProps.deleteProperty("APP_PIN_" + targetId);
-  try {
-    var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
-    var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
-    var delSheet = delSs.getSheetByName(sheetName);
-    if (delSheet) delSs.deleteSheet(delSheet);
-  } catch(delErr) { /* hoja no existe — continuar */ }
+  delProps.deleteProperty("APP_PIN_SALT_" + targetId);
+  delProps.deleteProperty("APP_USER_DISABLED_" + targetId);
+  if (deleteData !== false) {
+    try {
+      var delSs = SpreadsheetApp.openById(delProps.getProperty("SHEET_ID"));
+      var sheetName = targetId.charAt(0).toUpperCase() + targetId.slice(1);
+      var delSheet = delSs.getSheetByName(sheetName);
+      if (delSheet) delSs.deleteSheet(delSheet);
+    } catch(delErr) { /* hoja no existe — continuar */ }
+  }
+}
+
+// ── Admin stats helpers ───────────────────────────────────────
+
+// Número de transacciones y fecha de última actividad para un usuario.
+function _getUserStats(userId) {
+  var ref = _getSheet(userId);
+  if (!ref.sheet) return { txCount: 0, lastActivity: null };
+  var last = ref.sheet.getLastRow();
+  var txCount = Math.max(0, last - 1);
+  var lastActivity = null;
+  if (txCount > 0) {
+    var ts = ref.sheet.getRange(last, 1).getValue();
+    if (ts) lastActivity = String(ts).substring(0, 10);
+  }
+  return { txCount: txCount, lastActivity: lastActivity };
+}
+
+// Lista completa de usuarios + invitaciones pendientes para el panel admin.
+function _adminListUsersData() {
+  var userIds = _getAllowedUsers();
+  var props   = PropertiesService.getScriptProperties();
+  var result  = [];
+  for (var i = 0; i < userIds.length; i++) {
+    var uid   = userIds[i];
+    var stats = _getUserStats(uid);
+    result.push({
+      id:           uid,
+      status:       props.getProperty("APP_USER_DISABLED_" + uid) === "true" ? "disabled" : "active",
+      txCount:      stats.txCount,
+      lastActivity: stats.lastActivity
+    });
+  }
+  var invMap  = _getInvites();
+  var nowMs   = Date.now();
+  var pending = Object.keys(invMap)
+    .filter(function(c) { return !invMap[c].used; })
+    .map(function(c) {
+      return {
+        code:        _formatInviteCode(c),
+        userId:      invMap[c].userId,
+        displayName: invMap[c].displayName,
+        expiresAt:   new Date(invMap[c].expiry).toISOString(),
+        expired:     nowMs >= invMap[c].expiry
+      };
+    })
+    .sort(function(a, b) { return a.expiresAt > b.expiresAt ? 1 : -1; });
+  return { users: result, pendingInvites: pending };
 }
 
 // ── Invitaciones de un solo uso (persistidas en Script Properties) ────
@@ -550,7 +606,9 @@ function doPost(e) {
       return jsonResponse({ ok: true, revoked: rvKey, userDeleted: userDeleted });
     }
 
-    // Eliminar un usuario (admin only) — borra PIN, lo remueve de USERS_LIST y elimina su tab en Sheets
+    // Eliminar un usuario (admin only).
+    // payload.deleteData = true  → borra también su tab de transacciones (por defecto: true)
+    // payload.deleteData = false → conserva los datos históricos en Sheets
     if (type === "deleteUser") {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede eliminar usuarios" });
       var targetId = String(payload.targetId || "").toLowerCase().trim();
@@ -558,8 +616,35 @@ function doPost(e) {
       if (targetId === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes eliminar al administrador" });
       var allUsers = _getAllowedUsers();
       if (allUsers.indexOf(targetId) === -1) return jsonResponse({ ok: false, error: "El usuario '" + targetId + "' no existe" });
-      _deprovisionUser(targetId);
+      _deprovisionUser(targetId, payload.deleteData !== false);
       return jsonResponse({ ok: true, deleted: targetId });
+    }
+
+    // Listar usuarios con stats completos para el panel admin
+    if (type === "listUsersData") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede ver datos de usuarios" });
+      return jsonResponse({ ok: true, data: _adminListUsersData() });
+    }
+
+    // Deshabilitar un usuario (bloquea login sin borrar datos)
+    if (type === "disableUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede deshabilitar usuarios" });
+      var disTarget = String(payload.targetId || "").toLowerCase().trim();
+      if (!disTarget) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (disTarget === _getAdminUser()) return jsonResponse({ ok: false, error: "No puedes deshabilitar al administrador" });
+      if (_getAllowedUsers().indexOf(disTarget) === -1) return jsonResponse({ ok: false, error: "Usuario no existe" });
+      PropertiesService.getScriptProperties().setProperty("APP_USER_DISABLED_" + disTarget, "true");
+      return jsonResponse({ ok: true, disabled: disTarget });
+    }
+
+    // Habilitar un usuario previamente deshabilitado
+    if (type === "enableUser") {
+      if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede habilitar usuarios" });
+      var enTarget = String(payload.targetId || "").toLowerCase().trim();
+      if (!enTarget) return jsonResponse({ ok: false, error: "targetId requerido" });
+      if (_getAllowedUsers().indexOf(enTarget) === -1) return jsonResponse({ ok: false, error: "Usuario no existe" });
+      PropertiesService.getScriptProperties().deleteProperty("APP_USER_DISABLED_" + enTarget);
+      return jsonResponse({ ok: true, enabled: enTarget });
     }
 
     // Migración masiva de categorías (admin only) — renombra obsoletas y re-detecta
