@@ -31,7 +31,7 @@ function _getAllowedUsers() {
 function _validateUserId(userId) {
   var allowed = _getAllowedUsers();
   if (!userId || allowed.indexOf(userId) === -1) {
-    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + allowed.join(", "));
+    throw new Error("userId inválido o no registrado");
   }
   if (PropertiesService.getScriptProperties().getProperty("APP_USER_DISABLED_" + userId) === "true") {
     throw new Error("Usuario deshabilitado");
@@ -142,10 +142,12 @@ function _saveInvites(map) {
   PropertiesService.getScriptProperties().setProperty("INVITES", JSON.stringify(map));
 }
 // 8 chars de alfabeto sin ambigüedad (sin 0/O/1/I/L). Se guarda sin guion.
+// Usa SHA-256(UUID) como fuente CSPRNG — Math.random() es predecible en V8.
 function _genInviteCode() {
   var alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid());
   var code = "";
-  for (var i = 0; i < 8; i++) code += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+  for (var i = 0; i < 8; i++) code += alphabet.charAt((bytes[i] & 0xff) % alphabet.length);
   return code;
 }
 function _formatInviteCode(code) {
@@ -264,10 +266,13 @@ function _checkRateLimit(action, userId) {
   var today = Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd");
   var key = "rate_" + action + "_" + (userId || "global") + "_" + today;
   var count = parseInt(cache.get(key) || "0", 10);
-  var limits = { chat: 100, voice: 50 };
+  var limits = { chat: 100, voice: 50, admin: 100 };
   var limit = limits[action] !== undefined ? limits[action] : 100;
   if (count >= limit) {
-    throw new Error("Límite diario de llamadas de IA alcanzado. Intenta mañana.");
+    var msg = (action === "chat" || action === "voice")
+      ? "Límite diario de llamadas de IA alcanzado. Intenta mañana."
+      : "Límite diario de operaciones alcanzado. Intenta mañana.";
+    throw new Error(msg);
   }
   cache.put(key, String(count + 1), 86400);
 }
@@ -439,7 +444,9 @@ function doPost(e) {
       var hasPendingInvite = Object.keys(invMap).some(function(c) {
         return invMap[c].userId === claimedUserId && !invMap[c].used && nowMs < invMap[c].expiry;
       });
-      if (hasPendingInvite && !matchCode) {
+      // Siempre exige un código de invitación válido para fijar PIN por primera vez.
+      // Cierra el hueco donde una invitación expirada permitía setupPin sin código.
+      if (!matchCode) {
         return jsonResponse({ ok: false, error: "Codigo de invitacion invalido o expirado" });
       }
       spProps.setProperty("APP_PIN_" + claimedUserId, _hashPin(claimedUserId, newPin));
@@ -452,6 +459,10 @@ function doPost(e) {
     var userId = _authUserId(e, channel, payload);
     if (!userId) return jsonResponse({ ok: false, error: "Unauthorized" });
     _validateUserId(userId);
+
+    // Rate-limit admin write operations para mitigar abuso incluso con token válido.
+    var ADMIN_TYPES = ["generateEmergencyPin","listUsers","createUser","createInvite","listInvites","listUsersData","disableUser","enableUser","revokeInvite","resetPin","deleteUser"];
+    if (ADMIN_TYPES.indexOf(type) !== -1) _checkRateLimit("admin", userId);
 
     // Ensure Fuente column exists (cached -- runs once per user per 6h)
     _migrateSheetHeaders(userId);
@@ -507,7 +518,9 @@ function doPost(e) {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "No autorizado" });
       var targetId = (payload.targetId || "").toLowerCase().trim();
       if (!targetId) return jsonResponse({ ok: false, error: "targetId requerido" });
-      var code = String(100000 + Math.floor(Math.random() * 900000));
+      var epBytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid());
+      var epN = ((epBytes[0] & 0xff) * 16777216 + (epBytes[1] & 0xff) * 65536 + (epBytes[2] & 0xff) * 256 + (epBytes[3] & 0xff)) >>> 0;
+      var code = String(100000 + (epN % 900000));
       var expiry = Date.now() + 24 * 60 * 60 * 1000;
       PropertiesService.getScriptProperties().setProperty("EMERGENCY_PIN_" + targetId, JSON.stringify({ code: code, expiry: expiry }));
       return jsonResponse({ ok: true, code: code, expiresAt: new Date(expiry).toISOString() });

@@ -41,10 +41,10 @@ export async function onRequest(context) {
   }
   const SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
   try {
-    const authRes = await fetch(`${WEBHOOK_URL}?_secret=${encodeURIComponent(SECRET)}`, {
+    const authRes = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'validateToken', token }),
+      body: JSON.stringify({ type: 'validateToken', token, _secret: SECRET }),
     });
     const authData = await authRes.json().catch(() => ({}));
     if (!authData || !authData.ok) {
