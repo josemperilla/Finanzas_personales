@@ -95,3 +95,63 @@ cualquiera de estas condiciones:
 
 ~70% listo: auth JWT, CRUD completo, modelos Alembic, integración Claude.
 Falta: rate limiting, tests de integración, logging, hardening de inputs.
+
+---
+
+## P1 TODO: Tests de integración para flujo multi-usuario en GAS
+
+El código GAS (webhook.gs) no es testeable unitariamente en local (corre en la JVM de Apps
+Script). Los 28+ paths de seguridad críticos no tienen cobertura automatizada.
+
+**Rutas críticas sin test:**
+- `validatePin`: rate limiting a los 20 intentos, auto-upgrade de PIN legado a sha256
+- `setupPin`: rechazo de código inválido/expirado/ya usado, H1 guard
+- `redeemInvite`: rate limit global (30/h) y por código (8/h), código ya usado, caducado
+- `_checkSecret`: canal `web` con WEB_SECRET ausente, canal `shortcut`, secreto incorrecto
+- `generateEmergencyPin`: uso único, expiración a 24h
+- `revokeInvite`: no borra usuario con PIN ya fijado (`userDeleted: false`)
+- `_validateUserId`: usuario deshabilitado devuelve error sin exponer lista
+
+**Cómo:** Crear tests de integración contra el endpoint GAS real (URL del deployment).
+Usar `tests/test_api.py` o un script dedicado `tools/test_gas_integration.py` que llame al
+webhook con WEBHOOK_SECRET y verifique los contratos de respuesta.
+
+**Desbloquea:** CI que verifique regresiones de seguridad en cada push a GAS.
+
+Surfaced by: /ship pre-landing review 2026-06-10 (Testing specialist + Red Team)
+
+---
+
+## P2 TODO: Corregir entorno sqlalchemy para test_api.py
+
+`tests/test_api.py` falla con `ModuleNotFoundError: No module named 'sqlalchemy'` en el
+entorno Python 3.9 del sistema. No es un problema del código del branch — es configuración
+del entorno local.
+
+**Cómo:** `pip install sqlalchemy` en el entorno correcto, o crear un `requirements.txt`
+con dependencias de test y usar `pip install -r requirements.txt` en CI.
+
+Surfaced by: /ship test run 2026-06-10
+
+---
+
+## P1 TODO: Constant-time comparison para validación de PIN hash
+
+`_verifyPin` en webhook.gs usa `===` (JavaScript string equality) para comparar digests
+SHA-256. En V8/GAS esto hace short-circuit en el primer carácter diferente, creando un
+canal lateral de timing. El riesgo práctico es bajo dado la latencia de red GAS, pero es
+una buena práctica.
+
+**Cómo:** Implementar comparación byte a byte acumulando XOR en un entero antes de evaluar
+igualdad:
+```javascript
+function _timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+```
+Reemplazar `stored.split(":")[2] === _computePinHash(...)` con `_timingSafeEqual(...)`.
+
+Surfaced by: /ship pre-landing review 2026-06-10 (Security specialist)
