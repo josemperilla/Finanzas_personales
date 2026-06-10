@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin } from '../lib/api';
+import { Transaction, changePin, updateProfile, getProfileFromServer } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
 import { CategorizarModal } from '../components/CategorizarModal';
 import { exportToCSV, exportToJSON } from '../lib/export';
@@ -65,10 +65,20 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     applyColorScheme(userId);
   }
 
+  // Sync server profile to localStorage on mount (handles new-device logins).
+  useEffect(() => {
+    getProfileFromServer().then(data => {
+      if (data.displayName) { setNickname(data.displayName); setUserNickname(userId, data.displayName); }
+      if (data.avatar) { setAvatarUrl(data.avatar); setUserAvatar(userId, data.avatar); }
+    }).catch(() => {}); // fire-and-forget, no token → skip silently
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   function handleNicknameSave(value: string) {
     const trimmed = value.trim();
     setNickname(trimmed);
     setUserNickname(userId, trimmed);
+    updateProfile({ displayName: trimmed }).catch(() => {}); // sync cross-device
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -79,6 +89,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
       const dataUrl = await resizeImageToAvatar(file);
       setAvatarUrl(dataUrl);
       setUserAvatar(userId, dataUrl);
+      updateProfile({ avatar: dataUrl }).catch(() => {}); // sync cross-device
     } catch { /* imagen inválida — ignorar */ }
   }
 

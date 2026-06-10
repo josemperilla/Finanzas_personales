@@ -405,6 +405,31 @@ export async function revokeInvite(adminUserId: string, code: string): Promise<{
   return { userDeleted: json.userDeleted === true };
 }
 
+// ── Perfil cross-device ───────────────────────────────────────
+
+export async function updateProfile(updates: { displayName?: string; avatar?: string }): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'updateProfile', ...updates })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al actualizar perfil');
+}
+
+export async function getProfileFromServer(): Promise<{ displayName: string; avatar: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getProfile' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al obtener perfil');
+  return json.data as { displayName: string; avatar: string };
+}
+
 export async function redeemInvite(code: string): Promise<{ userId: string; displayName: string }> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {

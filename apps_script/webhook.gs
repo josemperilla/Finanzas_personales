@@ -698,6 +698,25 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    // Actualizar perfil (nombre visible y/o avatar) — cualquier usuario autenticado
+    if (type === "updateProfile") {
+      var profName   = String(payload.displayName || "").trim().slice(0, 60);
+      var profAvatar = String(payload.avatar || "").slice(0, 200000);
+      var profProps  = PropertiesService.getScriptProperties();
+      if (profName)   profProps.setProperty("APP_PROFILE_NAME_" + userId, profName);
+      if (profAvatar) profProps.setProperty("APP_PROFILE_AVATAR_" + userId, profAvatar);
+      return jsonResponse({ ok: true });
+    }
+
+    // Obtener perfil guardado en servidor — permite sincronizar en dispositivos nuevos
+    if (type === "getProfile") {
+      var gpProps = PropertiesService.getScriptProperties();
+      return jsonResponse({ ok: true, data: {
+        displayName: gpProps.getProperty("APP_PROFILE_NAME_" + userId) || "",
+        avatar:      gpProps.getProperty("APP_PROFILE_AVATAR_" + userId) || ""
+      }});
+    }
+
     // Chat con el asistente financiero
     if (type === "chat") {
       var question = payload.question || "";
