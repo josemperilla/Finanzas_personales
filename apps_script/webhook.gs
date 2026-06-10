@@ -50,11 +50,8 @@ function _provisionUser(newId, displayName, initPin) {
   if (currentUsers.indexOf(newId) !== -1) {
     throw new Error("El usuario '" + newId + "' ya existe");
   }
-  currentUsers.push(newId);
-  var props = PropertiesService.getScriptProperties();
-  props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
-  if (initPin) props.setProperty("APP_PIN_" + newId, _hashPin(newId, initPin));
-  // Crear el tab en Sheets con headers si no existe.
+  // Crear/verificar tab ANTES de escribir USERS_LIST para evitar dejar el
+  // usuario a medias si falla Sheets (SHEET_ID ausente, cuota, etc.).
   var newRef = _getSheet(newId);
   if (!newRef.sheet) {
     var newSheet = newRef.ss.insertSheet(newRef.tabName);
@@ -62,6 +59,10 @@ function _provisionUser(newId, displayName, initPin) {
     newSheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#f3f3f3");
     newSheet.setFrozenRows(1);
   }
+  currentUsers.push(newId);
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
+  if (initPin) props.setProperty("APP_PIN_" + newId, _hashPin(newId, initPin));
 }
 
 // Elimina el usuario: lo quita de USERS_LIST, borra su PIN y opcionalmente su tab en Sheets.
