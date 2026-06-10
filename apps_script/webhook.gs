@@ -50,7 +50,7 @@ function _provisionUser(newId, displayName, initPin) {
   currentUsers.push(newId);
   var props = PropertiesService.getScriptProperties();
   props.setProperty("USERS_LIST", JSON.stringify(currentUsers));
-  if (initPin) props.setProperty("APP_PIN_" + newId, initPin);
+  if (initPin) props.setProperty("APP_PIN_" + newId, _hashPin(newId, initPin));
   // Crear el tab en Sheets con headers si no existe.
   var newRef = _getSheet(newId);
   if (!newRef.sheet) {
@@ -108,6 +108,43 @@ function _deriveUserId(displayName) {
   while (users.indexOf(candidate) !== -1) { candidate = (base + n).slice(0, 20); n++; }
   return candidate;
 }
+// ── PIN hashing (SHA-256 + salt por usuario) ─────────────────
+function _byteToHex(b) {
+  var h = (b < 0 ? b + 256 : b).toString(16);
+  return h.length === 1 ? "0" + h : h;
+}
+
+function _computePinHash(userId, salt, pin) {
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    userId + ":" + salt + ":" + pin
+  );
+  return bytes.map(_byteToHex).join("");
+}
+
+// Retorna "sha256:<salt>:<hex>". Genera y persiste el salt si no existe.
+function _hashPin(userId, pin) {
+  var props   = PropertiesService.getScriptProperties();
+  var saltKey = "APP_PIN_SALT_" + userId;
+  var salt    = props.getProperty(saltKey);
+  if (!salt) {
+    salt = Utilities.getUuid().replace(/-/g, "");
+    props.setProperty(saltKey, salt);
+  }
+  return "sha256:" + salt + ":" + _computePinHash(userId, salt, pin);
+}
+
+// Verifica PIN contra el valor almacenado. Acepta formato hasheado Y texto plano (legado).
+function _verifyPin(userId, pin, stored) {
+  if (!stored || !pin) return false;
+  if (stored.indexOf("sha256:") === 0) {
+    var parts = stored.split(":");
+    if (parts.length !== 3) return false;
+    return _computePinHash(userId, parts[1], pin) === parts[2];
+  }
+  return pin === stored; // legado: texto plano
+}
+
 // Poda invitaciones usadas/expiradas con más de 24h de antigüedad. Devuelve true si cambió.
 function _pruneInvites(map) {
   var now = Date.now(), changed = false;
@@ -304,7 +341,13 @@ function doPost(e) {
       var vProps = PropertiesService.getScriptProperties();
       var storedPin = vProps.getProperty("APP_PIN_" + claimedUserId);
       if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + claimedUserId + " no configurado en Script Properties" });
-      if (pin === storedPin) return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+      if (_verifyPin(claimedUserId, pin, storedPin)) {
+        // Auto-upgrade: si el PIN era texto plano, hashearlo en el primer login exitoso.
+        if (storedPin.indexOf("sha256:") !== 0) {
+          vProps.setProperty("APP_PIN_" + claimedUserId, _hashPin(claimedUserId, pin));
+        }
+        return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+      }
       // Check emergency PIN (single-use, 24h TTL)
       var emergRaw = vProps.getProperty("EMERGENCY_PIN_" + claimedUserId);
       if (emergRaw) {
@@ -342,7 +385,7 @@ function doPost(e) {
       if (hasPendingInvite && !matchCode) {
         return jsonResponse({ ok: false, error: "Codigo de invitacion invalido o expirado" });
       }
-      spProps.setProperty("APP_PIN_" + claimedUserId, newPin);
+      spProps.setProperty("APP_PIN_" + claimedUserId, _hashPin(claimedUserId, newPin));
       // Consumir la invitacion redimida (un solo uso).
       if (matchCode) { invMap[matchCode].used = true; invMap[matchCode].usedAt = nowMs; _saveInvites(invMap); }
       return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
@@ -533,7 +576,7 @@ function doPost(e) {
       var resetPin = String(payload.newPin || "");
       if (!resetTarget) return jsonResponse({ ok: false, error: "targetId requerido" });
       if (!resetPin || !/^\d{4,6}$/.test(resetPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
-      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, resetPin);
+      PropertiesService.getScriptProperties().setProperty("APP_PIN_" + resetTarget, _hashPin(resetTarget, resetPin));
       return jsonResponse({ ok: true, reset: resetTarget });
     }
 
@@ -561,11 +604,12 @@ function doPost(e) {
       var newPin     = String(payload.newPin     || "");
       if (!currentPin || !newPin) return jsonResponse({ ok: false, error: "Faltan campos" });
       var pinKey    = "APP_PIN_" + userId;
-      var storedPin = PropertiesService.getScriptProperties().getProperty(pinKey);
+      var cpProps   = PropertiesService.getScriptProperties();
+      var storedPin = cpProps.getProperty(pinKey);
       if (!storedPin) return jsonResponse({ ok: false, error: "APP_PIN_" + userId + " no configurado" });
-      if (currentPin !== storedPin) return jsonResponse({ ok: false, error: "PIN incorrecto" });
+      if (!_verifyPin(userId, currentPin, storedPin)) return jsonResponse({ ok: false, error: "PIN incorrecto" });
       if (!/^\d{4,6}$/.test(newPin)) return jsonResponse({ ok: false, error: "El nuevo PIN debe tener 4–6 dígitos" });
-      PropertiesService.getScriptProperties().setProperty(pinKey, newPin);
+      cpProps.setProperty(pinKey, _hashPin(userId, newPin));
       return jsonResponse({ ok: true });
     }
 
