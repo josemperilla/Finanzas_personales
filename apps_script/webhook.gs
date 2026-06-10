@@ -16,11 +16,235 @@
 //   APP_PIN_dani  → 4-digit PIN for Dani
 var ALLOWED_USERS = ["jose", "dani"];
 
+// ── Dynamic user registry (added for client onboarding) ───────
+// Two hidden tabs in the same spreadsheet hold the dynamic user list and
+// the one-time invitation tokens. ALLOWED_USERS stays as the hardcoded
+// "floor" so jose/dani keep working even if the registry is empty/missing.
+var REGISTRY_USERS_TAB   = "_Users";
+var REGISTRY_INVITES_TAB = "_Invites";
+var USERS_HEADERS   = ["userId", "displayName", "tabName", "avatar", "status", "createdAt", "createdBy"];
+var INVITES_HEADERS = ["token", "status", "createdAt", "expiresAt", "createdBy", "redeemedBy", "suggestedName"];
+var USER_ID_RE      = /^[a-z][a-z0-9]{1,19}$/;
+
+// Open a registry tab by name; returns the Sheet or null if it doesn't exist.
+function _getRegistrySheet(tabName) {
+  var props   = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty("SHEET_ID");
+  if (!sheetId) throw new Error("SHEET_ID no configurado en Script Properties");
+  return SpreadsheetApp.openById(sheetId).getSheetByName(tabName);
+}
+
+// Read a registry tab into an array of plain objects keyed by its headers.
+function _readRegistry(tabName, headers) {
+  var sheet = _getRegistrySheet(tabName);
+  if (!sheet) return [];
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return [];
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var obj = {};
+    for (var c = 0; c < headers.length; c++) obj[headers[c]] = rows[i][c];
+    obj._row = i + 1; // 1-based sheet row for in-place updates
+    out.push(obj);
+  }
+  return out;
+}
+
+// Active userIds from the registry (cached 60s to avoid a read per request).
+function _getRegisteredUserIds() {
+  var cache  = CacheService.getScriptCache();
+  var cached = cache.get("registry_user_ids");
+  if (cached) { try { return JSON.parse(cached); } catch (e) {} }
+  var ids = [];
+  var users = _readRegistry(REGISTRY_USERS_TAB, USERS_HEADERS);
+  for (var i = 0; i < users.length; i++) {
+    var uid = String(users[i].userId || "").toLowerCase();
+    if (uid && String(users[i].status || "").toLowerCase() === "active") ids.push(uid);
+  }
+  cache.put("registry_user_ids", JSON.stringify(ids), 60);
+  return ids;
+}
+
+function _invalidateRegistryCache() {
+  CacheService.getScriptCache().remove("registry_user_ids");
+}
+
+// Union of the hardcoded floor and the dynamic registry.
+function _allowedUsers() {
+  var all = ALLOWED_USERS.slice();
+  var reg = _getRegisteredUserIds();
+  for (var i = 0; i < reg.length; i++) {
+    if (all.indexOf(reg[i]) === -1) all.push(reg[i]);
+  }
+  return all;
+}
+
+// Look up a single registry user object by id (case-insensitive). null if absent.
+function _getRegistryUser(userId) {
+  var uid   = String(userId || "").toLowerCase();
+  var users = _readRegistry(REGISTRY_USERS_TAB, USERS_HEADERS);
+  for (var i = 0; i < users.length; i++) {
+    if (String(users[i].userId || "").toLowerCase() === uid) return users[i];
+  }
+  return null;
+}
+
 // ── User validation ───────────────────────────────────────────
 function _validateUserId(userId) {
-  if (!userId || ALLOWED_USERS.indexOf(userId) === -1) {
-    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + ALLOWED_USERS.join(", "));
+  if (!userId || _allowedUsers().indexOf(userId) === -1) {
+    throw new Error("userId inválido: '" + userId + "'. Valores permitidos: " + _allowedUsers().join(", "));
   }
+}
+
+// ── One-time setup: run once from the Apps Script editor ──────
+// Creates and hides the _Users and _Invites tabs with their headers.
+// Safe to re-run: skips tabs that already exist.
+function setupRegistry() {
+  var props   = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty("SHEET_ID");
+  if (!sheetId) throw new Error("SHEET_ID no configurado en Script Properties");
+  var ss = SpreadsheetApp.openById(sheetId);
+
+  function ensureTab(tabName, headers) {
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tabName);
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3");
+      sheet.setFrozenRows(1);
+    }
+    sheet.hideSheet();
+    return sheet;
+  }
+
+  ensureTab(REGISTRY_USERS_TAB, USERS_HEADERS);
+  ensureTab(REGISTRY_INVITES_TAB, INVITES_HEADERS);
+  _invalidateRegistryCache();
+  return "Registry listo: " + REGISTRY_USERS_TAB + " + " + REGISTRY_INVITES_TAB;
+}
+
+// ── Profiles list (GET ?action=profiles) ─────────────────────
+// Union of the static floor (with their existing avatars) and active registry users.
+function _buildProfiles() {
+  var staticAvatars = { jose: "/profile-avatar.jpg", dani: "/dani-avatar.jpg" };
+  var staticNames   = { jose: "Jose", dani: "Dani" };
+  var out  = [];
+  var seen = {};
+  for (var i = 0; i < ALLOWED_USERS.length; i++) {
+    var id = ALLOWED_USERS[i];
+    out.push({ id: id, name: staticNames[id] || (id.charAt(0).toUpperCase() + id.slice(1)), avatar: staticAvatars[id] || "" });
+    seen[id] = true;
+  }
+  var users = _readRegistry(REGISTRY_USERS_TAB, USERS_HEADERS);
+  for (var j = 0; j < users.length; j++) {
+    var uid = String(users[j].userId || "").toLowerCase();
+    if (!uid || seen[uid]) continue;
+    if (String(users[j].status || "").toLowerCase() !== "active") continue;
+    out.push({ id: uid, name: users[j].displayName || uid, avatar: users[j].avatar || "" });
+    seen[uid] = true;
+  }
+  return out;
+}
+
+// ── Invitation handlers (one-time client onboarding) ─────────
+function _findInvite(token) {
+  if (!token) return null;
+  var invites = _readRegistry(REGISTRY_INVITES_TAB, INVITES_HEADERS);
+  for (var i = 0; i < invites.length; i++) {
+    if (String(invites[i].token) === String(token)) return invites[i];
+  }
+  return null;
+}
+
+function _inviteUsable(inv) {
+  var status = String(inv.status || "").toLowerCase();
+  if (status === "redeemed") return { ok: false, reason: "redeemed" };
+  if (status !== "pending")  return { ok: false, reason: "invalid" };
+  var exp = inv.expiresAt ? new Date(inv.expiresAt) : null;
+  if (exp && !isNaN(exp.getTime()) && exp.getTime() < Date.now()) return { ok: false, reason: "expired" };
+  return { ok: true };
+}
+
+function _updateInvite(row, fields) {
+  var sheet = _getRegistrySheet(REGISTRY_INVITES_TAB);
+  if (!sheet) return;
+  for (var key in fields) {
+    var col = INVITES_HEADERS.indexOf(key);
+    if (col !== -1) sheet.getRange(row, col + 1).setValue(fields[key]);
+  }
+}
+
+function _handleValidateInvite(payload) {
+  var token = String(payload.token || "");
+  if (!token) return jsonResponse({ ok: true, data: { valid: false, reason: "missing" } });
+  var inv = _findInvite(token);
+  if (!inv) return jsonResponse({ ok: true, data: { valid: false, reason: "not_found" } });
+  var check = _inviteUsable(inv);
+  if (!check.ok) return jsonResponse({ ok: true, data: { valid: false, reason: check.reason } });
+  return jsonResponse({ ok: true, data: { valid: true, suggestedName: inv.suggestedName || "" } });
+}
+
+function _handleRedeemInvite(payload) {
+  var token       = String(payload.token || "");
+  var newUserId   = String(payload.userId || "").toLowerCase();
+  var displayName = String(payload.displayName || "").trim();
+  var pin         = String(payload.pin || "");
+  var avatar      = String(payload.avatar || "");
+
+  var inv = _findInvite(token);
+  if (!inv) return jsonResponse({ ok: false, error: "Invitación no encontrada" });
+  var check = _inviteUsable(inv);
+  if (!check.ok) return jsonResponse({ ok: false, error: "La invitación ya no es válida (" + check.reason + ")" });
+
+  if (!USER_ID_RE.test(newUserId)) {
+    return jsonResponse({ ok: false, error: "Usuario inválido: usa minúsculas, sin espacios, 2-20 caracteres" });
+  }
+  if (ALLOWED_USERS.indexOf(newUserId) !== -1 || _getRegistryUser(newUserId)) {
+    return jsonResponse({ ok: false, error: "Ese usuario ya existe, elige otro" });
+  }
+  if (!/^\d{4,6}$/.test(pin)) return jsonResponse({ ok: false, error: "El PIN debe tener 4-6 dígitos" });
+  if (avatar && avatar.length > 100000) avatar = ""; // cap base64 to protect the cell
+
+  if (!displayName) displayName = newUserId.charAt(0).toUpperCase() + newUserId.slice(1);
+  var tabName = newUserId.charAt(0).toUpperCase() + newUserId.slice(1);
+
+  var usersSheet = _getRegistrySheet(REGISTRY_USERS_TAB);
+  if (!usersSheet) return jsonResponse({ ok: false, error: "Registro no inicializado (ejecuta setupRegistry)" });
+
+  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
+  usersSheet.appendRow([newUserId, displayName, tabName, avatar, "active", nowStr, inv.createdBy || ""]);
+
+  // PIN stored plaintext — same model as existing users; hashing is Phase 2.
+  PropertiesService.getScriptProperties().setProperty("APP_PIN_" + newUserId, pin);
+
+  _updateInvite(inv._row, { status: "redeemed", redeemedBy: newUserId });
+  _invalidateRegistryCache();
+
+  return jsonResponse({ ok: true, data: { userId: newUserId, name: displayName } });
+}
+
+function _handleAdminCreateInvite(payload) {
+  var adminId   = String(payload.userId || "").toLowerCase();
+  var adminPin  = String(payload.adminPin || "");
+  var suggested = String(payload.suggestedName || "").trim();
+
+  // Interim admin auth: only jose, verified by current plaintext PIN. Phase 2 = sessions.
+  if (adminId !== "jose") return jsonResponse({ ok: false, error: "No autorizado" });
+  var storedPin = PropertiesService.getScriptProperties().getProperty("APP_PIN_jose");
+  if (!storedPin || adminPin !== storedPin) {
+    return jsonResponse({ ok: false, error: "PIN de administrador incorrecto" });
+  }
+
+  var invitesSheet = _getRegistrySheet(REGISTRY_INVITES_TAB);
+  if (!invitesSheet) return jsonResponse({ ok: false, error: "Registro no inicializado (ejecuta setupRegistry)" });
+
+  var fmt = function(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss"); };
+  var token   = Utilities.getUuid().replace(/-/g, "");
+  var now     = new Date();
+  var expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  invitesSheet.appendRow([token, "pending", fmt(now), fmt(expires), adminId, "", suggested]);
+
+  return jsonResponse({ ok: true, data: { token: token, expiresAt: fmt(expires) } });
 }
 
 // ── Per-user Sheet accessor ───────────────────────────────────
@@ -71,12 +295,17 @@ function doGet(e) {
     return jsonResponse({ ok: false, error: "Unauthorized" });
   }
 
+  var action = e && e.parameter && e.parameter.action;
+
+  // Profiles list runs pre-login (no userId yet) — only needs the secret.
+  if (action === "profiles") {
+    return jsonResponse({ ok: true, data: _buildProfiles() });
+  }
+
   var userId = (e && e.parameter && e.parameter.userId || "").toLowerCase();
   try { _validateUserId(userId); } catch(err) {
     return jsonResponse({ ok: false, error: err.message });
   }
-
-  var action = e && e.parameter && e.parameter.action;
 
   if (action === "transactions") {
     return jsonResponse({ ok: true, data: getTransactions(userId) });
@@ -98,6 +327,12 @@ function doPost(e) {
     var type    = payload.type || "";
     var bank    = (payload.bank || "").toLowerCase();
     var userId  = (payload.userId || "").toLowerCase();
+
+    // ── Onboarding dispatch — MUST run before _validateUserId ──
+    // A new user has no valid userId yet, so these short-circuit here.
+    if (type === "validateInvite")    return _handleValidateInvite(payload);
+    if (type === "redeemInvite")      return _handleRedeemInvite(payload);
+    if (type === "adminCreateInvite") return _handleAdminCreateInvite(payload);
 
     // Validate userId for all request types
     _validateUserId(userId);
