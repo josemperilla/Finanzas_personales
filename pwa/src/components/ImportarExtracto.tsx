@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { importTransactions } from '../lib/api';
+import { importTransactions, getToken } from '../lib/api';
 import { type ManualTransaction } from '../lib/api';
 import { quickEase } from '../lib/motion';
 
@@ -125,7 +125,7 @@ function rowToManual(row: ParsedRow): ManualTransaction {
   };
 }
 
-type Stage = 'select' | 'preview' | 'sending' | 'done';
+type Stage = 'select' | 'analyzing' | 'preview' | 'sending' | 'done';
 
 export function ImportarExtracto({ userId: _userId, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -136,9 +136,19 @@ export function ImportarExtracto({ userId: _userId, onClose }: Props) {
   const [progress, setProgress] = useState(0);
   const [result, setResult]  = useState({ ok: 0, errors: 0 });
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
+
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      await handlePDF(file);
+    } else {
+      handleCSV(file);
+    }
+  }
+
+  function handleCSV(file: File) {
     const reader = new FileReader();
     reader.onload = ev => {
       const text = ev.target?.result as string;
@@ -152,6 +162,50 @@ export function ImportarExtracto({ userId: _userId, onClose }: Props) {
       setStage('preview');
     };
     reader.readAsText(file, 'utf-8');
+  }
+
+  async function handlePDF(file: File) {
+    setStage('analyzing');
+    setParseErr('');
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+
+      const res = await fetch('/api/extract-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdf: base64, bank, token: getToken() }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setParseErr(data.error ?? 'Error al procesar el PDF');
+        setStage('select');
+        return;
+      }
+      const parsed: ParsedRow[] = (data.transactions ?? [])
+        .filter((t: ParsedRow) => t.monto > 0 && t.comercio)
+        .map((t: ParsedRow) => ({
+          fecha:    t.fecha,
+          comercio: t.comercio,
+          monto:    Math.round(t.monto),
+          tipo:     t.tipo ?? 'Compra',
+          banco:    t.banco ?? 'Otro',
+        }));
+
+      if (parsed.length === 0) {
+        setParseErr('No se encontraron transacciones en el PDF. Verifica que sea un extracto bancario válido.');
+        setStage('select');
+        return;
+      }
+      setRows(parsed);
+      setStage('preview');
+    } catch (err) {
+      setParseErr(err instanceof Error ? err.message : 'Error de conexión');
+      setStage('select');
+    }
   }
 
   async function handleImport() {
@@ -212,15 +266,15 @@ export function ImportarExtracto({ userId: _userId, onClose }: Props) {
 
             <div>
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>
-                Archivo CSV
+                Archivo
               </div>
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => fileRef.current?.click()}
                 style={{ width: '100%', minHeight: 100, borderRadius: 16, border: '2px dashed var(--line)', background: 'var(--card)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <span style={{ fontSize: 28 }}>📂</span>
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>Toca para seleccionar archivo</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted-2)' }}>.csv</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--muted-2)' }}>.csv · .pdf</span>
               </motion.button>
-              <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleFile} />
+              <input ref={fileRef} type="file" accept=".csv,.txt,.pdf,application/pdf,text/csv" style={{ display: 'none' }} onChange={handleFile} />
             </div>
 
             {parseErr && (
@@ -230,10 +284,30 @@ export function ImportarExtracto({ userId: _userId, onClose }: Props) {
             )}
 
             <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--muted)', lineHeight: 1.6 }}>
-              Descarga el CSV desde la app de tu banco:<br />
+              CSV o PDF desde la app de tu banco:<br />
               <strong>Bancolombia</strong>: Mi perfil → Descargar movimientos<br />
-              <strong>Bogotá / Itaú</strong>: Extractos → Exportar CSV
+              <strong>Bogotá / Itaú</strong>: Extractos → Exportar (PDF o CSV)
             </p>
+          </motion.div>
+        )}
+
+        {/* Stage: analyzing (PDF via Claude) */}
+        {stage === 'analyzing' && (
+          <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={quickEase}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, flex: 1, textAlign: 'center' }}>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+              style={{ fontSize: 40, display: 'inline-block' }}
+            >
+              🔍
+            </motion.div>
+            <div style={{ fontSize: 'var(--text-lg)', color: 'var(--ink)', fontWeight: 600 }}>
+              Leyendo extracto PDF…
+            </div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--muted)', maxWidth: 260 }}>
+              Claude está extrayendo las transacciones. Puede tomar unos segundos.
+            </div>
           </motion.div>
         )}
 
