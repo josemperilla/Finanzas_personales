@@ -19,18 +19,25 @@ export async function onRequest(context) {
   const WEBHOOK_URL = env.WEBHOOK_URL || '';
   if (!WEBHOOK_URL) return json({ ok: false, error: 'WEBHOOK_URL no configurado' }, 500);
 
-  // DEBUG TEMPORAL: devuelve lo que recibimos para diagnosticar Mac Atajos
-  const secretRaw = body._secret;
-  return json({
-    debug: true,
-    secretType:    typeof secretRaw,
-    secretLength:  typeof secretRaw === 'string' ? secretRaw.length : null,
-    secretFirst8:  typeof secretRaw === 'string' ? secretRaw.substring(0, 8) : null,
-    secretLast8:   typeof secretRaw === 'string' ? secretRaw.slice(-8) : null,
-    userIdReceived: body.userId,
-    smsType:       typeof body.sms,
-    bodyKeys:      Object.keys(body),
-  });
+  const gasPayload = {
+    userId:    typeof body.userId === 'string' ? body.userId.toLowerCase().trim() : '',
+    sms:       typeof body.sms === 'string' ? body.sms : '',
+    bank:      typeof body.bank === 'string' ? body.bank : '',
+    timestamp: typeof body.timestamp === 'string' ? body.timestamp : '',
+    _secret:   typeof body._secret === 'string' ? body._secret : '',
+  };
+
+  try {
+    const gasRes = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(gasPayload),
+    });
+    const data = await gasRes.json().catch(() => ({}));
+    return json(data);
+  } catch (err) {
+    return json({ ok: false, error: err instanceof Error ? err.message : String(err) }, 502);
+  }
 }
 
 function json(data, status = 200) {
