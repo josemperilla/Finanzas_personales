@@ -16,7 +16,9 @@ import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { RachaDisplay } from '../components/RachaDisplay';
+import { DailyGreeting } from '../components/DailyGreeting';
 import { DailyStatusCard } from '../components/DailyStatusCard';
+import { getGamification } from '../lib/gamification';
 import { RetoWidget } from '../components/RetoWidget';
 import { SuenoCard } from '../components/SuenoCard';
 import { MetaMensualWidget } from '../components/MetaMensualWidget';
@@ -127,6 +129,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [userId],
   );
 
+  const racha = useMemo(() => getGamification(userId).racha, [userId]);
+
   const retosParaPrimerSueno = useMemo(
     () => primerSueno ? generarRetosParaSueno(primerSueno, transactions) : [],
     [primerSueno, transactions],
@@ -230,6 +234,15 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       </AnimatePresence>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
+
+        {/* Saludo diario — aparece una vez por día */}
+        {!loading && selectedOffset === 0 && (
+          <DailyGreeting
+            userId={userId}
+            racha={racha}
+            retoActivo={primerRetoActivo ? { titulo: primerRetoActivo.reto.titulo } : null}
+          />
+        )}
 
         {/* DailyStatusCard — héroe del día */}
         {!loading && selectedOffset === 0 && (

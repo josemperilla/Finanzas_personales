@@ -18,7 +18,9 @@ import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
-import { registrarVisita, checkBadgesSync, BADGES, addXP } from './lib/gamification';
+import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha } from './lib/gamification';
+import { getMeta } from './lib/meta';
+import { detectSubscriptions } from './lib/subscriptions';
 import { getSuenos } from './lib/suenos';
 import { getRetos, computeProgress } from './lib/retos';
 
@@ -150,10 +152,19 @@ export default function App() {
         setShowTutorial(true);
       }
       if (userId) {
+        registrarVisita(userId);
+        const meta = getMeta(userId);
+        const now = new Date();
+        const gastoMes = processed
+          .filter(tx => { const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T')); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+          .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+        const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
+        updateRacha(userId, isWithinBudget);
+        const subs = detectSubscriptions(processed);
         const suenos = getSuenos(userId).filter(s => s.activo);
         const retos = getRetos(userId);
         const retosCompletados = retos.filter(r => computeProgress(r, processed).completed).length;
-        const nuevos = checkBadgesSync(userId, suenos, retosCompletados);
+        const nuevos = checkBadgesSync(userId, suenos, retosCompletados, subs.length);
         if (nuevos.length > 0) {
           setNuevoBadge(nuevos[0]);
           setTimeout(() => setNuevoBadge(null), 4500);
@@ -298,6 +309,7 @@ export default function App() {
                 transactions={transactions}
                 userId={userId}
                 onNewBadge={showBadgeToast}
+                onXpGanado={showXpToast}
               />
             )}
             {tab === 'explorar' && userId && (

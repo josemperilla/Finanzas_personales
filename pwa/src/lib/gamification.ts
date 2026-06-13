@@ -23,6 +23,7 @@ export const BADGES: Record<string, { emoji: string; nombre: string; hint: strin
   'presupuesto-perfecto':  { emoji: '💎', nombre: 'Presupuesto perfecto',  hint: 'Un mes entero sin superar tu meta' },
   'nivel-2':               { emoji: '🌱', nombre: 'Ahorrador',             hint: 'Alcanza el nivel 2' },
   'nivel-3':               { emoji: '📊', nombre: 'Administrador',         hint: 'Alcanza el nivel 3' },
+  'nivel-4':               { emoji: '💹', nombre: 'Financiero',            hint: 'Alcanza el nivel 4' },
   'nivel-5':               { emoji: '👑', nombre: 'Maestro',               hint: 'Alcanza el nivel máximo' },
 };
 
@@ -95,6 +96,7 @@ export function addXP(userId: string, accion: keyof typeof XP_POR_ACCION): Gamif
   if (newNivel > state.nivel) {
     if (newNivel === 2 && !badges.includes('nivel-2')) badges.push('nivel-2');
     if (newNivel === 3 && !badges.includes('nivel-3')) badges.push('nivel-3');
+    if (newNivel === 4 && !badges.includes('nivel-4')) badges.push('nivel-4');
     if (newNivel === 5 && !badges.includes('nivel-5')) badges.push('nivel-5');
   }
 

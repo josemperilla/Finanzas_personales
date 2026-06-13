@@ -17,6 +17,7 @@ interface Props {
   transactions: Transaction[];
   userId: string;
   onNewBadge?: (badgeId: string) => void;
+  onXpGanado?: (xp: number) => void;
 }
 
 interface FormState {
@@ -32,7 +33,7 @@ function defaultFecha(): string {
   return d.toISOString().split('T')[0];
 }
 
-export function Misiones({ transactions, userId, onNewBadge }: Props) {
+export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props) {
   const [suenos, setSuenos] = useState<Sueno[]>([]);
   const [showSuenoForm, setShowSuenoForm] = useState(false);
   const [form, setForm] = useState<FormState>({ nombre: '', emoji: '✈️', monto: '', fechaObjetivo: defaultFecha() });
@@ -71,6 +72,7 @@ export function Misiones({ transactions, userId, onNewBadge }: Props) {
     }
 
     addXP(userId, 'configurarMeta');
+    onXpGanado?.(20);
     setShowSuenoForm(false);
     setForm({ nombre: '', emoji: '✈️', monto: '', fechaObjetivo: defaultFecha() });
     setFormError('');
