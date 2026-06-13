@@ -9,6 +9,7 @@ import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
+import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
@@ -143,7 +144,7 @@ export default function App() {
     setLoadError(null);
     try {
       const data = await fetchTransactions();
-      setTransactions(data);
+      setTransactions(userId ? applyLearnings(data, userId) : data);
       lastFetchRef.current = Date.now();
       if (data.length === 0 && userId && !localStorage.getItem(`fm_tutorial_seen_${userId}`)) {
         setShowTutorial(true);
@@ -163,7 +164,7 @@ export default function App() {
     if (Date.now() - lastFetchRef.current < 30_000) return;
     try {
       const data = await fetchTransactions();
-      setTransactions(data);
+      setTransactions(userId ? applyLearnings(data, userId) : data);
       lastFetchRef.current = Date.now();
     } catch { /* silently ignore */ }
   }, []);
@@ -282,6 +283,7 @@ export default function App() {
             <Historial
               transactions={transactions}
               loading={loading}
+              userId={userId ?? ''}
               onCategoryChange={handleCategoryChange}
               onDelete={handleDeleteTransaction}
               onTransactionUpdate={handleTransactionUpdate}

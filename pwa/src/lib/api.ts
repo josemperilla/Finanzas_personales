@@ -413,12 +413,18 @@ export async function revokeInvite(adminUserId: string, code: string): Promise<{
 
 // ── Perfil cross-device ───────────────────────────────────────
 
-export async function updateProfile(updates: { displayName?: string; avatar?: string }): Promise<void> {
+export async function updateProfile(updates: {
+  displayName?: string;
+  avatar?: string;
+  alertEmail?: string;
+  alertThreshold?: number;
+  weeklyDigest?: boolean;
+}): Promise<void> {
   assertWebhookUrl();
   // GAS Script Properties has a 9 KB per-value limit; skip avatar sync if too large
-  const safeUpdates = { ...updates };
+  const safeUpdates: typeof updates = { ...updates };
   if (safeUpdates.avatar && safeUpdates.avatar.length > 8000) delete safeUpdates.avatar;
-  if (!safeUpdates.displayName && !safeUpdates.avatar) return;
+  if (Object.keys(safeUpdates).length === 0) return;
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -428,7 +434,7 @@ export async function updateProfile(updates: { displayName?: string; avatar?: st
   if (!json.ok) throw new Error(json.error || 'Error al actualizar perfil');
 }
 
-export async function getProfileFromServer(): Promise<{ displayName: string; avatar: string }> {
+export async function getProfileFromServer(): Promise<{ displayName: string; avatar: string; alertEmail?: string; alertThreshold?: number; weeklyDigest?: boolean }> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
@@ -437,7 +443,7 @@ export async function getProfileFromServer(): Promise<{ displayName: string; ava
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al obtener perfil');
-  return json.data as { displayName: string; avatar: string };
+  return json.data as { displayName: string; avatar: string; alertEmail?: string; alertThreshold?: number; weeklyDigest?: boolean };
 }
 
 export async function redeemInvite(code: string): Promise<{ userId: string; displayName: string }> {

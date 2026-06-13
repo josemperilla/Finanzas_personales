@@ -712,22 +712,29 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
-    // Actualizar perfil (nombre visible y/o avatar) — cualquier usuario autenticado
+    // Actualizar perfil (nombre visible, avatar, alertas) — cualquier usuario autenticado
     if (type === "updateProfile") {
       var profName   = String(payload.displayName || "").trim().slice(0, 60);
       var profAvatar = String(payload.avatar || "").slice(0, 200000);
       var profProps  = PropertiesService.getScriptProperties();
       if (profName)   profProps.setProperty("APP_PROFILE_NAME_" + userId, profName);
       if (profAvatar) profProps.setProperty("APP_PROFILE_AVATAR_" + userId, profAvatar);
+      if (payload.alertEmail !== undefined)    profProps.setProperty("APP_ALERT_EMAIL_" + userId, String(payload.alertEmail || ""));
+      if (payload.alertThreshold !== undefined) profProps.setProperty("APP_ALERT_THRESHOLD_" + userId, String(Number(payload.alertThreshold) || "0"));
+      if (payload.weeklyDigest !== undefined)  profProps.setProperty("APP_WEEKLY_DIGEST_" + userId, payload.weeklyDigest ? "true" : "false");
       return jsonResponse({ ok: true });
     }
 
     // Obtener perfil guardado en servidor — permite sincronizar en dispositivos nuevos
     if (type === "getProfile") {
       var gpProps = PropertiesService.getScriptProperties();
+      var threshold = gpProps.getProperty("APP_ALERT_THRESHOLD_" + userId);
       return jsonResponse({ ok: true, data: {
-        displayName: gpProps.getProperty("APP_PROFILE_NAME_" + userId) || "",
-        avatar:      gpProps.getProperty("APP_PROFILE_AVATAR_" + userId) || ""
+        displayName:    gpProps.getProperty("APP_PROFILE_NAME_" + userId) || "",
+        avatar:         gpProps.getProperty("APP_PROFILE_AVATAR_" + userId) || "",
+        alertEmail:     gpProps.getProperty("APP_ALERT_EMAIL_" + userId) || "",
+        alertThreshold: threshold ? Number(threshold) : 0,
+        weeklyDigest:   gpProps.getProperty("APP_WEEKLY_DIGEST_" + userId) === "true"
       }});
     }
 
@@ -1706,6 +1713,8 @@ function appendToSheet(data, userId) {
     data.fuente       || "sms",
     data.nota         || ""
   ]);
+
+  try { _sendAlertEmail(userId, data); } catch(e) {}
 }
 
 // ── Normalización de nombre de comercio ───────────────────────
@@ -2407,4 +2416,125 @@ function weeklyBackupToDrive() {
   });
 
   Logger.log("Backup completado: " + backed + " usuarios — " + date);
+}
+
+// ── F7: Alertas por email ──────────────────────────────────────────────────────
+
+function _formatCOP(amount) {
+  return "$" + Number(amount).toLocaleString("es-CO");
+}
+
+function _sendAlertEmail(userId, tx) {
+  var props     = PropertiesService.getScriptProperties();
+  var email     = props.getProperty("APP_ALERT_EMAIL_" + userId) || "";
+  var threshold = Number(props.getProperty("APP_ALERT_THRESHOLD_" + userId) || "0");
+  if (!email || !threshold || !tx.monto || Number(tx.monto) <= threshold) return;
+
+  var subject = "⚠️ Gasto de " + _formatCOP(tx.monto) + " en " + (tx.comercio || tx.tipo || "transacción");
+  var htmlBody = "<div style='font-family:sans-serif;max-width:480px'>"
+    + "<h2 style='color:#dc2626'>⚠️ Alerta de gasto</h2>"
+    + "<table style='border-collapse:collapse;width:100%'>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Monto</td><td style='font-weight:700;color:#0f172a'>" + _formatCOP(tx.monto) + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Comercio</td><td>" + (tx.comercio || "—") + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Banco</td><td>" + (tx.banco || "—") + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Categoría</td><td>" + (tx.categoria || "—") + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Fecha</td><td>" + (tx.fecha ? Utilities.formatDate(tx.fecha, 'America/Bogota', "dd/MM/yyyy HH:mm") : "—") + "</td></tr>"
+    + "</table>"
+    + "<p style='color:#64748b;font-size:12px;margin-top:16px'>Finance Manager · alerta automática</p>"
+    + "</div>";
+
+  MailApp.sendEmail({ to: email, subject: subject, htmlBody: htmlBody });
+}
+
+// ── F8: Resumen semanal ────────────────────────────────────────────────────────
+
+// Run this function ONCE manually from the Apps Script editor to set up the weekly trigger.
+function setupWeeklyTrigger() {
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === "runWeeklyDigests"; })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger("runWeeklyDigests")
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(14) // 9am Colombia = 14:00 UTC
+    .create();
+  Logger.log("Trigger semanal creado: runWeeklyDigests cada lunes a las 9am COT");
+}
+
+function runWeeklyDigests() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try { _sendWeeklySummary(uid); } catch(e) { Logger.log("Digest error " + uid + ": " + e); }
+  });
+}
+
+function _sendWeeklySummary(userId) {
+  var props  = PropertiesService.getScriptProperties();
+  var email  = props.getProperty("APP_ALERT_EMAIL_" + userId) || "";
+  var digest = props.getProperty("APP_WEEKLY_DIGEST_" + userId);
+  if (!email || digest !== "true") return;
+
+  // Get last week (Mon–Sun)
+  var now    = new Date();
+  var curDow = now.getDay() === 0 ? 7 : now.getDay(); // Mon=1 ... Sun=7
+  var lastSun = new Date(now); lastSun.setDate(now.getDate() - (curDow));
+  lastSun.setHours(23, 59, 59, 0);
+  var lastMon = new Date(lastSun); lastMon.setDate(lastSun.getDate() - 6);
+  lastMon.setHours(0, 0, 0, 0);
+
+  var ref   = _getSheet(userId);
+  if (!ref.sheet) return;
+  var data    = ref.sheet.getDataRange().getValues();
+  if (data.length < 2) return;
+  var headers = data[0];
+  var rows    = data.slice(1);
+
+  var tsIdx    = headers.indexOf("Timestamp");
+  var montoIdx = headers.indexOf("Monto (COP)");
+  var catIdx   = headers.indexOf("Categoría");
+
+  var total = 0;
+  var bycat = {};
+  var txCount = 0;
+
+  rows.forEach(function(row) {
+    var ts = new Date(row[tsIdx]);
+    if (isNaN(ts) || ts < lastMon || ts > lastSun) return;
+    var monto = Number(row[montoIdx]) || 0;
+    if (monto <= 0) return;
+    total += monto;
+    txCount++;
+    var cat = row[catIdx] || "Otro";
+    bycat[cat] = (bycat[cat] || 0) + monto;
+  });
+
+  var catRows = Object.keys(bycat).map(function(c) { return { cat: c, total: bycat[c] }; });
+  catRows.sort(function(a, b) { return b.total - a.total; });
+  var top3 = catRows.slice(0, 3);
+
+  var weekStr = Utilities.formatDate(lastMon, 'America/Bogota', "dd MMM")
+    + " – " + Utilities.formatDate(lastSun, 'America/Bogota', "dd MMM yyyy");
+
+  var catHtml = top3.map(function(c) {
+    return "<tr><td style='padding:5px 0;color:#64748b'>" + c.cat + "</td>"
+      + "<td style='font-weight:600;color:#0f172a;text-align:right'>" + _formatCOP(c.total) + "</td></tr>";
+  }).join("");
+
+  var htmlBody = "<div style='font-family:sans-serif;max-width:480px'>"
+    + "<h2 style='color:#1d4ed8'>📊 Tu resumen semanal</h2>"
+    + "<p style='color:#64748b'>" + weekStr + "</p>"
+    + "<table style='border-collapse:collapse;width:100%;margin-bottom:16px'>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Total gastado</td><td style='font-weight:700;font-size:18px;color:#0f172a;text-align:right'>" + _formatCOP(total) + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Transacciones</td><td style='text-align:right'>" + txCount + "</td></tr>"
+    + "</table>"
+    + (catHtml ? "<h3 style='color:#374151;font-size:14px;margin-bottom:8px'>Top categorías</h3>"
+      + "<table style='border-collapse:collapse;width:100%'>" + catHtml + "</table>" : "")
+    + "<p style='color:#94a3b8;font-size:11px;margin-top:20px'>Finance Manager · resumen automático semanal</p>"
+    + "</div>";
+
+  MailApp.sendEmail({
+    to: email,
+    subject: "📊 Tu resumen financiero — " + weekStr,
+    htmlBody: htmlBody
+  });
 }

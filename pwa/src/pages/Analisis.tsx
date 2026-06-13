@@ -12,6 +12,7 @@ import { CategorySheet } from '../components/CategorySheet';
 
 import { WeekdayChart } from '../components/WeekdayChart';
 import { CategoryComparison } from '../components/CategoryComparison';
+import { SubscripcionesWidget } from '../components/SubscripcionesWidget';
 
 
 interface Props {
@@ -457,6 +458,8 @@ export function Analisis({ transactions, loading, userId }: Props) {
                 })}
               </motion.div>
             )}
+
+            <SubscripcionesWidget transactions={transactions} />
 
             {/* Top merchants — animated reorder */}
             {displayStats.topMerchants.length > 0 && (

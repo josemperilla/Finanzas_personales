@@ -19,6 +19,8 @@ import { getBudgets, getSharedBudgets } from '../lib/budgets';
 import { computeHealthScore, HealthScore } from '../lib/healthScore';
 import { detectUnusualCategories } from '../lib/analytics';
 import { RetosPanel } from '../components/RetosPanel';
+import { WeeklyCashFlow } from '../components/WeeklyCashFlow';
+import { MetaMensualWidget } from '../components/MetaMensualWidget';
 
 interface Props {
   transactions: Transaction[];
@@ -367,6 +369,18 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             </AnimatePresence>
           )}
         </motion.div>
+
+        {/* Meta mensual */}
+        {!loading && selectedOffset === 0 && (
+          <MetaMensualWidget monthTx={monthTx} userId={userId} />
+        )}
+
+        {/* Weekly cash flow — current month only */}
+        {!loading && selectedOffset === 0 && monthTx.length > 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <WeeklyCashFlow transactions={monthTx} />
+          </motion.div>
+        )}
 
         {/* Retos */}
         {!loading && (

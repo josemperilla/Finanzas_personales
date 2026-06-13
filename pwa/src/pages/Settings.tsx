@@ -15,6 +15,9 @@ import { TutorialCanales } from '../components/TutorialCanales';
 import { isBiometricSupported, hasBiometric, registerBiometric, clearBiometric } from '../lib/webauthn';
 import { resizeImageToAvatar } from '../lib/avatar';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
+import { getLearnedMappings, removeLearnedMapping, clearLearnedMappings } from '../lib/merchantLearning';
+import type { LearnedMapping } from '../lib/merchantLearning';
+import { CATEGORIES } from '../lib/config';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -52,6 +55,39 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   });
 
   const [tabOrder, setTabOrderState] = useState<ReorderableTab[]>(() => getUserTabOrder(userId));
+  const [learnedMappings, setLearnedMappings] = useState<LearnedMapping[]>(() => getLearnedMappings(userId));
+
+  // Alertas por email (F7 + F8)
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [alertEmail, setAlertEmail] = useState('');
+  const [alertThreshold, setAlertThreshold] = useState('200000');
+  const [weeklyDigest, setWeeklyDigest] = useState(false);
+  const [alertsSaving, setAlertsSaving] = useState(false);
+  const [alertsSaved, setAlertsSaved] = useState(false);
+
+  function handleRemoveLearning(rawMerchant: string) {
+    removeLearnedMapping(userId, rawMerchant);
+    setLearnedMappings(getLearnedMappings(userId));
+  }
+
+  function handleClearAllLearnings() {
+    clearLearnedMappings(userId);
+    setLearnedMappings([]);
+  }
+
+  async function handleSaveAlerts() {
+    setAlertsSaving(true);
+    try {
+      await updateProfile({
+        alertEmail: alertsEnabled ? alertEmail : '',
+        alertThreshold: alertsEnabled ? Number(alertThreshold) || 0 : 0,
+        weeklyDigest,
+      });
+      setAlertsSaved(true);
+      setTimeout(() => setAlertsSaved(false), 2500);
+    } catch { /* ignore — server might not support yet */ }
+    finally { setAlertsSaving(false); }
+  }
 
   function moveTab(index: number, dir: -1 | 1) {
     const next = [...tabOrder];
@@ -73,6 +109,9 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     getProfileFromServer().then(data => {
       if (data.displayName) { setNickname(data.displayName); setUserNickname(userId, data.displayName); }
       if (data.avatar) { setAvatarUrl(data.avatar); setUserAvatar(userId, data.avatar); }
+      if (data.alertEmail) { setAlertEmail(data.alertEmail); setAlertsEnabled(true); }
+      if (data.alertThreshold) setAlertThreshold(String(data.alertThreshold));
+      if (data.weeklyDigest != null) setWeeklyDigest(data.weeklyDigest);
     }).catch(() => {}); // fire-and-forget, no token → skip silently
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -542,6 +581,134 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
             </div>
           </Section>
 
+          {/* ── Alertas ── */}
+          <Section title="Alertas">
+            <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+              {/* Toggle alertas de gasto */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>Alertas de gasto grande</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>Recibe un email al superar el umbral</div>
+                </div>
+                <motion.div
+                  whileTap={{ scale: 0.88 }}
+                  onClick={() => setAlertsEnabled(e => !e)}
+                  style={{
+                    width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
+                    background: alertsEnabled ? 'var(--blue-600, #2563eb)' : 'var(--line)',
+                    position: 'relative', transition: 'background 0.25s',
+                    flexShrink: 0,
+                  }}
+                >
+                  <motion.div
+                    animate={{ x: alertsEnabled ? 20 : 2 }}
+                    transition={softSpring}
+                    style={{
+                      position: 'absolute', top: 3, width: 20, height: 20,
+                      borderRadius: '50%', background: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                    }}
+                  />
+                </motion.div>
+              </div>
+
+              {/* Expandable alert config */}
+              <AnimatePresence initial={false}>
+                {alertsEnabled && (
+                  <motion.div
+                    key="alert-config"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Email de notificación</div>
+                        <input
+                          type="email"
+                          value={alertEmail}
+                          onChange={e => setAlertEmail(e.target.value)}
+                          placeholder="tu@email.com"
+                          style={{
+                            width: '100%', height: 42, padding: '0 12px',
+                            background: 'var(--card)', border: '1.5px solid var(--line)',
+                            borderRadius: 12, color: 'var(--ink)', fontSize: 14,
+                            fontFamily: 'var(--font-body)', outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Alertar a partir de (COP)</div>
+                        <input
+                          type="number"
+                          value={alertThreshold}
+                          onChange={e => setAlertThreshold(e.target.value)}
+                          placeholder="200000"
+                          style={{
+                            width: '100%', height: 42, padding: '0 12px',
+                            background: 'var(--card)', border: '1.5px solid var(--line)',
+                            borderRadius: 12, color: 'var(--ink)', fontSize: 14,
+                            fontFamily: 'var(--font-mono)', outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Weekly digest toggle — only if email is set */}
+              {alertsEnabled && alertEmail.trim() && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>Resumen semanal (lunes)</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>Resumen de gastos de la semana</div>
+                  </div>
+                  <motion.div
+                    whileTap={{ scale: 0.88 }}
+                    onClick={() => setWeeklyDigest(d => !d)}
+                    style={{
+                      width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
+                      background: weeklyDigest ? 'var(--blue-600, #2563eb)' : 'var(--line)',
+                      position: 'relative', transition: 'background 0.25s',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <motion.div
+                      animate={{ x: weeklyDigest ? 20 : 2 }}
+                      transition={softSpring}
+                      style={{
+                        position: 'absolute', top: 3, width: 20, height: 20,
+                        borderRadius: '50%', background: '#fff',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                      }}
+                    />
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Save button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSaveAlerts}
+                disabled={alertsSaving}
+                style={{
+                  width: '100%', height: 44,
+                  background: alertsSaved ? 'var(--success, #16a34a)' : 'var(--blue-600, #2563eb)',
+                  color: '#fff', border: 'none', borderRadius: 12, cursor: alertsSaving ? 'default' : 'pointer',
+                  fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-body)',
+                  transition: 'background 0.3s', opacity: alertsSaving ? 0.7 : 1,
+                }}
+              >
+                {alertsSaved ? '✓ Guardado' : alertsSaving ? 'Guardando…' : 'Guardar configuración'}
+              </motion.button>
+            </div>
+          </Section>
+
           {/* ── Orden de pestañas ── */}
           <Section title="Orden de pestañas">
             <div style={{ paddingTop: 10, paddingBottom: 4 }}>
@@ -636,6 +803,56 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
               chevron="↓"
             />
           </Section>
+
+          {/* ── Reglas aprendidas ── */}
+          {learnedMappings.length > 0 && (
+            <Section title={`Reglas aprendidas (${learnedMappings.length})`}>
+              <div style={{ padding: '4px 0' }}>
+                {learnedMappings.map(m => {
+                  const cat = CATEGORIES.find(c => c.name === m.categoria);
+                  const color = cat?.color ?? 'var(--muted)';
+                  return (
+                    <AnimatePresence key={m.rawMerchant}>
+                      <motion.div
+                        layout
+                        exit={{ x: 40, opacity: 0, height: 0, marginBottom: 0 }}
+                        transition={quickEase}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)' }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {m.rawMerchant}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            <span style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>{m.canonicalName || '—'}</span>
+                            <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 20, background: color + '22', color }}>
+                              {m.categoria}
+                            </span>
+                          </div>
+                        </div>
+                        <motion.button
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => handleRemoveLearning(m.rawMerchant)}
+                          style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 16, cursor: 'pointer', padding: '6px', flexShrink: 0 }}
+                          aria-label="Eliminar regla"
+                        >
+                          🗑
+                        </motion.button>
+                      </motion.div>
+                    </AnimatePresence>
+                  );
+                })}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleClearAllLearnings}
+                  style={{ marginTop: 8, marginBottom: 4, width: '100%', height: 36, border: '1.5px solid var(--line)', borderRadius: 10, background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                >
+                  Borrar todas las reglas
+                </motion.button>
+              </div>
+            </Section>
+          )}
 
         </div>
       </motion.div>

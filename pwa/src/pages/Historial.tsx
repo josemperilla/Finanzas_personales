@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction } from '../lib/api';
+import { addLearnedMapping, getLearnedMappings, removeLearnedMapping, clearLearnedMappings, LearnedMapping } from '../lib/merchantLearning';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
@@ -16,6 +17,7 @@ type DateRange = 'month' | '3m' | '6m' | 'year' | 'all';
 interface Props {
   transactions: Transaction[];
   loading: boolean;
+  userId?: string;
   onCategoryChange?: (timestamp: string, categoria: string) => void;
   onDelete?: (timestamp: string) => void;
   onTransactionUpdate?: (timestamp: string, data: Partial<ManualTransaction>) => void;
@@ -47,8 +49,50 @@ function csvFilename(range: DateRange): string {
   return `gastos_historial.csv`;
 }
 
-export function Historial({ transactions, loading, onCategoryChange, onDelete, onTransactionUpdate }: Props) {
+export function Historial({ transactions, loading, userId = '', onCategoryChange, onDelete, onTransactionUpdate }: Props) {
   const [activeFilter, setActiveFilter]   = useState<string>('Todas');
+  const [batchToast, setBatchToast]       = useState<{ rawMerchant: string; categoria: string; count: number } | null>(null);
+  const batchToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [batchApplying, setBatchApplying] = useState(false);
+
+  const handleCategoryChangeWithLearning = useMemo(() => (timestamp: string, categoria: string) => {
+    if (userId) {
+      const tx = transactions.find(t => t.Timestamp === timestamp);
+      if (tx?.Comercio) {
+        addLearnedMapping(userId, {
+          rawMerchant: tx.Comercio,
+          canonicalName: cleanMerchant(tx.Comercio),
+          categoria,
+          updatedAt: new Date().toISOString(),
+        });
+        const similares = transactions.filter(t =>
+          t.Comercio === tx.Comercio && t.Categoría !== categoria && t.Timestamp !== timestamp
+        );
+        if (similares.length > 0) {
+          setBatchToast({ rawMerchant: tx.Comercio, categoria, count: similares.length });
+          if (batchToastTimer.current) clearTimeout(batchToastTimer.current);
+          batchToastTimer.current = setTimeout(() => setBatchToast(null), 8000);
+        }
+      }
+    }
+    onCategoryChange?.(timestamp, categoria);
+  }, [transactions, userId, onCategoryChange]);
+
+  async function applyBatchCategory() {
+    if (!batchToast) return;
+    setBatchApplying(true);
+    const targets = transactions.filter(t =>
+      t.Comercio === batchToast.rawMerchant && t.Categoría !== batchToast.categoria
+    );
+    await Promise.allSettled(targets.map(t =>
+      updateCategory(t.Timestamp, batchToast.categoria).then(() =>
+        onCategoryChange?.(t.Timestamp, batchToast.categoria)
+      )
+    ));
+    setBatchApplying(false);
+    setBatchToast(null);
+  }
+
   const [selected, setSelected]           = useState<Transaction | null>(null);
   const [searchQuery, setSearchQuery]     = useState('');
   const [dateRange, setDateRange]         = useState<DateRange>('all');
@@ -407,10 +451,59 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
           <BottomSheet
             tx={selected}
             onClose={() => setSelected(null)}
-            onCategoryChange={onCategoryChange}
+            onCategoryChange={handleCategoryChangeWithLearning}
             onDelete={ts => { handleDelete(ts); setSelected(null); }}
             onTransactionUpdate={onTransactionUpdate}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Batch categorization toast */}
+      <AnimatePresence>
+        {batchToast && (
+          <motion.div
+            key="batch-toast"
+            initial={{ y: 64, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            style={{
+              position: 'fixed',
+              bottom: 'calc(80px + env(safe-area-inset-bottom))',
+              left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9994,
+              width: 'calc(100% - 48px)', maxWidth: 360,
+              background: 'var(--ink)', borderRadius: 16, padding: '14px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              boxShadow: '0 8px 32px rgba(15,23,42,0.28)',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {cleanMerchant(batchToast.rawMerchant) || batchToast.rawMerchant}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>
+                Hay {batchToast.count} transacción{batchToast.count > 1 ? 'es similares' : ' similar'}. ¿Aplicar <b style={{ color: '#fff' }}>{batchToast.categoria}</b> a todas?
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setBatchToast(null)}
+                style={{ border: 'none', background: 'none', color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', padding: '6px 4px' }}
+              >
+                No
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={applyBatchCategory}
+                disabled={batchApplying}
+                style={{ height: 36, padding: '0 14px', background: 'var(--blue-500)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: batchApplying ? 'default' : 'pointer', fontFamily: 'var(--font-body)', opacity: batchApplying ? 0.7 : 1 }}
+              >
+                {batchApplying ? '…' : 'Aplicar'}
+              </motion.button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
