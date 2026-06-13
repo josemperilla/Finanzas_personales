@@ -1,6 +1,6 @@
-// Cloudflare Pages Function — Recibe el payload del iOS Shortcut y lo reenvía
-// a GAS. Actúa como proxy para evitar que el cliente tenga que lidiar con la
-// doble redirección de script.google.com.
+// Cloudflare Pages Function — Proxy del iOS Shortcut hacia GAS.
+// Elimina el doble-redirect de script.google.com que rompe "Obtener contenido de URL"
+// en Mac/iOS Atajos. GAS verifica el _secret directamente (canal "shortcut").
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -16,23 +16,18 @@ export async function onRequest(context) {
     return json({ ok: false, error: 'Cuerpo de solicitud inválido' }, 400);
   }
 
-  const SHORTCUT_SECRET = env.WEBHOOK_SECRET || env.WEB_SECRET || '';
-  const incoming = typeof body._secret === 'string' ? body._secret : '';
-
-  if (!incoming || incoming !== SHORTCUT_SECRET) {
-    return json({ ok: false, error: 'Unauthorized' }, 401);
-  }
-
   const WEBHOOK_URL = env.WEBHOOK_URL || '';
-  const WEB_SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
   if (!WEBHOOK_URL) return json({ ok: false, error: 'WEBHOOK_URL no configurado' }, 500);
 
+  // Pasamos _secret tal cual al GAS — él verifica si coincide con WEBHOOK_SECRET
+  // en Script Properties y decide el canal ("shortcut"). No verificamos aquí para
+  // no depender de que Cloudflare y GAS tengan el mismo valor configurado.
   const gasPayload = {
     userId:    typeof body.userId === 'string' ? body.userId.toLowerCase().trim() : '',
     sms:       typeof body.sms === 'string' ? body.sms : '',
     bank:      typeof body.bank === 'string' ? body.bank : '',
     timestamp: typeof body.timestamp === 'string' ? body.timestamp : '',
-    _secret:   WEB_SECRET,
+    _secret:   typeof body._secret === 'string' ? body._secret : '',
   };
 
   try {
