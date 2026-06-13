@@ -99,6 +99,9 @@ Reglas:
 
     if (!res.ok) {
       const errText = await res.text();
+      if (errText.includes('password protected') || errText.includes('password_protected')) {
+        return json({ ok: false, code: 'PDF_PASSWORD_PROTECTED', error: 'El PDF está protegido con contraseña. Ingresa la contraseña de tu extracto (usualmente tu número de cédula).' }, 422);
+      }
       return json({ ok: false, error: `Anthropic API error ${res.status}: ${errText}` }, 502);
     }
 

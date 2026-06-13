@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { importTransactions, getToken } from '../lib/api';
 import { type ManualTransaction } from '../lib/api';
 import { quickEase } from '../lib/motion';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 interface ParsedRow {
   fecha: string;
@@ -126,7 +127,25 @@ function rowToManual(row: ParsedRow): ManualTransaction {
   };
 }
 
-type Stage = 'select' | 'analyzing' | 'preview' | 'sending' | 'done';
+type Stage = 'select' | 'analyzing' | 'password' | 'preview' | 'sending' | 'done';
+
+async function renderPDFToImages(pdfBytes: Uint8Array, password: string): Promise<string[]> {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const pdf = await pdfjsLib.getDocument({ data: pdfBytes, password }).promise;
+  const images: string[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    images.push(canvas.toDataURL('image/jpeg', 0.88).split(',')[1]);
+  }
+  return images;
+}
 
 export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -136,6 +155,8 @@ export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: P
   const [parseErr, setParseErr] = useState('');
   const [progress, setProgress] = useState(0);
   const [result, setResult]  = useState({ ok: 0, errors: 0 });
+  const pendingPdfRef = useRef<Uint8Array | null>(null);
+  const [pdfPassword, setPdfPassword] = useState('');
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -182,6 +203,12 @@ export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: P
       });
       const data = await res.json();
       if (!data.ok) {
+        if (data.code === 'PDF_PASSWORD_PROTECTED') {
+          pendingPdfRef.current = bytes;
+          setPdfPassword('');
+          setStage('password');
+          return;
+        }
         setParseErr(data.error ?? 'Error al procesar el PDF');
         setStage('select');
         return;
@@ -206,6 +233,42 @@ export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: P
     } catch (err) {
       setParseErr(err instanceof Error ? err.message : 'Error de conexión');
       setStage('select');
+    }
+  }
+
+  async function handlePDFWithPassword() {
+    if (!pendingPdfRef.current || !pdfPassword.trim()) return;
+    setStage('analyzing');
+    setParseErr('');
+    try {
+      const images = await renderPDFToImages(pendingPdfRef.current, pdfPassword.trim());
+      const allRows: ParsedRow[] = [];
+      for (const imgBase64 of images) {
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imgBase64, mediaType: 'image/jpeg', token: getToken() }),
+        });
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.transactions)) {
+          allRows.push(...(data.transactions as ParsedRow[]).filter(t => t.monto > 0 && t.comercio));
+        }
+      }
+      if (allRows.length === 0) {
+        setParseErr('No se encontraron transacciones. Verifica que la contraseña sea correcta.');
+        setStage('password');
+        return;
+      }
+      setRows(allRows.map(t => ({
+        fecha: t.fecha, comercio: t.comercio,
+        monto: Math.round(t.monto), tipo: t.tipo ?? 'Compra', banco: t.banco ?? BANK_DISPLAY[bank] ?? 'Otro',
+      })));
+      setStage('preview');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al desbloquear el PDF';
+      const isWrongPassword = msg.toLowerCase().includes('password') || msg.toLowerCase().includes('incorrect');
+      setParseErr(isWrongPassword ? 'Contraseña incorrecta. Inténtalo de nuevo.' : msg);
+      setStage('password');
     }
   }
 
@@ -309,6 +372,54 @@ export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: P
                 </motion.button>
               </div>
             )}
+          </motion.div>
+        )}
+
+        {/* Stage: password — PDF protegido con contraseña */}
+        {stage === 'password' && (
+          <motion.div key="password" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={quickEase}
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ textAlign: 'center', fontSize: 40 }}>🔒</div>
+            <div>
+              <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--ink)', marginBottom: 6, fontFamily: 'var(--font-display)' }}>
+                PDF protegido
+              </div>
+              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--muted)', lineHeight: 1.6 }}>
+                Tu extracto tiene contraseña. En Bancolombia y la mayoría de bancos colombianos, la contraseña suele ser tu <strong style={{ color: 'var(--ink)' }}>número de cédula</strong>.
+              </p>
+            </div>
+            <div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginBottom: 6 }}>Contraseña del PDF</div>
+              <input
+                type="text"
+                autoFocus
+                value={pdfPassword}
+                onChange={e => setPdfPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handlePDFWithPassword(); }}
+                placeholder="Ej: 1234567890"
+                style={{
+                  width: '100%', height: 48, padding: '0 14px', boxSizing: 'border-box',
+                  border: '1.5px solid var(--line)', borderRadius: 12,
+                  background: 'var(--card)', color: 'var(--ink)', fontSize: 'var(--text-base)',
+                  fontFamily: 'var(--font-mono)', outline: 'none', letterSpacing: '0.1em',
+                }}
+              />
+            </div>
+            {parseErr && (
+              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: '#b91c1c', background: '#fef2f2', padding: '10px 14px', borderRadius: 10 }}>
+                {parseErr}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={handlePDFWithPassword} disabled={!pdfPassword.trim()}
+                style={{ flex: 1, height: 48, background: pdfPassword.trim() ? 'var(--blue-700)' : 'var(--line)', border: 'none', borderRadius: 12, color: pdfPassword.trim() ? '#fff' : 'var(--muted)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: pdfPassword.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-body)' }}>
+                Desbloquear PDF
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setStage('select'); setParseErr(''); }}
+                style={{ padding: '0 18px', height: 48, background: 'none', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Cancelar
+              </motion.button>
+            </div>
           </motion.div>
         )}
 
