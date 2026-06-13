@@ -58,6 +58,23 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
   const [dateTo, setDateTo]               = useState('');
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [viewMode, setViewMode]           = useState<'list' | 'calendar'>('list');
+  const activeFilterCount = [
+    activeFilter !== 'Todas',
+    dateRange !== 'all' || !!dateFrom || !!dateTo,
+    bankFilter !== 'Todos',
+    typeFilter !== 'Todos',
+    !!searchQuery,
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setActiveFilter('Todas');
+    setDateRange('all');
+    setDateFrom('');
+    setDateTo('');
+    setBankFilter('Todos');
+    setTypeFilter('Todos');
+    setSearchQuery('');
+  };
 
   const filters = ['Todas', 'Sin categorizar', ...CATEGORIES.map(c => c.name)];
 
@@ -191,7 +208,7 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
               </motion.button>
             );
           })}
-          <motion.button whileTap={{ scale: 0.94 }} onClick={() => setShowAdvanced(v => !v)} style={{
+          <motion.button aria-expanded={showAdvanced} whileTap={{ scale: 0.94 }} onClick={() => setShowAdvanced(v => !v)} style={{
             flexShrink: 0, padding: '5px 12px', borderRadius: 999,
             border: `1.5px solid ${showAdvanced ? 'var(--blue-600)' : 'var(--line)'}`,
             background: showAdvanced ? 'var(--blue-50)' : 'transparent',
@@ -199,9 +216,23 @@ export function Historial({ transactions, loading, onCategoryChange, onDelete, o
             fontSize: 12.5, fontWeight: 400, cursor: 'pointer',
             fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 4,
           }}>
-            <span style={{ fontSize: 13 }}>⊟</span> Filtros
+            <span style={{ fontSize: 13 }}>⊟</span> Filtros{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
           </motion.button>
         </div>
+
+        {activeFilterCount > 0 && (
+          <div role="status" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            marginBottom: 9, padding: '8px 10px', borderRadius: 12,
+            background: 'var(--blue-50)', color: 'var(--blue-700)', fontSize: 12.5,
+          }}>
+            <span>{filtered.length} resultado{filtered.length === 1 ? '' : 's'} con filtros activos</span>
+            <button type="button" onClick={clearFilters} style={{
+              border: 0, background: 'transparent', color: 'var(--blue-700)',
+              fontWeight: 800, cursor: 'pointer', minHeight: 32,
+            }}>Limpiar</button>
+          </div>
+        )}
 
         {/* Advanced filters — bank and type */}
         <AnimatePresence>

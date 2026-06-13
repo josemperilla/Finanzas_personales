@@ -1,13 +1,19 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    css: true,
+    globals: true,
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.png', 'apple-touch-icon.png', 'profile-avatar.jpg'],
+      includeAssets: ['icon-512.png', 'apple-touch-icon.png', 'profile-avatar.jpg'],
       manifest: {
         name: 'Finanzas Personales',
         short_name: 'Finanzas',

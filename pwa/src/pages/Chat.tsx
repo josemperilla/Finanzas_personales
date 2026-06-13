@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { askChat } from '../lib/api';
 import { formatCOP } from '../lib/utils';
@@ -128,6 +128,7 @@ function buildContext(txs: Transaction[]) {
 }
 
 export function Chat({ transactions }: Props) {
+  const reduceMotion = useReducedMotion();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -188,11 +189,11 @@ export function Chat({ transactions }: Props) {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
+      <div role="log" aria-live="polite" aria-relevant="additions" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
         {messages.length === 0 && (
           <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ textAlign: 'center', padding: '30px 0 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-              <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
+              <motion.div animate={reduceMotion ? undefined : { y: [0, -4, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
                 <Fino size={64} />
               </motion.div>
             </div>
@@ -245,7 +246,7 @@ export function Chat({ transactions }: Props) {
 
         {loading && (
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} style={{ flexShrink: 0 }}><Fino size={28} /></motion.div>
+            <motion.div animate={reduceMotion ? undefined : { y: [0, -3, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }} style={{ flexShrink: 0 }}><Fino size={28} /></motion.div>
             <div style={{
               padding: '12px 16px', borderRadius: '16px 16px 16px 4px',
               background: 'var(--card)', boxShadow: 'var(--shadow-card)',
@@ -278,6 +279,7 @@ export function Chat({ transactions }: Props) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send(input)}
             placeholder="Pregunta sobre tus gastos..."
+            aria-label="Pregunta para el asistente financiero"
             style={{
               flex: 1, height: 44, padding: '0 14px',
               background: 'var(--surface)', border: '1.5px solid var(--line)',
@@ -290,6 +292,7 @@ export function Chat({ transactions }: Props) {
           <motion.button
             onClick={() => send(input)}
             disabled={!input.trim() || loading}
+            aria-label={loading ? 'Esperando respuesta' : 'Enviar pregunta'}
             whileTap={{ scale: input.trim() && !loading ? 0.92 : 1 }}
             style={{
               width: 44, height: 44, borderRadius: 12, border: 'none', cursor: 'pointer',

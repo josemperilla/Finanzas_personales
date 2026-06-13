@@ -35,15 +35,16 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'var(--card)',
+      background: 'color-mix(in srgb, var(--card) 92%, transparent)',
+      backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
       borderTop: '1px solid var(--line)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-around',
       paddingTop: accessibleMode ? '12px' : '10px',
       paddingBottom: 'max(18px, env(safe-area-inset-bottom))',
-      zIndex: 100,
-      boxShadow: '0 -10px 30px rgba(15,23,42,0.06)',
+      zIndex: 'var(--z-nav)',
+      boxShadow: 'var(--shadow-nav)',
       minHeight: navMinHeight,
-    }}>
+    }} aria-label="Navegación principal">
       {leftTabs.map(tabId => {
         if (accessibleMode && (tabId === 'analisis' || tabId === 'chat')) return null;
         const meta = TAB_META[tabId];
@@ -76,7 +77,8 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge,
   padding: string; alwaysShowLabel: boolean; badge?: boolean; ariaLabel?: string;
 }) {
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.92 }} aria-label={ariaLabel} style={{
+    <motion.button onClick={onClick} whileTap={{ scale: 0.92 }} aria-label={ariaLabel || label}
+      aria-current={active ? 'page' : undefined} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
       background: 'none', border: 'none', cursor: 'pointer', position: 'relative',
       padding,
@@ -88,7 +90,7 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge,
           layoutId="nav-active-pill"
           transition={softSpring}
           style={{
-            position: 'absolute', top: 0, width: 38, height: 26,
+            position: 'absolute', top: 0, width: 42, height: 28,
             borderRadius: 999, background: 'var(--blue-50)',
           }}
         />
@@ -122,7 +124,8 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge,
 function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick: () => void; accessibleMode: boolean }) {
   if (accessibleMode) {
     return (
-      <motion.button onClick={onClick} whileTap={{ scale: 0.93 }} style={{
+      <motion.button onClick={onClick} whileTap={{ scale: 0.93 }} aria-label="Agregar transacción"
+        aria-current={active ? 'page' : undefined} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
         background: 'none', border: 'none', cursor: 'pointer', padding: '6px 16px',
         minHeight: 'var(--touch-min)', minWidth: 'var(--touch-min)', justifyContent: 'center',
@@ -154,7 +157,8 @@ function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick:
   }
 
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.9 }} style={{
+    <motion.button onClick={onClick} whileTap={{ scale: 0.9 }} aria-label="Agregar transacción"
+      aria-current={active ? 'page' : undefined} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
       background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px',
     }}>

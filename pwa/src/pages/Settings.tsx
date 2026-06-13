@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin, updateProfile, getProfileFromServer } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
@@ -14,6 +14,7 @@ import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
 import { TutorialCanales } from '../components/TutorialCanales';
 import { isBiometricSupported, hasBiometric, registerBiometric, clearBiometric } from '../lib/webauthn';
 import { resizeImageToAvatar } from '../lib/avatar';
+import { useOverlayA11y } from '../lib/useOverlayA11y';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -32,6 +33,8 @@ interface Props {
 }
 
 export function Settings({ userId, transactions, onClose, onProfilesChanged, onCategoryChange }: Props) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useOverlayA11y(true, onClose, overlayRef);
   const profile = getProfile(userId);
 
   const [defaultBank, setDefaultBank] = useState(
@@ -196,6 +199,10 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
       />
 
       <motion.div
+        ref={overlayRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={softSpring}
         style={{
@@ -217,7 +224,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
           }}>
             ‹
           </motion.button>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--ink)', margin: 0 }}>
+          <h1 id="settings-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--ink)', margin: 0 }}>
             Ajustes
           </h1>
         </div>

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { setUserNickname, setUserAvatar, getUserAvatar } from '../lib/profiles';
 import { resizeImageToAvatar } from '../lib/avatar';
 import { ImportarExtracto } from './ImportarExtracto';
 import { TutorialCanales } from './TutorialCanales';
+import { useOverlayA11y } from '../lib/useOverlayA11y';
 
 interface Props {
   userId: string;
@@ -24,9 +25,11 @@ const ghostBtn: React.CSSProperties = {
 };
 
 export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>('name');
   const [name, setName] = useState(initialDisplayName || '');
   const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(userId));
+  useOverlayA11y(true, undefined, containerRef);
 
   function next() {
     const i = STEPS.indexOf(step);
@@ -63,6 +66,10 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
 
   return (
     <motion.div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
       initial={{ opacity: 0, y: '6%' }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -91,7 +98,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
         <>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             <div style={{ fontSize: 48 }}>👋</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>
+            <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>
               ¿Cómo te llamas?
             </div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)', textAlign: 'center', maxWidth: 280 }}>
@@ -123,7 +130,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
       {step === 'photo' && (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>
+            <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>
               Tu foto de perfil
             </div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)', textAlign: 'center', maxWidth: 280 }}>

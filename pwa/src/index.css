@@ -53,10 +53,36 @@
   --shadow-blue:   0 8px 20px rgba(29,78,216,0.28);
   --shadow-orange: 0 8px 20px rgba(249,115,22,0.30);
   --shadow-float:  0 24px 50px rgba(15,23,42,0.16);
+  --shadow-nav:    0 -12px 36px rgba(15,23,42,0.08);
+  --shadow-focus:  0 0 0 4px rgba(37,99,235,0.16);
 
   --grad-brand:  linear-gradient(150deg, #1d4ed8, #2563eb 60%, #1e40af);
   --grad-card:   linear-gradient(125deg, #1d4ed8 0%, #2563eb 45%, #f97316 130%);
   --grad-accent: linear-gradient(90deg, #2563eb, #f97316);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --motion-fast: 140ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --z-nav: 100;
+  --z-overlay: 300;
+  --z-toast: 10000;
+
+  --success: #15803d;
+  --success-bg: #dcfce7;
+  --danger: #b91c1c;
+  --danger-bg: #fee2e2;
+  --warning: #c2410c;
+  --warning-bg: #ffedd5;
 }
 
 *, *::before, *::after {
@@ -72,6 +98,32 @@ html, body {
   font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+}
+
+body {
+  min-width: 320px;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--blue-600);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--blue-100);
+  color: var(--ink);
 }
 
 #root {
@@ -131,6 +183,51 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 select option {
   background: var(--card);
   color: var(--ink);
+}
+
+.app-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.ui-card {
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.ui-scroll-row {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.ui-scroll-row > * {
+  scroll-snap-align: start;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.motion-float {
+  animation: gentleFloat 3s ease-in-out infinite;
+}
+
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 /* ── Modo accesible (por usuario, toggle en Ajustes) ───────── */
@@ -202,5 +299,16 @@ select option {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .motion-float {
+    animation: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-page {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 }

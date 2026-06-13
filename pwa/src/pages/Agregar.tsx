@@ -338,10 +338,11 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 
           {/* Monto */}
           <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Monto (COP)</label>
+            <label htmlFor="transaction-amount" style={labelStyle}>Monto (COP) <span aria-hidden="true">*</span></label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: form.monto ? 'var(--blue-600)' : 'var(--muted-2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none' }}>$</span>
-              <input type="text" inputMode="numeric" placeholder="0"
+              <input id="transaction-amount" type="text" inputMode="numeric" placeholder="0"
+                required aria-required="true"
                 value={form.monto ? Number(form.monto).toLocaleString('es-CO') : ''}
                 onChange={e => handleMontoInput(e.target.value)}
                 style={{ ...inputStyle, paddingLeft: 30, fontFamily: 'var(--font-mono)', fontWeight: 600,
@@ -353,8 +354,9 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 
           {/* Comercio with autocomplete */}
           <motion.div variants={riseItem} transition={quickEase} style={{ position: 'relative' }}>
-            <label style={labelStyle}>Comercio</label>
-            <input type="text" placeholder="Nombre del lugar" value={form.comercio}
+            <label htmlFor="transaction-merchant" style={labelStyle}>Comercio <span aria-hidden="true">*</span></label>
+            <input id="transaction-merchant" type="text" placeholder="Nombre del lugar" value={form.comercio}
+              required aria-required="true"
               onChange={e => handleComercioChange(e.target.value)}
               onFocus={e => { focusStyle(e.target); if (suggestions.length > 0) setShowSugg(true); }}
               onBlur={e => { blurStyle(e.target); if (!suggRef.current) setShowSugg(false); }}
@@ -450,6 +452,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           </motion.div>
 
           <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }}
+            aria-live="polite" aria-busy={saveState === 'saving'}
             onClick={handleSubmit} disabled={saveState !== 'idle'} style={{
               width: '100%', height: 54,
               background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue-700)',

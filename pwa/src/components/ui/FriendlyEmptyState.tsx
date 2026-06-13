@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { quickEase, softSpring } from '../../lib/motion';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export function FriendlyEmptyState({ title, message, actionLabel, onAction }: Props) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -24,7 +25,7 @@ export function FriendlyEmptyState({ title, message, actionLabel, onAction }: Pr
       }}
     >
       <motion.div
-        animate={{ y: [0, -4, 0] }}
+        animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         style={{
           width: 48,

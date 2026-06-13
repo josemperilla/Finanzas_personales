@@ -1,15 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
-import { Home } from './pages/Home';
-import { Historial } from './pages/Historial';
-import { Agregar } from './pages/Agregar';
-import { Analisis } from './pages/Analisis';
-import { Chat } from './pages/Chat';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { Settings } from './pages/Settings';
 import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
@@ -22,6 +16,26 @@ import { TutorialCanales } from './components/TutorialCanales';
 import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
+import { Skeleton } from './components/ui/primitives';
+
+const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
+const Historial = lazy(() => import('./pages/Historial').then(module => ({ default: module.Historial })));
+const Agregar = lazy(() => import('./pages/Agregar').then(module => ({ default: module.Agregar })));
+const Analisis = lazy(() => import('./pages/Analisis').then(module => ({ default: module.Analisis })));
+const Chat = lazy(() => import('./pages/Chat').then(module => ({ default: module.Chat })));
+const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
+
+function PageFallback() {
+  return (
+    <div className="app-page" aria-label="Cargando pantalla" style={{ padding: 'max(24px, env(safe-area-inset-top)) 16px 110px' }}>
+      <Skeleton height={18} style={{ width: 90, marginBottom: 8 }} />
+      <Skeleton height={34} style={{ width: 180, marginBottom: 24 }} />
+      <Skeleton height={190} radius={24} style={{ marginBottom: 14 }} />
+      <Skeleton height={88} radius={20} style={{ marginBottom: 12 }} />
+      <Skeleton height={88} radius={20} />
+    </div>
+  );
+}
 
 export default function App() {
   // Apply saved theme preference immediately on mount
@@ -235,6 +249,7 @@ export default function App() {
     >
       <AnimatePresence mode="wait">
         <motion.main
+          className="app-page"
           key={tab}
           variants={pageVariants}
           initial="initial"
@@ -242,6 +257,7 @@ export default function App() {
           exit="exit"
           transition={quickEase}
         >
+          <Suspense fallback={<PageFallback />}>
           {tab === 'home' && userId && (
             <Home
               transactions={transactions}
@@ -283,6 +299,7 @@ export default function App() {
           {tab === 'chat' && (
             <Chat transactions={transactions} />
           )}
+          </Suspense>
         </motion.main>
       </AnimatePresence>
 
@@ -324,14 +341,16 @@ export default function App() {
           />
         )}
         {showSettings && userId && (
-          <Settings key="settings" userId={userId} transactions={transactions}
-            onProfilesChanged={() => setProfiles(getKnownProfiles())}
-            onCategoryChange={handleCategoryChange}
-            onClose={() => {
-              setShowSettings(false);
-              setAccessible(getAccessibleMode(userId));
-              applyPersonalizedAppIcon(userId, getDisplayName(userId));
-            }} />
+          <Suspense fallback={null}>
+            <Settings key="settings" userId={userId} transactions={transactions}
+              onProfilesChanged={() => setProfiles(getKnownProfiles())}
+              onCategoryChange={handleCategoryChange}
+              onClose={() => {
+                setShowSettings(false);
+                setAccessible(getAccessibleMode(userId));
+                applyPersonalizedAppIcon(userId, getDisplayName(userId));
+              }} />
+          </Suspense>
         )}
         {showTutorial && userId && (
           <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
