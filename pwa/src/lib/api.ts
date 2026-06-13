@@ -445,3 +445,16 @@ export async function redeemInvite(code: string): Promise<{ userId: string; disp
   if (!json.ok) throw new Error(json.error || 'Código inválido o expirado');
   return { userId: json.userId as string, displayName: json.displayName as string };
 }
+
+export async function getShortcutConfig(): Promise<{ webhookUrl: string; secret: string }> {
+  const token = getToken();
+  if (!token) throw new Error('No autenticado');
+  const res = await fetch('/api/shortcut-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error ?? 'Error al obtener configuración del shortcut');
+  return { webhookUrl: data.webhookUrl as string, secret: data.secret as string };
+}
