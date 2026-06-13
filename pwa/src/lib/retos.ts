@@ -80,9 +80,11 @@ export function computeProgress(reto: Reto, txs: Transaction[]): RetoProgress {
     const txCat      = normalizeCategory(tx.Categoría || '');
     const matchesCat = cats.length > 0 && cats.some(c => normalizeCategory(c) === txCat);
     const cleaned    = cleanMerchant(tx.Comercio);
-    const matchesMer = mercs.length > 0 && mercs.some(m =>
-      cleaned.toLowerCase().includes(m.toLowerCase()) ||
-      m.toLowerCase().includes(cleaned.toLowerCase())
+    const matchesMer = mercs.length > 0 && !!cleaned && mercs.some(m =>
+      !!m && (
+        cleaned.toLowerCase().includes(m.toLowerCase()) ||
+        m.toLowerCase().includes(cleaned.toLowerCase())
+      )
     );
     return matchesCat || matchesMer;
   });
