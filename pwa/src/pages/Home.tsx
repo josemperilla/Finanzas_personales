@@ -21,6 +21,12 @@ import { detectUnusualCategories } from '../lib/analytics';
 import { RetosPanel } from '../components/RetosPanel';
 import { WeeklyCashFlow } from '../components/WeeklyCashFlow';
 import { MetaMensualWidget } from '../components/MetaMensualWidget';
+import { RachaDisplay } from '../components/RachaDisplay';
+import { CirculosBienestar } from '../components/CirculosBienestar';
+import { SuenoCard } from '../components/SuenoCard';
+import { getSuenos } from '../lib/suenos';
+import { generarRetosParaSueno } from '../lib/suenos';
+import { getRetos, computeProgress } from '../lib/retos';
 
 interface Props {
   transactions: Transaction[];
@@ -115,6 +121,21 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [prevTx],
   );
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
+
+  const retosProgress = useMemo(
+    () => getRetos(userId).map(r => computeProgress(r, transactions)),
+    [userId, transactions],
+  );
+
+  const primeiroSueno = useMemo(
+    () => getSuenos(userId).filter(s => s.activo)[0] ?? null,
+    [userId],
+  );
+
+  const retosParaPrimeiroSueno = useMemo(
+    () => primeiroSueno ? generarRetosParaSueno(primeiroSueno, transactions) : [],
+    [primeiroSueno, transactions],
+  );
 
   // Category breakdown for selected month
   const byCategory = useMemo(
@@ -248,22 +269,25 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
           </div>
         </div>
-        {!loading && totalPrev > 0 && selectedOffset === 0 && (
-          <motion.span
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={softSpring}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '4px 10px', borderRadius: 999,
-              background: diff <= 0 ? '#dcfce7' : '#fee2e2',
-              color: diff <= 0 ? '#15803d' : '#b91c1c',
-              fontSize: 11.5, fontWeight: 600,
-            }}
-          >
-            {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
-          </motion.span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RachaDisplay userId={userId} />
+          {!loading && totalPrev > 0 && selectedOffset === 0 && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={softSpring}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 999,
+                background: diff <= 0 ? '#dcfce7' : '#fee2e2',
+                color: diff <= 0 ? '#15803d' : '#b91c1c',
+                fontSize: 11.5, fontWeight: 600,
+              }}
+            >
+              {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
+            </motion.span>
+          )}
+        </div>
       </motion.div>
 
       <AnimatePresence>
@@ -276,6 +300,11 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       </AnimatePresence>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
+        {/* Círculos de bienestar */}
+        <motion.div variants={riseItem} transition={quickEase} style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+          <CirculosBienestar userId={userId} monthTx={monthTx} retosProgress={retosProgress} />
+        </motion.div>
+
         {/* Donut chart card */}
         <motion.div
           variants={riseItem}
@@ -379,6 +408,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && selectedOffset === 0 && monthTx.length > 0 && (
           <motion.div variants={riseItem} transition={quickEase}>
             <WeeklyCashFlow transactions={monthTx} />
+          </motion.div>
+        )}
+
+        {/* Sueño activo — progreso compacto */}
+        {!loading && primeiroSueno && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <SuenoCard sueno={primeiroSueno} retosParaSueno={retosParaPrimeiroSueno} compact />
           </motion.div>
         )}
 

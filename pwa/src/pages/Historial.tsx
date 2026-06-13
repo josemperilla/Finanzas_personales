@@ -11,6 +11,7 @@ import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { exportToCSV } from '../lib/export';
 import { CalendarHeatmap } from '../components/CalendarHeatmap';
+import { addXP } from '../lib/gamification';
 
 type DateRange = 'month' | '3m' | '6m' | 'year' | 'all';
 
@@ -75,6 +76,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
         }
       }
     }
+    if (userId) addXP(userId, 'recategorizar');
     onCategoryChange?.(timestamp, categoria);
   }, [transactions, userId, onCategoryChange]);
 

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { softSpring } from '../lib/motion';
 import { getUserTabOrder, ReorderableTab } from '../lib/profiles';
 
-export type Tab = 'home' | 'historial' | 'agregar' | 'analisis' | 'chat';
+export type Tab = 'home' | 'historial' | 'agregar' | 'analisis' | 'chat' | 'suenos';
 
 interface Props {
   active: Tab;
@@ -15,8 +15,8 @@ interface Props {
 const TAB_META: Record<ReorderableTab, { label: string; icon: (active: boolean, size: number) => React.ReactNode }> = {
   home:     { label: 'Inicio',    icon: (a, s) => <HomeIcon  active={a} size={s} /> },
   historial:{ label: 'Historial', icon: (a, s) => <ListIcon  active={a} size={s} /> },
+  suenos:   { label: 'Sueños',    icon: (a, s) => <SuenosIcon active={a} size={s} /> },
   analisis: { label: 'Análisis',  icon: (a, s) => <ChartIcon active={a} size={s} /> },
-  chat:     { label: 'Chat',      icon: (a, s) => <ChatIcon  active={a} size={s} /> },
 };
 
 export function BottomNav({ active, onChange, accessibleMode = false, userId, hasAnomaly }: Props) {
@@ -26,7 +26,7 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
 
   // In accessible mode show fixed Home + Historial; otherwise respect user order
   const order = (accessibleMode || !userId)
-    ? (['home', 'historial', 'analisis', 'chat'] as ReorderableTab[])
+    ? (['home', 'historial', 'suenos', 'analisis'] as ReorderableTab[])
     : getUserTabOrder(userId);
 
   const leftTabs  = order.slice(0, 2);
@@ -46,7 +46,7 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
       minHeight: navMinHeight,
     }} aria-label="Navegación principal">
       {leftTabs.map(tabId => {
-        if (accessibleMode && (tabId === 'analisis' || tabId === 'chat')) return null;
+        if (accessibleMode && tabId === 'analisis') return null;
         const meta = TAB_META[tabId];
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
@@ -58,7 +58,7 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
       })}
       <AddTab active={active === 'agregar'} onClick={() => onChange('agregar')} accessibleMode={accessibleMode} />
       {rightTabs.map(tabId => {
-        if (accessibleMode && (tabId === 'analisis' || tabId === 'chat')) return null;
+        if (accessibleMode && tabId === 'analisis') return null;
         const meta = TAB_META[tabId];
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
@@ -209,6 +209,15 @@ function ListIcon({ active, size }: { active: boolean; size: number }) {
   );
 }
 
+function SuenosIcon({ active, size }: { active: boolean; size: number }) {
+  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
+}
+
 function ChartIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
@@ -216,15 +225,6 @@ function ChartIcon({ active, size }: { active: boolean; size: number }) {
       <rect x="2" y="12" width="4" height="10" rx="1" />
       <rect x="9" y="7" width="4" height="15" rx="1" />
       <rect x="16" y="3" width="4" height="19" rx="1" />
-    </svg>
-  );
-}
-
-function ChatIcon({ active, size }: { active: boolean; size: number }) {
-  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

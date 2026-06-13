@@ -43,7 +43,7 @@ export function setUserTimezone(userId: string, tz: string): void {
 
 // ── Tab order (por usuario, excluyendo "agregar" que siempre es central) ─────
 
-export const DEFAULT_TAB_ORDER = ['home', 'historial', 'analisis', 'chat'] as const;
+export const DEFAULT_TAB_ORDER = ['home', 'historial', 'suenos', 'analisis'] as const;
 export type ReorderableTab = (typeof DEFAULT_TAB_ORDER)[number];
 
 export function getUserTabOrder(userId: string): ReorderableTab[] {
@@ -51,7 +51,10 @@ export function getUserTabOrder(userId: string): ReorderableTab[] {
     const stored = localStorage.getItem(`fm_tab_order_${userId}`);
     if (stored) {
       const parsed = JSON.parse(stored) as string[];
-      if (Array.isArray(parsed) && parsed.length === 4) return parsed as ReorderableTab[];
+      const validSet = new Set<string>(DEFAULT_TAB_ORDER);
+      if (Array.isArray(parsed) && parsed.length === 4 && parsed.every(t => validSet.has(t))) {
+        return parsed as ReorderableTab[];
+      }
     }
   } catch {}
   return [...DEFAULT_TAB_ORDER];

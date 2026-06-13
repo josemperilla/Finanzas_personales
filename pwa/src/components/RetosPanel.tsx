@@ -7,6 +7,7 @@ import { CATEGORIES, getCategoryColor } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { RetoCard } from './RetoCard';
 import { softSpring, quickEase } from '../lib/motion';
+import { addXP, updateRacha } from '../lib/gamification';
 
 interface Props {
   userId: string;
@@ -81,6 +82,25 @@ export function RetosPanel({ userId, transactions }: Props) {
     () => retos.map(r => computeProgress(r, transactions)),
     [retos, transactions]
   );
+
+  // Award XP once per reto the first time it completes
+  useEffect(() => {
+    const rewardedKey = `fm_xp_rewarded_${userId}`;
+    let rewarded: Set<string>;
+    try { rewarded = new Set(JSON.parse(localStorage.getItem(rewardedKey) || '[]')); }
+    catch { rewarded = new Set(); }
+
+    let changed = false;
+    progresses.forEach(p => {
+      if (p.completed && !rewarded.has(p.reto.id)) {
+        rewarded.add(p.reto.id);
+        changed = true;
+        addXP(userId, 'completarReto');
+        updateRacha(userId, true);
+      }
+    });
+    if (changed) localStorage.setItem(rewardedKey, JSON.stringify([...rewarded]));
+  }, [progresses, userId]);
 
   function resetForm() {
     setTitulo(''); setTipo('budget_limit'); setCategorias([]); setComercio([]);

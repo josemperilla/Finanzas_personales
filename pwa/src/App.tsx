@@ -18,6 +18,9 @@ import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
+import { registrarVisita, checkBadgesSync, BADGES } from './lib/gamification';
+import { getSuenos } from './lib/suenos';
+import { getRetos, computeProgress } from './lib/retos';
 
 const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
 const Historial = lazy(() => import('./pages/Historial').then(module => ({ default: module.Historial })));
@@ -25,6 +28,7 @@ const Agregar = lazy(() => import('./pages/Agregar').then(module => ({ default: 
 const Analisis = lazy(() => import('./pages/Analisis').then(module => ({ default: module.Analisis })));
 const Chat = lazy(() => import('./pages/Chat').then(module => ({ default: module.Chat })));
 const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
+const SuenosPage = lazy(() => import('./pages/Suenos').then(module => ({ default: module.SuenosPage })));
 
 function PageFallback() {
   return (
@@ -82,6 +86,7 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get('view') === 'balance'
   );
   const [showWelcomeToast, setShowWelcomeToast] = useState(false);
+  const [nuevoBadge, setNuevoBadge] = useState<string | null>(null);
 
   // Migración: un dispositivo ya logueado antes de esta versión no tiene
   // fm_known_profiles — sembrar con su perfil actual para que no caiga a la
@@ -144,10 +149,21 @@ export default function App() {
     setLoadError(null);
     try {
       const data = await fetchTransactions();
-      setTransactions(userId ? applyLearnings(data, userId) : data);
+      const processed = userId ? applyLearnings(data, userId) : data;
+      setTransactions(processed);
       lastFetchRef.current = Date.now();
       if (data.length === 0 && userId && !localStorage.getItem(`fm_tutorial_seen_${userId}`)) {
         setShowTutorial(true);
+      }
+      if (userId) {
+        const suenos = getSuenos(userId).filter(s => s.activo);
+        const retos = getRetos(userId);
+        const retosCompletados = retos.filter(r => computeProgress(r, processed).completed).length;
+        const nuevos = checkBadgesSync(userId, suenos, retosCompletados);
+        if (nuevos.length > 0) {
+          setNuevoBadge(nuevos[0]);
+          setTimeout(() => setNuevoBadge(null), 4500);
+        }
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'No pude conectar con Google Sheets');
@@ -209,6 +225,7 @@ export default function App() {
       applyColorScheme(userId);
       setAccessible(getAccessibleMode(userId));
       applyPersonalizedAppIcon(userId, getDisplayName(userId));
+      registrarVisita(userId);
       setUnlocked(true);
     }
   }, [userId]);
@@ -226,7 +243,7 @@ export default function App() {
 
   // Redirect out of tabs that don't exist in accessible mode
   useEffect(() => {
-    if (accessible && (tab === 'analisis' || tab === 'chat')) setTab('home');
+    if (accessible && tab === 'analisis') setTab('home');
   }, [accessible, tab]);
 
   // Dismiss anomaly badge when Análisis tab is opened
@@ -306,6 +323,13 @@ export default function App() {
           {tab === 'chat' && (
             <Chat transactions={transactions} />
           )}
+          {tab === 'suenos' && userId && (
+            <SuenosPage
+              transactions={transactions}
+              userId={userId}
+              onNewBadge={(id) => { setNuevoBadge(id); setTimeout(() => setNuevoBadge(null), 4500); }}
+            />
+          )}
           </Suspense>
         </motion.main>
       </AnimatePresence>
@@ -370,6 +394,41 @@ export default function App() {
             onAdd={() => { setShowBalanceWidget(false); setTab('agregar'); }}
             onClose={() => setShowBalanceWidget(false)}
           />
+        )}
+        {nuevoBadge && BADGES[nuevoBadge] && (
+          <motion.div
+            key="badge-toast"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom))',
+              left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9996, width: 'calc(100% - 48px)', maxWidth: 360,
+              background: 'var(--ink)', borderRadius: 16,
+              padding: '14px 16px',
+              display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 8px 32px rgba(15,23,42,0.28)',
+            }}
+          >
+            <span style={{ fontSize: 28, flexShrink: 0 }}>{BADGES[nuevoBadge].emoji}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 1 }}>
+                ¡Insignia desbloqueada!
+              </div>
+              <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 15, color: '#fff' }}>
+                {BADGES[nuevoBadge].nombre}
+              </div>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              onClick={() => setNuevoBadge(null)}
+              style={{ flexShrink: 0, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 20, cursor: 'pointer', padding: '4px 2px' }}
+            >
+              ×
+            </motion.button>
+          </motion.div>
         )}
         {showWelcomeToast && (
           <motion.div

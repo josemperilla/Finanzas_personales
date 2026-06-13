@@ -18,6 +18,7 @@ import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { getLearnedMappings, removeLearnedMapping, clearLearnedMappings } from '../lib/merchantLearning';
 import type { LearnedMapping } from '../lib/merchantLearning';
 import { CATEGORIES } from '../lib/config';
+import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
@@ -336,6 +337,11 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 Solo visible para ti. No cambia tu ID de usuario ({userId}).
               </p>
             </div>
+          </Section>
+
+          {/* ── Progreso (Gamificación) ── */}
+          <Section title="Progreso">
+            <BadgeGallery userId={userId} />
           </Section>
 
           {/* ── Cuenta ── */}
@@ -722,7 +728,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 Los primeros 2 aparecen a la izquierda del botón +, los últimos 2 a la derecha.
               </p>
               {tabOrder.map((tabId, i) => {
-                const labels: Record<ReorderableTab, string> = { home: 'Inicio', historial: 'Historial', analisis: 'Análisis', chat: 'Chat' };
+                const labels: Record<ReorderableTab, string> = { home: 'Inicio', historial: 'Historial', suenos: 'Sueños', analisis: 'Análisis' };
                 return (
                   <div key={tabId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < tabOrder.length - 1 ? '1px solid var(--line)' : 'none' }}>
                     <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{labels[tabId]}</span>

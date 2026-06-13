@@ -4,6 +4,7 @@ import { importTransactions, getToken } from '../lib/api';
 import { type ManualTransaction } from '../lib/api';
 import { quickEase } from '../lib/motion';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { addXP, awardBadge } from '../lib/gamification';
 
 interface ParsedRow {
   fecha: string;
@@ -147,7 +148,7 @@ async function renderPDFToImages(pdfBytes: Uint8Array, password: string): Promis
   return images;
 }
 
-export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: Props) {
+export function ImportarExtracto({ userId, onClose, showSkipButton }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [bank, setBank]     = useState('bancolombia');
   const [rows, setRows]     = useState<ParsedRow[]>([]);
@@ -281,6 +282,8 @@ export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: P
     }, 300);
     setResult(res);
     setStage('done');
+    addXP(userId, 'importarExtracto');
+    awardBadge(userId, 'primer-pdf');
   }
 
   return (
