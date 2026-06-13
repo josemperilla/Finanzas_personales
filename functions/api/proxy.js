@@ -1,10 +1,13 @@
 // Cloudflare Pages Function — proxies all PWA requests to Apps Script.
-// WEBHOOK_URL and WEBHOOK_SECRET live only in Cloudflare env vars (server-side).
+// WEBHOOK_URL and the secret live only in Cloudflare env vars (server-side).
 // The PWA never holds the secret; it calls /api/proxy instead.
+//
+// Prefer WEB_SECRET for the authenticated web channel. WEBHOOK_SECRET remains
+// as a compatibility fallback while existing deployments are migrated.
 export async function onRequest(context) {
   const { request, env } = context;
   const WEBHOOK_URL    = env.WEBHOOK_URL    || '';
-  const WEBHOOK_SECRET = env.WEBHOOK_SECRET || '';
+  const WEBHOOK_SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
 
   if (!WEBHOOK_URL) {
     return new Response(

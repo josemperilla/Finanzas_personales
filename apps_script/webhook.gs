@@ -853,8 +853,18 @@ function doPost(e) {
       parsed = parseDavivienda(sms);
     } else if (resolvedBank === "bancolombia") {
       parsed = parseBancolombia(sms);
+    } else if (resolvedBank === "avvillas") {
+      parsed = parseAvVillas(sms);
     } else {
-      return jsonResponse({ ok: false, error: "unknown bank: " + (bank || "could not detect") });
+      // Banco no reconocido → intentar con Haiku como fallback
+      var fallback = parseSmsFallback(sms);
+      if (!fallback) {
+        return jsonResponse({ ok: false, error: "unknown bank: " + (bank || "could not detect") });
+      }
+      if (fallback.skipped) {
+        return jsonResponse({ ok: true, skipped: true, reason: "not a transaction (AI)" });
+      }
+      parsed = fallback;
     }
 
     if (!parsed) {
@@ -1018,7 +1028,11 @@ var VETO_RULES = [
   /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i,
   // Itaú deposit/income TO account — excluded until the app handles income
   // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****XXXX por $..."
-  /Se realizo\s+u?n?\s+Deposito\s+en\s+Efectivo\s+a\s+tu\s+Cuenta/i
+  /Se realizo\s+u?n?\s+Deposito\s+en\s+Efectivo\s+a\s+tu\s+Cuenta/i,
+  // AV Villas — login / security notifications (not transactions)
+  // "AVVillas. ... has iniciado sesion en AV Villas App ..."
+  /AVVillas\..*iniciado\s+sesion/i,
+  /AVVillas\..*Audiovillas/i
 ];
 
 function isVetoed(sms) {
@@ -1034,7 +1048,99 @@ function detectBank(sms) {
   if (/^Bancolombia:/i.test(sms))         return "bancolombia";
   if (/^Banco\s+de\s+Bogot/i.test(sms)) return "bogota";
   if (/\bITAU\b/i.test(sms))             return "itau";
+  if (/^AVVillas\./i.test(sms))          return "avvillas";
   return null;
+}
+
+// ── AV Villas ─────────────────────────────────────────────────
+// "AVVillas. 11/06/26 20:38 COMPRA CON TU TARJETA CREDITO 3403 POR $ 30,000 EN NICK HAVANA MUSIC HALL"
+function parseAvVillas(sms) {
+  var re = /AVVillas\.\s+(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2})\s+COMPRA\s+CON\s+TU\s+TARJETA\s+(\w+)\s+(\d{4})\s+POR\s+\$\s*([\d,.]+)\s+EN\s+(.+)/i;
+  var m = sms.match(re);
+  if (!m) return null;
+
+  var day   = parseInt(m[1]);
+  var mon   = parseInt(m[2]) - 1;
+  var year  = 2000 + parseInt(m[3]);
+  var hp    = m[4].split(':');
+  var tipo  = /credito/i.test(m[5]) ? 'Compra' : 'Débito';
+  var tarj  = m[6];
+  var monto = parseMonto(m[7]);
+  var comerc = normalizeComercio(m[8].trim());
+
+  return {
+    banco:    "AV Villas",
+    tipo:     tipo,
+    monto:    monto,
+    tarjeta:  "Tarjeta " + tarj,
+    fecha:    new Date(year, mon, day, parseInt(hp[0]), parseInt(hp[1]), 0),
+    comercio: comerc,
+    reversal: false
+  };
+}
+
+// ── Haiku fallback — bancos no reconocidos ────────────────────
+// Usa Claude Haiku para parsear cualquier SMS bancario colombiano
+// cuyo formato no esté cubierto por los parsers anteriores.
+function parseSmsFallback(sms) {
+  var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
+  if (!key) return null;
+
+  var systemPrompt =
+    "Eres un extractor de datos de SMS bancarios colombianos. " +
+    "Dado un SMS, responde SOLO con JSON válido (sin texto adicional) con estos campos: " +
+    "esTransaccion (boolean, false si es notificación de seguridad, login, OTP o saldo), " +
+    "banco (nombre del banco, string), " +
+    "tipo (Compra, Débito, Transferencia, u Otro), " +
+    "monto (número entero en COP sin puntos ni comas, ej: 30000), " +
+    "comercio (nombre del establecimiento o descripción, string), " +
+    "tarjeta (4 últimos dígitos o identificador de cuenta, string), " +
+    "fecha (string formato YYYY-MM-DDTHH:MM:SS hora Colombia). " +
+    "Si no es transacción de gasto, devuelve solo {\"esTransaccion\": false}.";
+
+  try {
+    var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
+      method: "post",
+      headers: {
+        "Content-Type":      "application/json",
+        "x-api-key":         key,
+        "anthropic-version": "2023-06-01"
+      },
+      payload: JSON.stringify({
+        model:      "claude-haiku-4-5-20251001",
+        max_tokens: 200,
+        system:     systemPrompt,
+        messages:   [{ role: "user", content: sms }]
+      }),
+      muteHttpExceptions: true
+    });
+
+    var result  = JSON.parse(resp.getContentText());
+    var content = result.content && result.content[0] && result.content[0].text;
+    if (!content) return null;
+
+    var jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    var p = JSON.parse(jsonMatch[0]);
+    if (!p.esTransaccion) return { skipped: true };
+    if (!p.monto || p.monto <= 0) return null;
+
+    var fecha = new Date(p.fecha || '');
+    if (isNaN(fecha.getTime())) fecha = new Date();
+
+    return {
+      banco:    p.banco    || "Otro",
+      tipo:     p.tipo     || "Compra",
+      monto:    parseInt(p.monto) || 0,
+      comercio: normalizeComercio(p.comercio || ""),
+      tarjeta:  String(p.tarjeta || ""),
+      fecha:    fecha,
+      reversal: false
+    };
+  } catch(e) {
+    return null;
+  }
 }
 
 // ── Davivienda ────────────────────────────────────────────────
