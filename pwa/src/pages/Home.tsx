@@ -16,8 +16,8 @@ import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { getBudgets, getSharedBudgets } from '../lib/budgets';
-import { computeHealthScore, HealthScore } from '../lib/healthScore';
 import { detectUnusualCategories } from '../lib/analytics';
+import { ChatInline } from '../components/ChatInline';
 import { RetosPanel } from '../components/RetosPanel';
 import { WeeklyCashFlow } from '../components/WeeklyCashFlow';
 import { MetaMensualWidget } from '../components/MetaMensualWidget';
@@ -66,7 +66,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
-  const [showHealthModal, setShowHealthModal] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
 
   useEffect(() => {
@@ -180,29 +179,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
   const animatedTotal = useCountUp(loading ? 0 : totalMonth);
 
-  // End-of-month projection (current month only)
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysInPrevMonth = new Date(prevYear, prevMonthIdx + 1, 0).getDate();
   const dayOfMonth = now.getDate();
-  let projectedTotal: number | null = null;
-  let projectionBase: 'current' | 'prev' | null = null;
-  if (selectedOffset === 0 && !loading && dayOfMonth > 1) {
-    if (monthTx.length > 0) {
-      projectedTotal = Math.round((totalMonth / dayOfMonth) * daysInMonth);
-      projectionBase = 'current';
-    } else if (totalPrev > 0) {
-      projectedTotal = Math.round((totalPrev / daysInPrevMonth) * daysInMonth);
-      projectionBase = 'prev';
-    }
-  }
-  const projDiff = (projectedTotal !== null && totalPrev > 0)
-    ? ((projectedTotal - totalPrev) / totalPrev) * 100
-    : null;
 
-  const healthScore = useMemo<HealthScore | null>(
-    () => (selectedOffset === 0 && !loading) ? computeHealthScore(transactions, userId) : null,
-    [transactions, userId, selectedOffset, loading],
-  );
   const unusualCats = useMemo<Set<string>>(
     () => (selectedOffset === 0 && !loading) ? detectUnusualCategories(transactions) : new Set(),
     [transactions, selectedOffset, loading],
@@ -269,25 +247,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RachaDisplay userId={userId} />
-          {!loading && totalPrev > 0 && selectedOffset === 0 && (
-            <motion.span
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={softSpring}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '4px 10px', borderRadius: 999,
-                background: diff <= 0 ? '#dcfce7' : '#fee2e2',
-                color: diff <= 0 ? '#15803d' : '#b91c1c',
-                fontSize: 11.5, fontWeight: 600,
-              }}
-            >
-              {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
-            </motion.span>
-          )}
-        </div>
+        <RachaDisplay userId={userId} />
       </motion.div>
 
       <AnimatePresence>
@@ -365,9 +325,27 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 ›
               </motion.button>
             </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
-              {loading ? '—' : formatCOP(animatedTotal)}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+                {loading ? '—' : formatCOP(animatedTotal)}
+              </span>
+              {!loading && totalPrev > 0 && selectedOffset === 0 && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={softSpring}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    padding: '3px 8px', borderRadius: 999,
+                    background: diff <= 0 ? '#dcfce7' : '#fee2e2',
+                    color: diff <= 0 ? '#15803d' : '#b91c1c',
+                    fontSize: 11, fontWeight: 600,
+                  }}
+                >
+                  {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
+                </motion.span>
+              )}
+            </div>
           </div>
 
           {/* Animated chart */}
@@ -422,71 +400,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <RetosPanel userId={userId} transactions={transactions} />
-          </motion.div>
-        )}
-
-        {/* End-of-month projection */}
-        {projectedTotal !== null && (
-          <motion.div
-            variants={riseItem}
-            transition={quickEase}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'var(--card)', borderRadius: 'var(--r-xl)',
-              padding: '11px 14px', marginBottom: 14,
-              boxShadow: 'var(--shadow-card)',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 2 }}>
-                {projectionBase === 'prev' ? 'Proyección (ritmo de mes anterior)' : 'Proyección fin de mes'}
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
-                ~{formatCOP(projectedTotal)}
-              </div>
-            </div>
-            {projDiff !== null && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                padding: '4px 10px', borderRadius: 999,
-                background: projDiff <= 0 ? '#dcfce7' : '#fee2e2',
-                color: projDiff <= 0 ? '#15803d' : '#b91c1c',
-                fontSize: 11.5, fontWeight: 600,
-              }}>
-                {projDiff <= 0 ? '↓' : '↑'} {Math.abs(projDiff).toFixed(0)}% vs mes anterior
-              </span>
-            )}
-          </motion.div>
-        )}
-
-        {/* Health score badge */}
-        {healthScore && (
-          <motion.div
-            variants={riseItem}
-            transition={quickEase}
-            onClick={() => setShowHealthModal(true)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'var(--card)', borderRadius: 'var(--r-xl)',
-              padding: '11px 14px', marginBottom: 14,
-              boxShadow: 'var(--shadow-card)', cursor: 'pointer',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 10.5, color: 'var(--muted)', marginBottom: 2 }}>Salud financiera</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
-                {healthScore.label}
-              </div>
-            </div>
-            <div style={{
-              width: 44, height: 44, borderRadius: '50%',
-              border: `3px solid ${healthScore.color}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 14,
-              color: healthScore.color,
-            }}>
-              {healthScore.score}
-            </div>
           </motion.div>
         )}
 
@@ -559,6 +472,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
+        {/* Inline chat */}
+        {!loading && transactions.length > 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <ChatInline transactions={transactions} />
+          </motion.div>
+        )}
+
         {/* Recent transactions */}
         <motion.div variants={riseItem} transition={quickEase}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -628,76 +548,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showHealthModal && healthScore && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowHealthModal(false)}
-            style={{
-              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-              zIndex: 200, display: 'flex', alignItems: 'flex-end',
-            }}
-          >
-            <motion.div
-              initial={{ y: 60, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 60, opacity: 0 }}
-              transition={softSpring}
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: 'var(--card)',
-                borderRadius: 'var(--r-2xl) var(--r-2xl) 0 0',
-                padding: '20px 20px 40px', width: '100%',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
-                    Salud financiera
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Este mes · 100 puntos posibles</div>
-                </div>
-                <div style={{
-                  width: 52, height: 52, borderRadius: '50%',
-                  border: `3px solid ${healthScore.color}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 18,
-                  color: healthScore.color,
-                }}>
-                  {healthScore.score}
-                </div>
-              </div>
-              {[
-                { label: 'Presupuestos bajo control', pts: healthScore.breakdown.budget, max: 40 },
-                { label: 'Canales de captura', pts: healthScore.breakdown.channels, max: 30 },
-                { label: 'Categorización', pts: healthScore.breakdown.categorization, max: 30 },
-              ].map(row => (
-                <div key={row.label} style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink)' }}>{row.label}</span>
-                    <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
-                      {row.pts}/{row.max}
-                    </span>
-                  </div>
-                  <div style={{ height: 6, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(row.pts / row.max) * 100}%` }}
-                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                      style={{ height: '100%', borderRadius: 999, background: healthScore.color }}
-                    />
-                  </div>
-                </div>
-              ))}
-              <div style={{ fontSize: 11.5, color: 'var(--muted)', textAlign: 'center', marginTop: 4 }}>
-                Toca fuera para cerrar
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
