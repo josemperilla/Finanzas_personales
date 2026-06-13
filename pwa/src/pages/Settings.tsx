@@ -728,7 +728,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 Los primeros 2 aparecen a la izquierda del botón +, los últimos 2 a la derecha.
               </p>
               {tabOrder.map((tabId, i) => {
-                const labels: Record<ReorderableTab, string> = { home: 'Inicio', historial: 'Historial', suenos: 'Sueños', analisis: 'Análisis' };
+                const labels: Record<ReorderableTab, string> = { home: 'Inicio', progreso: 'Progreso', misiones: 'Misiones', explorar: 'Explorar' };
                 return (
                   <div key={tabId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < tabOrder.length - 1 ? '1px solid var(--line)' : 'none' }}>
                     <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{labels[tabId]}</span>

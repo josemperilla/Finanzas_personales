@@ -35,12 +35,13 @@ export const NIVELES = [
 ];
 
 export const XP_POR_ACCION = {
-  recategorizar:    5,
-  configurarMeta:   20,
-  importarExtracto: 30,
-  completarReto:    50,
-  mesDentroMeta:    200,
-  alcanzarSueno:    500,
+  recategorizar:       5,
+  registrarTransaccion: 2,
+  configurarMeta:      20,
+  importarExtracto:    30,
+  completarReto:       50,
+  mesDentroMeta:       200,
+  alcanzarSueno:       500,
 } as const;
 
 const DEFAULT_STATE: GamificationState = {

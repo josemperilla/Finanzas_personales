@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
 import { Transaction } from '../lib/api';
-import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
+import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { DonutChart } from '../components/DonutChart';
@@ -15,17 +15,12 @@ import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
-import { getBudgets, getSharedBudgets } from '../lib/budgets';
-import { detectUnusualCategories } from '../lib/analytics';
-import { ChatInline } from '../components/ChatInline';
-import { RetosPanel } from '../components/RetosPanel';
-import { WeeklyCashFlow } from '../components/WeeklyCashFlow';
-import { MetaMensualWidget } from '../components/MetaMensualWidget';
 import { RachaDisplay } from '../components/RachaDisplay';
-import { CirculosBienestar } from '../components/CirculosBienestar';
+import { DailyStatusCard } from '../components/DailyStatusCard';
+import { RetoWidget } from '../components/RetoWidget';
 import { SuenoCard } from '../components/SuenoCard';
-import { getSuenos } from '../lib/suenos';
-import { generarRetosParaSueno } from '../lib/suenos';
+import { MetaMensualWidget } from '../components/MetaMensualWidget';
+import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
 
 interface Props {
@@ -78,24 +73,20 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     localStorage.setItem(key, thisMonth);
     setShowRecap(true);
   }, [loading, userId]);
+
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
-  // Derive the selected month's date
   const selDate = new Date(now.getFullYear(), now.getMonth() + selectedOffset, 1);
   const selMonth = selDate.getMonth();
   const selYear = selDate.getFullYear();
 
-  // Header always shows current month
   const currentMonthStr = now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  // Card shows selected month label
   const selMonthStr = selDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
-  // Previous month indices (primitives — safe as useMemo deps)
   const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
   const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
 
-  // Transactions for selected month — memoized so downstream only recomputes when data/month changes
   const monthTx = useMemo(
     () => transactions.filter(tx => {
       const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
@@ -126,17 +117,21 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [userId, transactions],
   );
 
-  const primeiroSueno = useMemo(
+  const primerRetoActivo = useMemo(
+    () => retosProgress.find(p => !p.completed && !p.failed) ?? null,
+    [retosProgress],
+  );
+
+  const primerSueno = useMemo(
     () => getSuenos(userId).filter(s => s.activo)[0] ?? null,
     [userId],
   );
 
-  const retosParaPrimeiroSueno = useMemo(
-    () => primeiroSueno ? generarRetosParaSueno(primeiroSueno, transactions) : [],
-    [primeiroSueno, transactions],
+  const retosParaPrimerSueno = useMemo(
+    () => primerSueno ? generarRetosParaSueno(primerSueno, transactions) : [],
+    [primerSueno, transactions],
   );
 
-  // Category breakdown for selected month
   const byCategory = useMemo(
     () => CATEGORIES.map(cat => ({
       category: cat.name,
@@ -147,25 +142,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [monthTx],
   );
 
-  // Budget alerts — personal ≥ 80% + shared ≥ 80%
-  const alerts = useMemo(() => {
-    const budgets = getBudgets(userId);
-    const sharedBudgets = getSharedBudgets();
-    const mergedBudgets = { ...sharedBudgets, ...budgets };
-    return byCategory
-      .filter(s => mergedBudgets[s.category] > 0 && s.amount / mergedBudgets[s.category] >= 0.8)
-      .map(s => ({
-        cat: s.category,
-        budget: mergedBudgets[s.category],
-        spent: s.amount,
-        pct: s.amount / mergedBudgets[s.category],
-        color: getCategoryColor(s.category),
-        shared: !budgets[s.category] && !!sharedBudgets[s.category],
-      }))
-      .sort((a, b) => b.pct - a.pct);
-  }, [byCategory, userId]);
-
-  // Recent transactions for selected month
   const recent = useMemo(
     () => [...monthTx]
       .sort((a, b) => {
@@ -181,12 +157,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
   const dayOfMonth = now.getDate();
 
-  const unusualCats = useMemo<Set<string>>(
-    () => (selectedOffset === 0 && !loading) ? detectUnusualCategories(transactions) : new Set(),
-    [transactions, selectedOffset, loading],
-  );
-
-  // Daily cumulative spend chart
   const daysInSelMonth = new Date(selYear, selMonth + 1, 0).getDate();
   const selDays = selectedOffset === 0 ? dayOfMonth : daysInSelMonth;
   const compDate = new Date(selYear, selMonth - 1, 1);
@@ -220,9 +190,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    if (Math.abs(dx) > dy && Math.abs(dx) > 44) {
-      navigate(dx < 0 ? 1 : -1);
-    }
+    if (Math.abs(dx) > dy && Math.abs(dx) > 44) navigate(dx < 0 ? 1 : -1);
   };
 
   return (
@@ -237,14 +205,16 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
-          marginBottom: 20, position: 'relative',
+          marginBottom: 18, position: 'relative',
         }}
       >
         <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Finanzas Personales</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
+            Hola, {(getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0]} 👋
           </div>
         </div>
         <RachaDisplay userId={userId} />
@@ -260,10 +230,24 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       </AnimatePresence>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
-        {/* Círculos de bienestar */}
-        <motion.div variants={riseItem} transition={quickEase} style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-          <CirculosBienestar userId={userId} monthTx={monthTx} retosProgress={retosProgress} />
-        </motion.div>
+
+        {/* DailyStatusCard — héroe del día */}
+        {!loading && selectedOffset === 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <DailyStatusCard
+              userId={userId}
+              monthTx={monthTx}
+              retosProgress={retosProgress}
+            />
+          </motion.div>
+        )}
+
+        {/* Meta mensual */}
+        {!loading && selectedOffset === 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <MetaMensualWidget monthTx={monthTx} userId={userId} />
+          </motion.div>
+        )}
 
         {/* Donut chart card */}
         <motion.div
@@ -278,50 +262,18 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             touchAction: 'pan-y',
           }}
         >
-          {/* Month navigation header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => navigate(-1)}
-                disabled={selectedOffset <= -11}
-                style={{
-                  background: 'none', border: 'none',
-                  cursor: selectedOffset <= -11 ? 'default' : 'pointer',
-                  color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)',
-                  fontSize: 22, padding: '0 6px',
-                  display: 'flex', alignItems: 'center', lineHeight: 1,
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(-1)} disabled={selectedOffset <= -11}
+                style={{ background: 'none', border: 'none', cursor: selectedOffset <= -11 ? 'default' : 'pointer', color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
                 ‹
               </motion.button>
-              <motion.span
-                key={selectedOffset}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={quickEase}
-                style={{
-                  fontSize: 13.5, color: 'var(--muted)',
-                  minWidth: 86, textAlign: 'center',
-                  fontFamily: 'var(--font-body)',
-                }}
-              >
+              <motion.span key={selectedOffset} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={quickEase}
+                style={{ fontSize: 13.5, color: 'var(--muted)', minWidth: 86, textAlign: 'center', fontFamily: 'var(--font-body)' }}>
                 {selectedOffset === 0 ? 'Este mes' : selMonthStr}
               </motion.span>
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                onClick={() => navigate(1)}
-                disabled={selectedOffset >= 0}
-                style={{
-                  background: 'none', border: 'none',
-                  cursor: selectedOffset >= 0 ? 'default' : 'pointer',
-                  color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)',
-                  fontSize: 22, padding: '0 6px',
-                  display: 'flex', alignItems: 'center', lineHeight: 1,
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0}
+                style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
                 ›
               </motion.button>
             </div>
@@ -330,25 +282,14 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 {loading ? '—' : formatCOP(animatedTotal)}
               </span>
               {!loading && totalPrev > 0 && selectedOffset === 0 && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={softSpring}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 3,
-                    padding: '3px 8px', borderRadius: 999,
-                    background: diff <= 0 ? '#dcfce7' : '#fee2e2',
-                    color: diff <= 0 ? '#15803d' : '#b91c1c',
-                    fontSize: 11, fontWeight: 600,
-                  }}
-                >
+                <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={softSpring}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: diff <= 0 ? '#dcfce7' : '#fee2e2', color: diff <= 0 ? '#15803d' : '#b91c1c', fontSize: 11, fontWeight: 600 }}>
                   {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
                 </motion.span>
               )}
             </div>
           </div>
 
-          {/* Animated chart */}
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <Spinner />
@@ -366,120 +307,28 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               >
                 <DonutChart slices={byCategory} total={totalMonth} onSliceClick={setDrillCategory} />
                 {showSpendLine && (
-                  <DailySpendLine
-                    current={selCumulative}
-                    previous={compCumulative}
-                    daysInMonth={daysInSelMonth}
-                  />
+                  <DailySpendLine current={selCumulative} previous={compCumulative} daysInMonth={daysInSelMonth} />
                 )}
               </motion.div>
             </AnimatePresence>
           )}
         </motion.div>
 
-        {/* Meta mensual */}
-        {!loading && selectedOffset === 0 && (
-          <MetaMensualWidget monthTx={monthTx} userId={userId} />
-        )}
-
-        {/* Weekly cash flow — current month only */}
-        {!loading && selectedOffset === 0 && monthTx.length > 0 && (
-          <motion.div variants={riseItem} transition={quickEase}>
-            <WeeklyCashFlow transactions={monthTx} />
-          </motion.div>
-        )}
-
-        {/* Sueño activo — progreso compacto */}
-        {!loading && primeiroSueno && (
+        {/* Primer reto activo (compacto) */}
+        {!loading && primerRetoActivo && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <SuenoCard sueno={primeiroSueno} retosParaSueno={retosParaPrimeiroSueno} compact />
+            <RetoWidget progress={primerRetoActivo} />
           </motion.div>
         )}
 
-        {/* Retos */}
-        {!loading && (
+        {/* Primer sueño activo (compacto) */}
+        {!loading && primerSueno && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <RetosPanel userId={userId} transactions={transactions} />
+            <SuenoCard sueno={primerSueno} retosParaSueno={retosParaPrimerSueno} compact />
           </motion.div>
         )}
 
-        {/* Unusual spend alert */}
-        {unusualCats.size > 0 && (
-          <motion.div
-            variants={riseItem}
-            transition={quickEase}
-            style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-              background: '#fff7ed', borderRadius: 'var(--r-xl)',
-              padding: '11px 14px', marginBottom: 14,
-              border: '1.5px solid #fed7aa',
-            }}
-          >
-            <span style={{ fontSize: 16, flexShrink: 0, lineHeight: 1.4 }}>⚠️</span>
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#7c2d12', marginBottom: 3 }}>
-                Gasto inusual detectado
-              </div>
-              <div style={{ fontSize: 12, color: '#7c2d12', lineHeight: 1.5 }}>
-                {Array.from(unusualCats).join(', ')}: más del doble del promedio de los últimos 3 meses.
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Budget alerts */}
-        {!loading && alerts.length > 0 && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 8 }}>
-              Alertas
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {alerts.map(({ cat, budget, spent, pct, color, shared }) => {
-                const exceeded = pct >= 1;
-                const accent = exceeded ? '#dc2626' : '#d97706';
-                const bg = exceeded ? '#fef2f2' : '#fffbeb';
-                const border = exceeded ? '#fecaca' : '#fde68a';
-                return (
-                  <div key={cat} style={{ background: bg, borderRadius: 'var(--r-xl)', padding: '12px 14px', border: `1.5px solid ${border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{cat}</span>
-                      {shared && <span style={{ fontSize: 10, background: 'var(--blue-50)', color: 'var(--blue-700)', border: '1px solid var(--blue-100)', borderRadius: 5, padding: '1px 5px', fontWeight: 600 }}>hogar</span>}
-                      <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: accent, fontWeight: 700 }}>
-                        {Math.round(pct * 100)}%
-                      </span>
-                    </div>
-                    <div style={{ height: 5, borderRadius: 999, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(pct * 100, 100)}%` }}
-                        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                        style={{ height: '100%', borderRadius: 999, background: accent }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-                      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                        {exceeded ? 'Presupuesto superado' : 'Cerca del límite'}
-                      </span>
-                      <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
-                        {formatCOP(spent)} / {formatCOP(budget)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Inline chat */}
-        {!loading && transactions.length > 0 && (
-          <motion.div variants={riseItem} transition={quickEase}>
-            <ChatInline transactions={transactions} />
-          </motion.div>
-        )}
-
-        {/* Recent transactions */}
+        {/* Últimas 5 transacciones */}
         <motion.div variants={riseItem} transition={quickEase}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)', color: 'var(--ink)' }}>Movimientos</span>
@@ -530,24 +379,15 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
       <AnimatePresence>
         {drillCategory && (
-          <CategorySheet
-            category={drillCategory}
-            transactions={transactions}
-            onClose={() => setDrillCategory(null)}
-          />
+          <CategorySheet category={drillCategory} transactions={transactions} onClose={() => setDrillCategory(null)} />
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {showRecap && (
-          <MonthRecapModal
-            transactions={transactions}
-            userId={userId}
-            onClose={() => setShowRecap(false)}
-          />
+          <MonthRecapModal transactions={transactions} userId={userId} onClose={() => setShowRecap(false)} />
         )}
       </AnimatePresence>
-
     </div>
   );
 }
@@ -557,7 +397,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
   const customAvatar = getUserAvatar(userId);
   const displayName = getUserNickname(userId) || profile?.name || userId;
   const avatarSrc = customAvatar || profile?.avatar;
-  const [failed, setFailed]     = useState(false);
+  const [failed, setFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -578,24 +418,17 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
         {(failed || !avatarSrc) ? (
           profile?.initial ?? userId.charAt(0).toUpperCase()
         ) : (
-          <img
-            src={avatarSrc}
-            alt={displayName}
-            onError={() => setFailed(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-          />
+          <img src={avatarSrc} alt={displayName} onError={() => setFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
         )}
       </motion.button>
 
       <AnimatePresence>
         {menuOpen && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              onClick={() => setMenuOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 50 }}
-            />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }} onClick={() => setMenuOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
             <motion.div
               initial={{ opacity: 0, scale: 0.92, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -613,28 +446,14 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
               </div>
               {onSettings && (
-                <button
-                  onClick={() => { setMenuOpen(false); onSettings(); }}
-                  style={{
-                    width: '100%', padding: '11px 14px', background: 'none', border: 'none',
-                    borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer',
-                    fontSize: 13.5, fontWeight: 500, color: 'var(--ink)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                >
+                <button onClick={() => { setMenuOpen(false); onSettings(); }}
+                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-body)' }}>
                   Ajustes
                 </button>
               )}
               {onLogout && (
-                <button
-                  onClick={() => { setMenuOpen(false); onLogout(); }}
-                  style={{
-                    width: '100%', padding: '11px 14px', background: 'none', border: 'none',
-                    borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer',
-                    fontSize: 13.5, fontWeight: 500, color: '#b91c1c',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                >
+                <button onClick={() => { setMenuOpen(false); onLogout(); }}
+                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: '#b91c1c', fontFamily: 'var(--font-body)' }}>
                   Cerrar sesión
                 </button>
               )}
@@ -654,10 +473,7 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
 
   return (
     <motion.div
-      animate={{
-        backgroundColor: highlighted ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0)',
-        scale: highlighted ? 1.01 : 1,
-      }}
+      animate={{ backgroundColor: highlighted ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0)', scale: highlighted ? 1.01 : 1 }}
       transition={softSpring}
       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 8px', margin: '0 -8px', borderRadius: 14 }}
     >
@@ -682,98 +498,48 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
 
 function SkeletonCard() {
   return (
-    <div style={{
-      height: '52px', borderRadius: 12, marginBottom: 8,
-      background: 'linear-gradient(90deg, var(--line) 25%, #e2e8f0 50%, var(--line) 75%)',
-      backgroundSize: '200% 100%',
-      animation: 'shimmer 1.8s ease-in-out infinite',
-    }} />
+    <div style={{ height: '52px', borderRadius: 12, marginBottom: 8, background: 'linear-gradient(90deg, var(--line) 25%, #e2e8f0 50%, var(--line) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite' }} />
   );
 }
 
 function Spinner() {
   return (
-    <div style={{
-      width: 28, height: 28, borderRadius: '50%',
-      border: '2.5px solid var(--line)',
-      borderTopColor: '#2563eb',
-      animation: 'spin 0.9s linear infinite',
-    }} />
+    <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: '#2563eb', animation: 'spin 0.9s linear infinite' }} />
   );
 }
 
-function DailySpendLine({ current, previous, daysInMonth }: {
-  current: number[];
-  previous: number[];
-  daysInMonth: number;
-}) {
-  const W = 300;
-  const H = 52;
-  const PX = 2;
-  const PY = 4;
-
+function DailySpendLine({ current, previous, daysInMonth }: { current: number[]; previous: number[]; daysInMonth: number }) {
+  const W = 300; const H = 52; const PX = 2; const PY = 4;
   const maxVal = Math.max(...current, ...previous, 1);
   const toX = (i: number, len: number) => PX + (len <= 1 ? 0 : (i / (len - 1)) * (W - PX * 2));
   const toY = (v: number) => H - PY - (v / maxVal) * (H - PY * 2);
-
   const buildPath = (data: number[]) => {
     if (data.length < 2) return '';
     return data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i, data.length).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ');
   };
-
   const currPath = buildPath(current);
   const prevPath = buildPath(previous);
   const lastVal = current[current.length - 1] ?? 0;
   const lastX = toX(current.length - 1, current.length);
   const lastY = toY(lastVal);
-  const areaFill = currPath
-    ? `${currPath} L ${lastX.toFixed(1)} ${H} L ${PX} ${H} Z`
-    : '';
+  const areaFill = currPath ? `${currPath} L ${lastX.toFixed(1)} ${H} L ${PX} ${H} Z` : '';
 
   return (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Acumulado del mes</span>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--ink)' }}>
-          {formatCOP(lastVal)}
-        </span>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--ink)' }}>{formatCOP(lastVal)}</span>
       </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: 52, display: 'block', overflow: 'visible' }}
-      >
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 52, display: 'block', overflow: 'visible' }}>
         {areaFill && <path d={areaFill} fill="rgba(37,99,235,0.07)" />}
-        {prevPath && previous.some(v => v > 0) && (
-          <path d={prevPath} fill="none" stroke="rgba(100,116,139,0.32)" strokeWidth="1.5"
-            strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {currPath && current.some(v => v > 0) && (
-          <path d={currPath} fill="none" stroke="#2563eb" strokeWidth="2"
-            strokeLinecap="round" strokeLinejoin="round" />
-        )}
-        {lastVal > 0 && current.length > 1 && (
-          <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#2563eb" />
-        )}
+        {prevPath && previous.some(v => v > 0) && <path d={prevPath} fill="none" stroke="rgba(100,116,139,0.32)" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />}
+        {currPath && current.some(v => v > 0) && <path d={currPath} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+        {lastVal > 0 && current.length > 1 && <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#2563eb" />}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
         {['1', String(Math.ceil(daysInMonth / 2)), String(daysInMonth)].map(label => (
-          <span key={label} style={{ fontSize: 9, color: 'rgba(100,116,139,0.55)', fontFamily: 'var(--font-mono)' }}>
-            {label}
-          </span>
+          <span key={label} style={{ fontSize: 9, color: 'rgba(100,116,139,0.55)', fontFamily: 'var(--font-mono)' }}>{label}</span>
         ))}
-      </div>
-      <div style={{ display: 'flex', gap: 12, marginTop: 5 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--muted)' }}>
-          <span style={{ width: 14, height: 2, background: '#2563eb', borderRadius: 1, display: 'inline-block' }} />
-          Este mes
-        </span>
-        {previous.some(v => v > 0) && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--muted)' }}>
-            <span style={{ width: 14, height: 0, borderTop: '1.5px dashed rgba(100,116,139,0.5)', display: 'inline-block' }} />
-            Mes anterior
-          </span>
-        )}
       </div>
     </div>
   );
