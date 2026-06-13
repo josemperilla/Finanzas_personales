@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
 import { Transaction } from '../lib/api';
 import { getProfile, getUserNickname, getUserAvatar } from '../lib/profiles';
@@ -84,55 +84,76 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   // Card shows selected month label
   const selMonthStr = selDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
-  // Transactions for selected month
-  const monthTx = transactions.filter(tx => {
-    const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
-    return d.getMonth() === selMonth && d.getFullYear() === selYear;
-  });
-  const totalMonth = monthTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0);
-
-  // Previous month for comparison (only shown in header badge when selectedOffset === 0)
+  // Previous month indices (primitives — safe as useMemo deps)
   const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
   const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const prevTx = transactions.filter(tx => {
-    const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
-    return d.getMonth() === prevMonthIdx && d.getFullYear() === prevYear;
-  });
-  const totalPrev = prevTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0);
+
+  // Transactions for selected month — memoized so downstream only recomputes when data/month changes
+  const monthTx = useMemo(
+    () => transactions.filter(tx => {
+      const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
+      return d.getMonth() === selMonth && d.getFullYear() === selYear;
+    }),
+    [transactions, selMonth, selYear],
+  );
+  const totalMonth = useMemo(
+    () => monthTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    [monthTx],
+  );
+
+  const prevTx = useMemo(
+    () => transactions.filter(tx => {
+      const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
+      return d.getMonth() === prevMonthIdx && d.getFullYear() === prevYear;
+    }),
+    [transactions, prevMonthIdx, prevYear],
+  );
+  const totalPrev = useMemo(
+    () => prevTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    [prevTx],
+  );
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
 
   // Category breakdown for selected month
-  const byCategory = CATEGORIES.map(cat => ({
-    category: cat.name,
-    amount: monthTx
-      .filter(tx => tx.Categoría === cat.name)
-      .reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
-  })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount);
+  const byCategory = useMemo(
+    () => CATEGORIES.map(cat => ({
+      category: cat.name,
+      amount: monthTx
+        .filter(tx => tx.Categoría === cat.name)
+        .reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    })).filter(s => s.amount > 0).sort((a, b) => b.amount - a.amount),
+    [monthTx],
+  );
 
   // Budget alerts — personal ≥ 80% + shared ≥ 80%
-  const budgets = getBudgets(userId);
-  const sharedBudgets = getSharedBudgets();
-  const mergedBudgets = { ...sharedBudgets, ...budgets }; // personal overrides shared per category
-  const alerts = byCategory
-    .filter(s => mergedBudgets[s.category] > 0 && s.amount / mergedBudgets[s.category] >= 0.8)
-    .map(s => ({
-      cat: s.category,
-      budget: mergedBudgets[s.category],
-      spent: s.amount,
-      pct: s.amount / mergedBudgets[s.category],
-      color: getCategoryColor(s.category),
-      shared: !budgets[s.category] && !!sharedBudgets[s.category],
-    }))
-    .sort((a, b) => b.pct - a.pct);
+  const alerts = useMemo(() => {
+    const budgets = getBudgets(userId);
+    const sharedBudgets = getSharedBudgets();
+    const mergedBudgets = { ...sharedBudgets, ...budgets };
+    return byCategory
+      .filter(s => mergedBudgets[s.category] > 0 && s.amount / mergedBudgets[s.category] >= 0.8)
+      .map(s => ({
+        cat: s.category,
+        budget: mergedBudgets[s.category],
+        spent: s.amount,
+        pct: s.amount / mergedBudgets[s.category],
+        color: getCategoryColor(s.category),
+        shared: !budgets[s.category] && !!sharedBudgets[s.category],
+      }))
+      .sort((a, b) => b.pct - a.pct);
+  }, [byCategory, userId]);
 
   // Recent transactions for selected month
-  const recent = [...monthTx]
-    .sort((a, b) => {
-      const da = new Date((a.Fecha || a.Timestamp).replace(' ', 'T'));
-      const db = new Date((b.Fecha || b.Timestamp).replace(' ', 'T'));
-      return db.getTime() - da.getTime();
-    })
-    .slice(0, 5);
+  const recent = useMemo(
+    () => [...monthTx]
+      .sort((a, b) => {
+        const da = new Date((a.Fecha || a.Timestamp).replace(' ', 'T'));
+        const db = new Date((b.Fecha || b.Timestamp).replace(' ', 'T'));
+        return db.getTime() - da.getTime();
+      })
+      .slice(0, 5),
+    [monthTx],
+  );
 
   const animatedTotal = useCountUp(loading ? 0 : totalMonth);
 
@@ -155,12 +176,14 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     ? ((projectedTotal - totalPrev) / totalPrev) * 100
     : null;
 
-  const healthScore: HealthScore | null = (selectedOffset === 0 && !loading)
-    ? computeHealthScore(transactions, userId)
-    : null;
-  const unusualCats: Set<string> = (selectedOffset === 0 && !loading)
-    ? detectUnusualCategories(transactions)
-    : new Set();
+  const healthScore = useMemo<HealthScore | null>(
+    () => (selectedOffset === 0 && !loading) ? computeHealthScore(transactions, userId) : null,
+    [transactions, userId, selectedOffset, loading],
+  );
+  const unusualCats = useMemo<Set<string>>(
+    () => (selectedOffset === 0 && !loading) ? detectUnusualCategories(transactions) : new Set(),
+    [transactions, selectedOffset, loading],
+  );
 
   // Daily cumulative spend chart
   const daysInSelMonth = new Date(selYear, selMonth + 1, 0).getDate();
@@ -170,8 +193,14 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const compChartYear = compDate.getFullYear();
   const daysInCompMonth = new Date(compChartYear, compChartMonth + 1, 0).getDate();
   const compDays = selectedOffset === 0 ? Math.min(dayOfMonth, daysInCompMonth) : daysInCompMonth;
-  const selCumulative = buildDailyCumulative(transactions, selYear, selMonth, selDays);
-  const compCumulative = buildDailyCumulative(transactions, compChartYear, compChartMonth, compDays);
+  const selCumulative = useMemo(
+    () => buildDailyCumulative(transactions, selYear, selMonth, selDays),
+    [transactions, selYear, selMonth, selDays],
+  );
+  const compCumulative = useMemo(
+    () => buildDailyCumulative(transactions, compChartYear, compChartMonth, compDays),
+    [transactions, compChartYear, compChartMonth, compDays],
+  );
   const showSpendLine = !loading && (selCumulative.some(v => v > 0) || compCumulative.some(v => v > 0));
 
   const navigate = (delta: number) => {

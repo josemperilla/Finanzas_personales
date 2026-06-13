@@ -2,6 +2,7 @@ import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
 
 let _activeUserId: string | null = null;
 let _token: string | null = null;
+let _inflightFetch: Promise<Transaction[]> | null = null;
 
 export function setActiveUser(id: string | null) {
   _activeUserId = id;
@@ -82,19 +83,24 @@ export interface VoiceParsed {
   tipo: string;
 }
 
-export async function fetchTransactions(): Promise<Transaction[]> {
+export function fetchTransactions(): Promise<Transaction[]> {
   assertWebhookUrl();
+  if (_inflightFetch) return _inflightFetch;
   const uid = _activeUserId || localStorage.getItem('fm_profile');
   const extraParams: Record<string, string> = { action: 'transactions' };
   if (uid) extraParams.userId = uid;
   if (_token) extraParams.token = _token;
-  const res = await fetch(secureUrl(WEBHOOK_URL, extraParams));
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
-  return (json.data as Transaction[]).map(tx => ({
-    ...tx,
-    Categoría: normalizeCategory(tx.Categoría),
-  }));
+  _inflightFetch = fetch(secureUrl(WEBHOOK_URL, extraParams))
+    .then(res => res.json())
+    .then(json => {
+      if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
+      return (json.data as Transaction[]).map(tx => ({
+        ...tx,
+        Categoría: normalizeCategory(tx.Categoría),
+      }));
+    })
+    .finally(() => { _inflightFetch = null; });
+  return _inflightFetch;
 }
 
 export async function saveTransaction(data: ManualTransaction): Promise<void> {

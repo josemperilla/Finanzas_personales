@@ -114,16 +114,16 @@ export function RetosPanel({ userId, transactions }: Props) {
     if (!fi || !ff) return;
 
     // If user typed a merchant but didn't select from dropdown, add it
-    if (mercQuery.trim() && !comercios.includes(mercQuery.trim())) {
-      comercios.push(mercQuery.trim());
-    }
+    const finalComercio = (mercQuery.trim() && !comercios.includes(mercQuery.trim()))
+      ? [...comercios, mercQuery.trim()]
+      : comercios;
 
     const reto: Reto = {
       id:          newId(),
       titulo:      titulo.trim(),
       tipo,
       categorias,
-      comercios,
+      comercios: finalComercio,
       objetivo:    tipo === 'no_spend' ? 0 : (parseFloat(objetivo) || 0),
       fechaInicio: fi,
       fechaFin:    ff,

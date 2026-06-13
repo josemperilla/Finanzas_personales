@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { getCategoryColor } from '../lib/config';
 import { formatCOP } from '../lib/utils';
@@ -14,7 +15,7 @@ interface Props {
   onSliceClick?: (category: string) => void;
 }
 
-export function DonutChart({ slices, total, onSliceClick }: Props) {
+export const DonutChart = memo(function DonutChart({ slices, total, onSliceClick }: Props) {
   const SIZE = 180;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
@@ -134,4 +135,4 @@ export function DonutChart({ slices, total, onSliceClick }: Props) {
       </motion.div>
     </div>
   );
-}
+});

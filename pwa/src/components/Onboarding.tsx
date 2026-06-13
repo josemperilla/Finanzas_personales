@@ -56,7 +56,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
 
   // Pasos que reutilizan overlays existentes (pantalla completa propia).
   if (step === 'import') {
-    return <ImportarExtracto userId={userId} onClose={next} />;
+    return <ImportarExtracto userId={userId} onClose={next} showSkipButton />;
   }
   if (step === 'tutorial') {
     return <TutorialCanales userId={userId} onClose={onFinish} />;

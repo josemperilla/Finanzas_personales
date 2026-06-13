@@ -1,5 +1,6 @@
 import { Transaction } from './api';
 import { cleanMerchant } from './merchantCleaner';
+import { normalizeCategory } from './config';
 
 export type RetoTipo = 'budget_limit' | 'frequency_limit' | 'no_spend';
 
@@ -70,12 +71,14 @@ export function computeProgress(reto: Reto, txs: Transaction[]): RetoProgress {
   const mercs = reto.comercios ?? [];
 
   const relevant = txs.filter(tx => {
-    const d = new Date(tx.Fecha || tx.Timestamp);
-    if (d < start || d > end) return false;
+    const raw = (tx.Fecha || tx.Timestamp || '').replace(' ', 'T');
+    const d   = new Date(raw);
+    if (!raw || isNaN(d.getTime()) || d < start || d > end) return false;
     // Sin filtro → todas las transacciones cuentan
     if (cats.length === 0 && mercs.length === 0) return true;
     // OR: cuenta si coincide con alguna categoría o algún comercio
-    const matchesCat = cats.length > 0 && cats.includes(tx.Categoría);
+    const txCat      = normalizeCategory(tx.Categoría || '');
+    const matchesCat = cats.length > 0 && cats.some(c => normalizeCategory(c) === txCat);
     const cleaned    = cleanMerchant(tx.Comercio);
     const matchesMer = mercs.length > 0 && mercs.some(m =>
       cleaned.toLowerCase().includes(m.toLowerCase()) ||

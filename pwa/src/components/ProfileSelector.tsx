@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Profile, getUserNickname, getUserAvatar } from '../lib/profiles';
+import { staggerContainer, riseItem, quickEase } from '../lib/motion';
 
 interface Props {
   onSelect: (userId: string) => void;
@@ -65,7 +66,7 @@ export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ display: 'flex', gap: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
         {profiles.map(profile => {
           const customAvatar = getUserAvatar(profile.id);
           const displayName = getUserNickname(profile.id) || profile.name;
@@ -74,6 +75,8 @@ export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
           return (
             <motion.button
               key={profile.id}
+              variants={riseItem}
+              transition={quickEase}
               whileTap={{ scale: 0.94 }}
               onClick={() => onSelect(profile.id)}
               style={{
@@ -108,7 +111,7 @@ export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
             </motion.button>
           );
         })}
-      </div>
+      </motion.div>
 
       <motion.button
         initial={{ opacity: 0 }}

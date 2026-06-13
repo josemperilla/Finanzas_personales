@@ -192,49 +192,65 @@ function ShortcutCredentials({ userId }: { userId: string }) {
     }
   }
 
-  if (!config) {
-    return (
-      <div style={{
-        background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
-        borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
-        <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)' }}>
-          Datos para configurar el Shortcut
-        </div>
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', lineHeight: 1.5 }}>
-          Necesitarás tu ID de usuario, la URL del webhook y el secreto al editar el Shortcut.
-        </div>
-        {error && (
-          <div style={{ fontSize: 12, color: 'var(--red-600, #dc2626)' }}>{error}</div>
-        )}
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={load}
-          disabled={loading}
-          style={{
-            height: 38, background: 'var(--blue-700)', border: 'none', borderRadius: 10,
-            color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600,
-            cursor: loading ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          {loading ? 'Cargando…' : 'Ver datos de configuración'}
-        </motion.button>
-      </div>
-    );
-  }
-
   return (
     <div style={{
       background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
       borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
     }}>
       <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)' }}>
-        Datos para configurar el Shortcut
+        Paso 1 — Instala el Shortcut
       </div>
-      <CopyField label="Tu ID de usuario" value={userId} />
-      <CopyField label="URL del webhook" value={config.webhookUrl} />
-      <CopyField label="Secreto" value={config.secret} secret />
+      <motion.a
+        href="https://www.icloud.com/shortcuts/7f14dfbf9b814a008b728879787ae0c5"
+        target="_blank"
+        rel="noopener noreferrer"
+        whileTap={{ scale: 0.97 }}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          height: 46, background: 'var(--blue-700)', borderRadius: 12, textDecoration: 'none',
+          color: '#fff', fontSize: 'var(--text-base)', fontWeight: 700,
+          fontFamily: 'var(--font-body)',
+        }}
+      >
+        <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
+      </motion.a>
+      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+        Tarda menos de 2 minutos. Toca el botón de arriba para instalarlo.
+      </div>
+
+      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)', marginTop: 4 }}>
+        Paso 2 — Copia tus datos de configuración
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+        Reemplaza los valores del Shortcut con estos datos.
+      </div>
+      {!config && (
+        <>
+          {error && (
+            <div style={{ fontSize: 12, color: 'var(--red-600, #dc2626)' }}>{error}</div>
+          )}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={load}
+            disabled={loading}
+            style={{
+              height: 38, background: 'none', border: '1.5px solid var(--blue-300, #93c5fd)',
+              borderRadius: 10, color: 'var(--blue-700)', fontSize: 'var(--text-sm)', fontWeight: 600,
+              cursor: loading ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? 'Cargando…' : 'Ver mis datos de configuración'}
+          </motion.button>
+        </>
+      )}
+      {config && (
+        <>
+          <CopyField label="Tu ID de usuario" value={userId} />
+          <CopyField label="URL del webhook" value={config.webhookUrl} />
+          <CopyField label="Secreto" value={config.secret} secret />
+        </>
+      )}
     </div>
   );
 }
@@ -246,8 +262,15 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
     () => (localStorage.getItem(PLATFORM_KEY) as Platform | null)
   );
   const [idx, setIdx] = useState(initialCard ?? 0);
+  const [direction, setDirection] = useState(1);
 
   const card = CARDS[idx];
+
+  const cardVariants = {
+    enter: (d: number) => ({ opacity: 0, x: d > 0 ? 44 : -44 }),
+    center: { opacity: 1, x: 0 },
+    exit: (d: number) => ({ opacity: 0, x: d > 0 ? -44 : 44 }),
+  };
 
   function selectPlatform(p: Platform) {
     localStorage.setItem(PLATFORM_KEY, p);
@@ -364,12 +387,14 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
             </div>
 
             {/* Card */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
+                custom={direction}
+                variants={cardVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
                 transition={quickEase}
                 style={{
                   background: 'var(--surface)', borderRadius: 16,
@@ -415,7 +440,7 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
               {CARDS.map((_, i) => (
                 <motion.button
                   key={i}
-                  onClick={() => setIdx(i)}
+                  onClick={() => { setDirection(i > idx ? 1 : -1); setIdx(i); }}
                   animate={{ width: i === idx ? 20 : 8, background: i === idx ? 'var(--blue-600)' : 'var(--line)' }}
                   transition={{ duration: 0.2 }}
                   style={{ height: 8, borderRadius: 999, border: 'none', cursor: 'pointer', padding: 0 }}
@@ -428,7 +453,7 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
               {idx > 0 ? (
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => setIdx(i => i - 1)}
+                  onClick={() => { setDirection(-1); setIdx(i => i - 1); }}
                   style={{
                     flex: 1, height: 48, background: 'none', border: '1.5px solid var(--line)',
                     borderRadius: 14, color: 'var(--muted)', fontSize: 'var(--text-base)',
@@ -453,7 +478,7 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
               {idx < CARDS.length - 1 ? (
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => setIdx(i => i + 1)}
+                  onClick={() => { setDirection(1); setIdx(i => i + 1); }}
                   style={{
                     flex: 2, height: 48, background: 'var(--blue-700)', border: 'none',
                     borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)',

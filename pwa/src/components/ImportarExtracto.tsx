@@ -15,6 +15,7 @@ interface ParsedRow {
 interface Props {
   userId: string;
   onClose: () => void;
+  showSkipButton?: boolean;
 }
 
 const BANKS = [
@@ -127,7 +128,7 @@ function rowToManual(row: ParsedRow): ManualTransaction {
 
 type Stage = 'select' | 'analyzing' | 'preview' | 'sending' | 'done';
 
-export function ImportarExtracto({ userId: _userId, onClose }: Props) {
+export function ImportarExtracto({ userId: _userId, onClose, showSkipButton }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [bank, setBank]     = useState('bancolombia');
   const [rows, setRows]     = useState<ParsedRow[]>([]);
@@ -288,6 +289,26 @@ export function ImportarExtracto({ userId: _userId, onClose }: Props) {
               <strong>Bancolombia</strong>: Mi perfil → Descargar movimientos<br />
               <strong>Bogotá / Itaú</strong>: Extractos → Exportar (PDF o CSV)
             </p>
+
+            {showSkipButton && (
+              <div style={{ textAlign: 'center', paddingTop: 8 }}>
+                <p style={{ margin: '0 0 12px', fontSize: 'var(--text-xs)', color: 'var(--muted)', lineHeight: 1.5 }}>
+                  Este paso es opcional. Puedes importar transacciones en cualquier momento desde Ajustes.
+                </p>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onClose}
+                  style={{
+                    height: 48, width: '100%', borderRadius: 14,
+                    background: 'none', border: '1.5px solid var(--line)',
+                    color: 'var(--blue-600)', fontSize: 'var(--text-base)',
+                    fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  No tengo extracto — configurar después
+                </motion.button>
+              </div>
+            )}
           </motion.div>
         )}
 

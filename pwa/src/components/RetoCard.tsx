@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { RetoProgress } from '../lib/retos';
 import { formatCOP } from '../lib/utils';
@@ -81,7 +82,7 @@ function TargetChips({ reto }: { reto: RetoProgress['reto'] }) {
   );
 }
 
-export function RetoCard({ progress, onDelete }: Props) {
+export const RetoCard = memo(function RetoCard({ progress, onDelete }: Props) {
   const { reto, current, pct, failed, completed, diasRestantes } = progress;
 
   const barColor = failed
@@ -167,4 +168,4 @@ export function RetoCard({ progress, onDelete }: Props) {
       </div>
     </motion.div>
   );
-}
+});

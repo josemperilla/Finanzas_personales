@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
@@ -72,6 +72,7 @@ export default function App() {
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const lastFetchRef = useRef<number>(0);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [accessible, setAccessible] = useState(false);
@@ -79,6 +80,7 @@ export default function App() {
   const [showBalanceWidget, setShowBalanceWidget] = useState(
     () => new URLSearchParams(window.location.search).get('view') === 'balance'
   );
+  const [showWelcomeToast, setShowWelcomeToast] = useState(false);
 
   // Migración: un dispositivo ya logueado antes de esta versión no tiene
   // fm_known_profiles — sembrar con su perfil actual para que no caiga a la
@@ -142,6 +144,7 @@ export default function App() {
     try {
       const data = await fetchTransactions();
       setTransactions(data);
+      lastFetchRef.current = Date.now();
       if (data.length === 0 && userId && !localStorage.getItem(`fm_tutorial_seen_${userId}`)) {
         setShowTutorial(true);
       }
@@ -155,11 +158,13 @@ export default function App() {
   // H-04: only fetch data after the user has authenticated
   useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
 
-  // Silent background refresh — runs without showing the loading skeleton
+  // Silent background refresh — skipped if data was fetched less than 30s ago
   const silentLoad = useCallback(async () => {
+    if (Date.now() - lastFetchRef.current < 30_000) return;
     try {
       const data = await fetchTransactions();
       setTransactions(data);
+      lastFetchRef.current = Date.now();
     } catch { /* silently ignore */ }
   }, []);
 
@@ -337,7 +342,7 @@ export default function App() {
             key="onboarding"
             userId={userId}
             initialDisplayName={onboardDisplayName ?? undefined}
-            onFinish={() => { setShowOnboarding(false); setOnboardDisplayName(null); }}
+            onFinish={() => { setShowOnboarding(false); setOnboardDisplayName(null); setShowWelcomeToast(true); setTimeout(() => setShowWelcomeToast(false), 5000); }}
           />
         )}
         {showSettings && userId && (
@@ -363,6 +368,45 @@ export default function App() {
             onAdd={() => { setShowBalanceWidget(false); setTab('agregar'); }}
             onClose={() => setShowBalanceWidget(false)}
           />
+        )}
+        {showWelcomeToast && (
+          <motion.div
+            key="welcome-toast"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom))',
+              left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9995, width: 'calc(100% - 48px)', maxWidth: 360,
+              background: 'var(--ink)', borderRadius: 16,
+              padding: '14px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              boxShadow: '0 8px 32px rgba(15,23,42,0.28)',
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 2 }}>
+                ¡Bienvenido/a!
+              </div>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4 }}>
+                Añade tu primera transacción para empezar.
+              </div>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              onClick={() => { setShowWelcomeToast(false); setTab('agregar'); }}
+              style={{
+                flexShrink: 0, height: 36, padding: '0 14px',
+                background: 'var(--blue-500, #3b82f6)', border: 'none', borderRadius: 10,
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              Añadir
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
