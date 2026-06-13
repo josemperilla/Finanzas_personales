@@ -83,6 +83,8 @@
   --danger-bg: #fee2e2;
   --warning: #c2410c;
   --warning-bg: #ffedd5;
+  --nav-glass: rgba(255, 255, 255, 0.76);
+  --nav-border: rgba(148, 163, 184, 0.28);
 }
 
 *, *::before, *::after {
@@ -263,6 +265,8 @@ select option {
   --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
   --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
   --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
+  --nav-glass: rgba(15, 23, 42, 0.78);
+  --nav-border: rgba(148, 163, 184, 0.18);
 
   color-scheme: dark;
 }
@@ -288,6 +292,8 @@ select option {
     --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
     --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
     --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
+    --nav-glass: rgba(15, 23, 42, 0.78);
+    --nav-border: rgba(148, 163, 184, 0.18);
 
     color-scheme: dark;
   }

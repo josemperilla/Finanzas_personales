@@ -35,14 +35,14 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'color-mix(in srgb, var(--card) 92%, transparent)',
-      backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
-      borderTop: '1px solid var(--line)',
+      background: 'var(--nav-glass)',
+      backdropFilter: 'blur(24px) saturate(1.35)', WebkitBackdropFilter: 'blur(24px) saturate(1.35)',
+      borderTop: '1px solid var(--nav-border)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-around',
       paddingTop: accessibleMode ? '12px' : '10px',
       paddingBottom: 'max(18px, env(safe-area-inset-bottom))',
       zIndex: 'var(--z-nav)',
-      boxShadow: 'var(--shadow-nav)',
+      boxShadow: '0 -1px 0 rgba(255,255,255,0.5), var(--shadow-nav)',
       minHeight: navMinHeight,
     }} aria-label="Navegación principal">
       {leftTabs.map(tabId => {
