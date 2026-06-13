@@ -38,7 +38,12 @@ export async function onRequest(context) {
     return json({ ok: false, error: 'No se pudo verificar la sesión' }, 502);
   }
 
-  return json({ ok: true, webhookUrl: WEBHOOK_URL, secret: SHORTCUT_SECRET });
+  // El shortcut apunta al proxy de Cloudflare (/api/sms), no a GAS directamente.
+  // Esto evita el doble-redirect de script.google.com que rompe la auth en Atajos.
+  const host = new URL(request.url).origin;
+  const shortcutUrl = `${host}/api/sms`;
+
+  return json({ ok: true, webhookUrl: shortcutUrl, secret: SHORTCUT_SECRET });
 }
 
 function json(data, status = 200) {
