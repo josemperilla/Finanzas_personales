@@ -590,26 +590,29 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                   <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>Alertas de gasto grande</div>
                   <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>Recibe un email al superar el umbral</div>
                 </div>
-                <motion.div
+                <motion.button
                   whileTap={{ scale: 0.88 }}
                   onClick={() => setAlertsEnabled(e => !e)}
+                  role="switch"
+                  aria-checked={alertsEnabled}
+                  aria-label="Alertas de gasto grande"
                   style={{
                     width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
                     background: alertsEnabled ? 'var(--blue-600, #2563eb)' : 'var(--line)',
                     position: 'relative', transition: 'background 0.25s',
-                    flexShrink: 0,
+                    flexShrink: 0, border: 'none',
                   }}
                 >
-                  <motion.div
+                  <motion.span
                     animate={{ x: alertsEnabled ? 20 : 2 }}
                     transition={softSpring}
                     style={{
-                      position: 'absolute', top: 3, width: 20, height: 20,
+                      position: 'absolute', top: 3, left: 0, width: 20, height: 20,
                       borderRadius: '50%', background: '#fff',
                       boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
                     }}
                   />
-                </motion.div>
+                </motion.button>
               </div>
 
               {/* Expandable alert config */}
@@ -668,26 +671,29 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                     <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>Resumen semanal (lunes)</div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>Resumen de gastos de la semana</div>
                   </div>
-                  <motion.div
+                  <motion.button
                     whileTap={{ scale: 0.88 }}
                     onClick={() => setWeeklyDigest(d => !d)}
+                    role="switch"
+                    aria-checked={weeklyDigest}
+                    aria-label="Resumen semanal"
                     style={{
                       width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
                       background: weeklyDigest ? 'var(--blue-600, #2563eb)' : 'var(--line)',
                       position: 'relative', transition: 'background 0.25s',
-                      flexShrink: 0,
+                      flexShrink: 0, border: 'none',
                     }}
                   >
-                    <motion.div
+                    <motion.span
                       animate={{ x: weeklyDigest ? 20 : 2 }}
                       transition={softSpring}
                       style={{
-                        position: 'absolute', top: 3, width: 20, height: 20,
+                        position: 'absolute', top: 3, left: 0, width: 20, height: 20,
                         borderRadius: '50%', background: '#fff',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
                       }}
                     />
-                  </motion.div>
+                  </motion.button>
                 </div>
               )}
 
