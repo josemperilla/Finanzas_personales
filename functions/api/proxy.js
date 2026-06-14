@@ -10,10 +10,33 @@ export async function onRequest(context) {
   const WEBHOOK_SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
 
   if (!WEBHOOK_URL) {
-    return new Response(
-      JSON.stringify({ ok: false, error: 'WEBHOOK_URL not configured on server' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
-    );
+    // Preview mode: return mock responses so the UI is navigable without a backend.
+    const json = (data, status = 200) =>
+      new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+
+    if (request.method === 'GET') {
+      const url = new URL(request.url);
+      const action = url.searchParams.get('action');
+      if (action === 'transactions') return json({ ok: true, data: [] });
+      return json({ ok: true, data: [] });
+    }
+
+    let payload = {};
+    try { payload = JSON.parse(await request.text()); } catch (_) {}
+    const type = payload.type;
+
+    if (type === 'validatePin' || type === 'setupPin')
+      return json({ ok: true, token: 'preview-mode' });
+    if (type === 'hasPin')
+      return json({ ok: true, exists: true });
+    if (type === 'listUsers' || type === 'listUsersData')
+      return json({ ok: true, data: [] });
+    if (type === 'getProfile')
+      return json({ ok: true, data: { displayName: 'Preview', avatar: '' } });
+    if (type === 'chat')
+      return json({ ok: true, data: { answer: '(modo preview — sin backend)' } });
+
+    return json({ ok: true, data: [] });
   }
 
   try {
