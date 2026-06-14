@@ -863,7 +863,12 @@ function doPost(e) {
     } else if (resolvedBank === "avvillas") {
       parsed = parseAvVillas(sms);
     } else {
-      // Banco no reconocido → intentar con Haiku como fallback
+      // Banco no reconocido → solo invocar Haiku si el SMS parece transaccional.
+      // Evita costos de API en mensajes personales que lleguen por el trigger universal "$".
+      var txSignal = /\$[\d,.]|\bcompra\b|\bd[eé]bito\b|\bretiro\b|\btransferencia\b|\bcobro\b|\bpago\b|\bBancolombia\b|\bDAVIVIENDA\b|\bITAU\b|\bBogot|\bNequi\b|\bDaviplata\b/i;
+      if (!txSignal.test(sms)) {
+        return jsonResponse({ ok: true, skipped: true, reason: "no bank signal" });
+      }
       var fallback = parseSmsFallback(sms);
       if (!fallback) {
         return jsonResponse({ ok: false, error: "unknown bank: " + (bank || "could not detect") });
