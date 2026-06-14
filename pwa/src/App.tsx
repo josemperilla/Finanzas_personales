@@ -57,6 +57,7 @@ export default function App() {
   const [needsSetupPin, setNeedsSetupPin] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardDisplayName, setOnboardDisplayName] = useState<string | null>(null);
+  const [gamificationKey, setGamificationKey] = useState(0);
   const [showRedeem, setShowRedeem] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [initialInviteCode, setInitialInviteCode] = useState(
@@ -161,6 +162,7 @@ export default function App() {
           .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
         const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
         updateRacha(userId, isWithinBudget);
+        setGamificationKey(k => k + 1);
         const subs = detectSubscriptions(processed);
         const suenos = getSuenos(userId).filter(s => s.activo);
         const retos = getRetos(userId);
@@ -313,6 +315,7 @@ export default function App() {
                 onLogout={handleSwitchProfile}
                 onSettings={() => setShowSettings(true)}
                 userId={userId}
+                gamificationKey={gamificationKey}
               />
             )}
             {tab === 'progreso' && userId && (

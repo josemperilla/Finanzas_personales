@@ -38,6 +38,7 @@ interface Props {
   onLogout?: () => void;
   onSettings?: () => void;
   userId: string;
+  gamificationKey?: number;
 }
 
 const slideVariants = {
@@ -59,7 +60,7 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId, gamificationKey }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -130,7 +131,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [userId],
   );
 
-  const racha = useMemo(() => getGamification(userId).racha, [userId]);
+  const racha = useMemo(() => getGamification(userId).racha, [userId, gamificationKey]);
 
   const rachaEnRiesgo = useMemo(() => {
     const hora = new Date().getHours();
