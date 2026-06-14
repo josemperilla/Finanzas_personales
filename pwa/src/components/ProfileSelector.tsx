@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Profile, getUserNickname, getUserAvatar } from '../lib/profiles';
 import { staggerContainer, riseItem, quickEase } from '../lib/motion';
 
@@ -11,6 +11,8 @@ interface Props {
 
 export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
   const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set());
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginId, setLoginId] = useState('');
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 9999,
@@ -21,8 +23,13 @@ export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
     gap: 40,
   };
 
-  // Landing mínima: dispositivo sin perfiles conocidos. No se filtran nombres.
+  // Landing mínima: dispositivo sin perfiles conocidos.
   if (profiles.length === 0) {
+    const handleLogin = () => {
+      const id = loginId.trim().toLowerCase();
+      if (id) onSelect(id);
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0, y: '6%' }}
@@ -36,15 +43,62 @@ export function ProfileSelector({ onSelect, onRedeemInvite, profiles }: Props) {
             Tus finanzas, claras
           </div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)', maxWidth: 280 }}>
-            Crea tu perfil con el código de invitación que te compartieron.
+            {showLogin ? 'Escribe tu nombre de usuario para entrar.' : 'Crea tu perfil con el código de invitación que te compartieron.'}
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
-          <motion.button whileTap={{ scale: 0.97 }} onClick={onRedeemInvite}
-            style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-            Tengo una invitación
-          </motion.button>
-        </div>
+
+        <AnimatePresence mode="wait">
+          {!showLogin ? (
+            <motion.div key="buttons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={onRedeemInvite}
+                style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Tengo una invitación
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowLogin(true)}
+                style={{ height: 50, borderRadius: 14, border: '1.5px solid var(--line)', background: 'none', color: 'var(--ink)', fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Ya tengo usuario
+              </motion.button>
+            </motion.div>
+          ) : (
+            <motion.div key="login" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
+              <input
+                autoFocus
+                type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={loginId}
+                onChange={e => setLoginId(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
+                placeholder="Nombre de usuario"
+                style={{
+                  width: '100%', boxSizing: 'border-box', height: 52, padding: '0 16px',
+                  border: '1.5px solid var(--line)', borderRadius: 14,
+                  background: 'var(--card)', color: 'var(--ink)',
+                  fontSize: 'var(--text-base)', fontFamily: 'var(--font-body)',
+                  textAlign: 'center', outline: 'none',
+                }}
+              />
+              <motion.button whileTap={{ scale: loginId.trim() ? 0.97 : 1 }} onClick={handleLogin}
+                disabled={!loginId.trim()}
+                style={{
+                  height: 50, borderRadius: 14, border: 'none',
+                  background: loginId.trim() ? 'var(--blue-700)' : 'var(--blue-300)',
+                  color: '#fff', fontSize: 'var(--text-base)', fontWeight: 600,
+                  cursor: loginId.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-body)',
+                }}>
+                Entrar
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setShowLogin(false); setLoginId(''); }}
+                style={{ height: 44, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                ← Volver
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
