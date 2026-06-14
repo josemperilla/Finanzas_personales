@@ -240,7 +240,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             Hola, {(getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0]} 👋
           </div>
         </div>
-        <RachaDisplay userId={userId} />
+        <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
       </motion.div>
 
       <AnimatePresence>
