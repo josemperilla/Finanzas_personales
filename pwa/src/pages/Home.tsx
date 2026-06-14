@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
-import { Transaction } from '../lib/api';
+import { Transaction, isGasto, INCOME_CATEGORY } from '../lib/api';
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -49,7 +49,7 @@ const slideVariants = {
 
 function buildDailyCumulative(txs: Transaction[], year: number, month: number, maxDays: number): number[] {
   const daily = new Array<number>(maxDays).fill(0);
-  for (const tx of txs) {
+  for (const tx of txs.filter(isGasto)) {
     const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
     if (d.getMonth() === month && d.getFullYear() === year) {
       const day = d.getDate() - 1;
@@ -99,7 +99,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [transactions, selMonth, selYear],
   );
   const totalMonth = useMemo(
-    () => monthTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => monthTx.filter(isGasto).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [monthTx],
   );
 
@@ -111,7 +111,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [transactions, prevMonthIdx, prevYear],
   );
   const totalPrev = useMemo(
-    () => prevTx.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => prevTx.filter(isGasto).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [prevTx],
   );
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
@@ -561,7 +561,8 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
 }
 
 function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
-  const color = getCategoryColor(tx.Categoría || 'Otro');
+  const isIncome = tx.Categoría === INCOME_CATEGORY;
+  const color = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain = getMerchantDomain(name);
@@ -584,8 +585,8 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
           </div>
         )}
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--ink)', flexShrink: 0 }}>
-        −{formatCOP(Number(tx['Monto (COP)']))}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: isIncome ? '#16a34a' : 'var(--ink)', flexShrink: 0 }}>
+        {isIncome ? '+' : '−'}{formatCOP(Number(tx['Monto (COP)']))}
       </div>
     </motion.div>
   );

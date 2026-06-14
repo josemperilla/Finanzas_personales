@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction } from '../lib/api';
+import { Transaction, isGasto } from '../lib/api';
 import { getMeta, setMeta } from '../lib/meta';
 import { useCountUp } from '../lib/useCountUp';
 import { formatCOP } from '../lib/utils';
@@ -30,7 +30,7 @@ export function MetaMensualWidget({ monthTx, userId }: Props) {
   const [draft, setDraft] = useState('');
   const [toast, setToast] = useState<'saved' | null>(null);
 
-  const gastoActual = monthTx.reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+  const gastoActual = monthTx.filter(isGasto).reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
   const animatedGasto = useCountUp(gastoActual);
   const animatedMeta = useCountUp(meta.monto);
 

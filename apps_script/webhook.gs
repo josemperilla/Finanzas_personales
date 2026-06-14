@@ -890,7 +890,8 @@ function doPost(e) {
     }
 
     parsed.timestamp    = new Date();
-    parsed.categoria    = detectCategory(parsed.comercio, userId);
+    parsed.categoria    = parsed.income ? 'Ingreso' : detectCategory(parsed.comercio, userId);
+    delete parsed.income;
     parsed.sms_original = sms;
 
     appendToSheet(parsed, userId);
@@ -1038,9 +1039,6 @@ var VETO_RULES = [
   // Itaú outbound transfer from savings account (e.g. rent payment)
   // "Se realizo Transferencia de tu Cuenta de Ahorros ****XXXX por $..."
   /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i,
-  // Itaú deposit/income TO account — excluded until the app handles income
-  // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****XXXX por $..."
-  /Se realizo\s+u?n?\s+Deposito\s+en\s+Efectivo\s+a\s+tu\s+Cuenta/i,
   // AV Villas — login / security notifications (not transactions)
   // "AVVillas. ... has iniciado sesion en AV Villas App ..."
   /AVVillas\..*iniciado\s+sesion/i,
@@ -1102,13 +1100,14 @@ function parseSmsFallback(sms) {
     "Eres un extractor de datos de SMS bancarios colombianos. " +
     "Dado un SMS, responde SOLO con JSON válido (sin texto adicional) con estos campos: " +
     "esTransaccion (boolean, false si es notificación de seguridad, login, OTP o saldo), " +
+    "esIngreso (boolean, true si el dinero ENTRA a la cuenta del titular: depósito, abono, consignación, transferencia recibida), " +
     "banco (nombre del banco, string), " +
-    "tipo (Compra, Débito, Transferencia, u Otro), " +
+    "tipo (Compra, Débito, Transferencia, Depósito, Abono, Consignación, u Otro), " +
     "monto (número entero en COP sin puntos ni comas, ej: 30000), " +
-    "comercio (nombre del establecimiento o descripción, string), " +
+    "comercio (nombre del establecimiento, descripción del movimiento, o remitente para ingresos, string), " +
     "tarjeta (4 últimos dígitos o identificador de cuenta, string), " +
     "fecha (string formato YYYY-MM-DDTHH:MM:SS hora Colombia). " +
-    "Si no es transacción de gasto, devuelve solo {\"esTransaccion\": false}.";
+    "Si no es transacción, devuelve solo {\"esTransaccion\": false}.";
 
   try {
     var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
@@ -1148,7 +1147,8 @@ function parseSmsFallback(sms) {
       comercio: normalizeComercio(p.comercio || ""),
       tarjeta:  String(p.tarjeta || ""),
       fecha:    fecha,
-      reversal: false
+      reversal: false,
+      income:   p.esIngreso === true
     };
   } catch(e) {
     return null;
@@ -1336,7 +1336,25 @@ function parseItau(sms) {
       comercio: md[2].trim(),
       tarjeta:  md[2].trim() + " ****" + md[3],
       monto:    parseMonto(md[4]),
-      fecha:    parseFechaItau(md[5], md[6])
+      fecha:    parseFechaItau(md[5], md[6]),
+      reversal: false
+    };
+  }
+
+  // Inbound: deposit / abono TO account ("a tu Cuenta")
+  // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****8448 por $1,000 el 2026/06/14 06:27:00"
+  var reCredit = /Se realizo\s+u?n?\s+(Deposito\s+en\s+Efectivo|Abono|Consignaci[o\u00f3]n|Ingreso)\s+a\s+tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
+  var mc = sms.match(reCredit);
+  if (mc) {
+    return {
+      banco:    "Ita\u00fa",
+      tipo:     normalizeTipo(mc[1]),
+      comercio: mc[2].trim(),
+      tarjeta:  mc[2].trim() + " ****" + mc[3],
+      monto:    parseMonto(mc[4]),
+      fecha:    parseFechaItau(mc[5], mc[6]),
+      reversal: false,
+      income:   true
     };
   }
 
@@ -1356,11 +1374,15 @@ function parseMonto(str) {
 }
 
 function normalizeTipo(raw) {
+  var r = (raw || '').trim().toLowerCase();
   var map = {
     compra: "Compra", debito: "D\u00e9bito", retiro: "Retiro",
-    transferencia: "Transferencia", credito: "Cr\u00e9dito", abono: "Abono"
+    transferencia: "Transferencia", credito: "Cr\u00e9dito", abono: "Abono",
+    deposito: "Dep\u00f3sito", consignacion: "Consignaci\u00f3n", ingreso: "Ingreso"
   };
-  return map[raw.toLowerCase()] || (raw.charAt(0).toUpperCase() + raw.slice(1));
+  // "Deposito en Efectivo" and other multi-word deposit variants
+  if (r.indexOf("deposit") === 0) return "Dep\u00f3sito";
+  return map[r] || (raw.charAt(0).toUpperCase() + raw.slice(1));
 }
 
 function detectCategory(merchant, userId) {

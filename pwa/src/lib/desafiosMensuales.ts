@@ -1,4 +1,5 @@
 import type { Transaction } from './api';
+import { isGasto } from './api';
 import { getMeta } from './meta';
 
 export interface Desafio {
@@ -80,7 +81,7 @@ export function verificarDesafio(userId: string, txs: Transaction[]): boolean {
     if (!estaEnUltimosDias()) return false;
     const meta = getMeta(userId);
     if (!meta.activo || meta.monto <= 0) return false;
-    const total = mesTxs.reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+    const total = mesTxs.filter(isGasto).reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
     completado = total <= meta.monto;
   }
 
@@ -123,7 +124,7 @@ export function getDesafioProgress(userId: string, txs: Transaction[]): DesafioP
   } else {
     const meta = getMeta(userId);
     if (!meta.activo || meta.monto <= 0) return null;
-    const total = mesTxs.reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+    const total = mesTxs.filter(isGasto).reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
     const pct = Math.max(0, 1 - total / meta.monto);
     const dentroMeta = total <= meta.monto;
     return {

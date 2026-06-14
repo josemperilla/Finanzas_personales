@@ -64,6 +64,9 @@ export interface Transaction {
   Fuente?: string; // "sms" | "notification" | "email" | "manual"
 }
 
+export const INCOME_CATEGORY = 'Ingreso';
+export const isGasto = (tx: Transaction): boolean => tx.Categoría !== INCOME_CATEGORY;
+
 export interface ManualTransaction {
   banco: string;
   tipo: string;

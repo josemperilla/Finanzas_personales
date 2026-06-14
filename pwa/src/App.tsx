@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin, isGasto } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
+import { applyPalettes } from './lib/palette';
 import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
@@ -47,7 +48,7 @@ function PageFallback() {
 }
 
 export default function App() {
-  useEffect(() => { applyTheme(getTheme()); }, []);
+  useEffect(() => { applyTheme(getTheme()); applyPalettes(); }, []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
@@ -159,6 +160,7 @@ export default function App() {
         const now = new Date();
         const gastoMes = processed
           .filter(tx => { const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T')); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+          .filter(isGasto)
           .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
         const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
         updateRacha(userId, isWithinBudget);
@@ -240,6 +242,7 @@ export default function App() {
       addKnownProfile(userId);
       applyAccessibleMode(userId);
       applyColorScheme(userId);
+      applyPalettes();
       setAccessible(getAccessibleMode(userId));
       applyPersonalizedAppIcon(userId, getDisplayName(userId));
       registrarVisita(userId);
