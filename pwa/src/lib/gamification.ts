@@ -25,6 +25,12 @@ export const BADGES: Record<string, { emoji: string; nombre: string; hint: strin
   'nivel-3':               { emoji: '📊', nombre: 'Administrador',         hint: 'Alcanza el nivel 3' },
   'nivel-4':               { emoji: '💹', nombre: 'Financiero',            hint: 'Alcanza el nivel 4' },
   'nivel-5':               { emoji: '👑', nombre: 'Maestro',               hint: 'Alcanza el nivel máximo' },
+  'desafio-2026-01':       { emoji: '🌟', nombre: 'Enero sin excesos',     hint: 'Desafío de enero 2026' },
+  'desafio-2026-06':       { emoji: '🍳', nombre: 'Chef en casa',          hint: 'Desafío de junio 2026' },
+  'desafio-2026-07':       { emoji: '💰', nombre: 'Julio de contado',      hint: 'Desafío de julio 2026' },
+  'desafio-2026-08':       { emoji: '📚', nombre: 'Agosto inteligente',    hint: 'Desafío de agosto 2026' },
+  'desafio-2026-11':       { emoji: '🛍️', nombre: 'Black Friday zen',      hint: 'Desafío de noviembre 2026' },
+  'desafio-2026-12':       { emoji: '🎄', nombre: 'Navidad sin deudas',    hint: 'Desafío de diciembre 2026' },
 };
 
 export const NIVELES = [

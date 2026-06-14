@@ -24,6 +24,7 @@ import { SuenoCard } from '../components/SuenoCard';
 import { MetaMensualWidget } from '../components/MetaMensualWidget';
 import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
+import { getDesafioActual, getDesafioProgress, getDesafioCompletado } from '../lib/desafiosMensuales';
 
 interface Props {
   transactions: Transaction[];
@@ -130,6 +131,23 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 
   const racha = useMemo(() => getGamification(userId).racha, [userId]);
+
+  const rachaEnRiesgo = useMemo(() => {
+    const hora = new Date().getHours();
+    if (hora < 18) return false;
+    const hoy = new Date().toISOString().slice(0, 10);
+    return !transactions.some(tx => (tx.Fecha || tx.Timestamp || '').slice(0, 10) === hoy);
+  }, [transactions]);
+
+  const desafioActual = useMemo(() => getDesafioActual(), []);
+  const desafioProgress = useMemo(
+    () => desafioActual ? getDesafioProgress(userId, transactions) : null,
+    [userId, transactions, desafioActual],
+  );
+  const desafioCompletadoHoy = useMemo(
+    () => desafioActual ? getDesafioCompletado(userId) : false,
+    [userId, desafioActual],
+  );
 
   const retosParaPrimerSueno = useMemo(
     () => primerSueno ? generarRetosParaSueno(primerSueno, transactions) : [],
@@ -244,6 +262,27 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           />
         )}
 
+        {/* Alerta racha en riesgo — después de las 6pm sin transacciones de hoy */}
+        {!loading && selectedOffset === 0 && rachaEnRiesgo && racha > 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <div style={{
+              background: '#fef3c7',
+              border: '1.5px solid #f59e0b',
+              borderRadius: 'var(--r-xl)',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 14,
+            }}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
+                Tu racha de {racha} días se rompe hoy si no registras algo
+              </span>
+            </div>
+          </motion.div>
+        )}
+
         {/* DailyStatusCard — héroe del día */}
         {!loading && selectedOffset === 0 && (
           <motion.div variants={riseItem} transition={quickEase}>
@@ -259,6 +298,48 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && selectedOffset === 0 && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <MetaMensualWidget monthTx={monthTx} userId={userId} />
+          </motion.div>
+        )}
+
+        {/* Desafío mensual — solo si hay uno para este mes */}
+        {!loading && selectedOffset === 0 && desafioActual && desafioProgress && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <div style={{
+              background: 'var(--card)',
+              borderRadius: 'var(--r-2xl)',
+              padding: '14px 16px',
+              boxShadow: 'var(--shadow-card)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 18 }}>{desafioActual.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
+                    Desafío: {desafioActual.titulo}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                    {desafioActual.descripcion}
+                  </div>
+                </div>
+                {desafioCompletadoHoy && (
+                  <span style={{ fontSize: 18 }}>✅</span>
+                )}
+              </div>
+              <div style={{ background: 'var(--surface)', borderRadius: 999, height: 6, overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(desafioProgress.pct * 100, 100)}%` }}
+                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  style={{
+                    height: '100%',
+                    background: desafioCompletadoHoy ? '#22c55e' : 'var(--accent)',
+                    borderRadius: 999,
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, textAlign: 'right' }}>
+                {desafioProgress.texto}
+              </div>
+            </div>
           </motion.div>
         )}
 

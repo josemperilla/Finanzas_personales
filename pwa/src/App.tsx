@@ -18,9 +18,10 @@ import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
-import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha } from './lib/gamification';
+import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha, awardBadge } from './lib/gamification';
 import { getMeta } from './lib/meta';
 import { detectSubscriptions } from './lib/subscriptions';
+import { verificarDesafio, getDesafioActual } from './lib/desafiosMensuales';
 import { getSuenos } from './lib/suenos';
 import { getRetos, computeProgress } from './lib/retos';
 
@@ -168,6 +169,19 @@ export default function App() {
         if (nuevos.length > 0) {
           setNuevoBadge(nuevos[0]);
           setTimeout(() => setNuevoBadge(null), 4500);
+        }
+
+        // Verificar desafío mensual
+        const desafioGanado = verificarDesafio(userId, processed);
+        if (desafioGanado) {
+          const desafio = getDesafioActual();
+          if (desafio) {
+            awardBadge(userId, desafio.badgeId);
+            setTimeout(() => {
+              setNuevoBadge(desafio.badgeId);
+              setTimeout(() => setNuevoBadge(null), 4500);
+            }, nuevos.length > 0 ? 5000 : 0); // stagger if other badge already showing
+          }
         }
       }
     } catch (err) {
