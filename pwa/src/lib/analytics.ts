@@ -1,4 +1,4 @@
-import { Transaction } from './api';
+import { Transaction, isGasto } from './api';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export function getMonthTransactions(
 
 export function getCategoryTotals(txs: Transaction[]): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const tx of txs) {
+  for (const tx of txs.filter(isGasto)) {
     const cat = tx.Categoría || 'Otro';
     out[cat] = (out[cat] || 0) + Number(tx['Monto (COP)'] || 0);
   }
@@ -122,7 +122,7 @@ export function getWeekdayAverages(txs: Transaction[], monthsBack = 3): WeekdayA
   const counts = new Array<number>(7).fill(0);
   const weekTotals: Record<number, Record<number, number>> = {}; // weekIdx → displayDay → amount
 
-  for (const tx of txs) {
+  for (const tx of txs.filter(isGasto)) {
     const d = new Date((tx.Fecha || tx.Timestamp || '').replace(' ', 'T'));
     if (isNaN(d.getTime()) || d < cutoff) continue;
     const di = toDisplayIdx(d.getDay());

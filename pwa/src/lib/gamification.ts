@@ -23,7 +23,14 @@ export const BADGES: Record<string, { emoji: string; nombre: string; hint: strin
   'presupuesto-perfecto':  { emoji: '💎', nombre: 'Presupuesto perfecto',  hint: 'Un mes entero sin superar tu meta' },
   'nivel-2':               { emoji: '🌱', nombre: 'Ahorrador',             hint: 'Alcanza el nivel 2' },
   'nivel-3':               { emoji: '📊', nombre: 'Administrador',         hint: 'Alcanza el nivel 3' },
+  'nivel-4':               { emoji: '💹', nombre: 'Financiero',            hint: 'Alcanza el nivel 4' },
   'nivel-5':               { emoji: '👑', nombre: 'Maestro',               hint: 'Alcanza el nivel máximo' },
+  'desafio-2026-01':       { emoji: '🌟', nombre: 'Enero sin excesos',     hint: 'Desafío de enero 2026' },
+  'desafio-2026-06':       { emoji: '🍳', nombre: 'Chef en casa',          hint: 'Desafío de junio 2026' },
+  'desafio-2026-07':       { emoji: '💰', nombre: 'Julio de contado',      hint: 'Desafío de julio 2026' },
+  'desafio-2026-08':       { emoji: '📚', nombre: 'Agosto inteligente',    hint: 'Desafío de agosto 2026' },
+  'desafio-2026-11':       { emoji: '🛍️', nombre: 'Black Friday zen',      hint: 'Desafío de noviembre 2026' },
+  'desafio-2026-12':       { emoji: '🎄', nombre: 'Navidad sin deudas',    hint: 'Desafío de diciembre 2026' },
 };
 
 export const NIVELES = [
@@ -35,12 +42,13 @@ export const NIVELES = [
 ];
 
 export const XP_POR_ACCION = {
-  recategorizar:    5,
-  configurarMeta:   20,
-  importarExtracto: 30,
-  completarReto:    50,
-  mesDentroMeta:    200,
-  alcanzarSueno:    500,
+  recategorizar:       5,
+  registrarTransaccion: 2,
+  configurarMeta:      20,
+  importarExtracto:    30,
+  completarReto:       50,
+  mesDentroMeta:       200,
+  alcanzarSueno:       500,
 } as const;
 
 const DEFAULT_STATE: GamificationState = {
@@ -94,6 +102,7 @@ export function addXP(userId: string, accion: keyof typeof XP_POR_ACCION): Gamif
   if (newNivel > state.nivel) {
     if (newNivel === 2 && !badges.includes('nivel-2')) badges.push('nivel-2');
     if (newNivel === 3 && !badges.includes('nivel-3')) badges.push('nivel-3');
+    if (newNivel === 4 && !badges.includes('nivel-4')) badges.push('nivel-4');
     if (newNivel === 5 && !badges.includes('nivel-5')) badges.push('nivel-5');
   }
 

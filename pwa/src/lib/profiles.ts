@@ -43,7 +43,7 @@ export function setUserTimezone(userId: string, tz: string): void {
 
 // ── Tab order (por usuario, excluyendo "agregar" que siempre es central) ─────
 
-export const DEFAULT_TAB_ORDER = ['home', 'historial', 'suenos', 'analisis'] as const;
+export const DEFAULT_TAB_ORDER = ['home', 'progreso', 'misiones', 'explorar'] as const;
 export type ReorderableTab = (typeof DEFAULT_TAB_ORDER)[number];
 
 export function getUserTabOrder(userId: string): ReorderableTab[] {

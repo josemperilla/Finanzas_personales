@@ -1,298 +1,144 @@
 # Configuración del iPhone — iOS Shortcuts
 
-Hay dos tipos de automatizaciones. Configura ambas para cada banco.
-
-- **Tipo A — SMS**: captura mensajes de texto del banco (canal existente, funcionando)
-- **Tipo B — Notificación push**: captura notificaciones de la app del banco (canal nuevo)
-
-Necesitas el **webhook URL** de Google Apps Script y el **_secret** antes de empezar.
+Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu ID de usuario automáticamente la primera vez y lo guarda. Quien lo instale desde el link solo escribe su ID una vez.
 
 ---
 
-## Cómo configurar una automatización (pasos base)
+## Opción A — Instalar desde link (recomendado para nuevos usuarios)
 
-Estos pasos aplican a todos los Shortcuts. Solo cambia el trigger y el JSON según el banco.
+1. Abre este link en tu iPhone: **https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858**
+2. Toca **Add Shortcut**
+3. Ve a la pestaña **Automation** → toca **+** → **New Automation** → **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next** → busca el Shortcut recién instalado y selecciónalo
+7. Toca **Done**
 
-### Paso 1 — Abrir Atajos
-
-1. Abre **Atajos** en tu iPhone.
-2. Toca la pestaña **Automatización** (ícono de reloj).
-3. Toca **+** arriba a la derecha → **Crear automatización personal**.
-
-### Paso 2 — Elegir el trigger
-
-**Para SMS (Tipo A):**
-1. Selecciona **Mensaje**.
-2. En "Cuando recibo un mensaje que contiene", escribe el texto del banco (ver tabla abajo).
-3. Activa **"Ejecutar inmediatamente"** (no "Preguntar antes de ejecutar").
-
-**Para notificación push (Tipo B):**
-1. Selecciona **App**.
-2. Toca **Seleccionar** y busca la app del banco (ver tabla abajo).
-3. Marca **"Se recibe una notificación"**.
-4. Activa **"Ejecutar inmediatamente"**.
-
-### Paso 3 — Agregar la acción POST
-
-1. Toca **Agregar acción** → busca **Obtener contenido de URL**.
-2. Configura:
-   - **URL**: `{WEBHOOK_URL}?_secret={TU_SECRET}`
-   - **Método**: POST
-   - **Cuerpo de la solicitud**: JSON
-   - **Cuerpo**: el JSON correspondiente al banco (ver secciones abajo)
-
-### Paso 4 — Variables dinámicas
-
-Para insertar variables en el JSON:
-- Toca el campo de valor → toca **{x}** (varita mágica)
-- **SMS** → "Contenido del mensaje"
-- **Título de notificación** → "Título de notificación"
-- **Cuerpo de notificación** → "Cuerpo de notificación"
-- **Timestamp** → "Fecha actual" → formato ISO 8601
-
-### Paso 5 — Guardar
-
-Toca **Listo**. Cuando pregunte "¿Pedir antes de ejecutar?", elige **No preguntar**.
+La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario, lo guarda en iCloud Drive, y nunca vuelve a preguntar.
 
 ---
 
-## Tabla de bancos y triggers
+## Opción B — Crear desde ceros (para el admin o si el link no funciona)
 
-| Banco               | bank_code  | Trigger SMS (Tipo A)          | App para push (Tipo B)        |
-|---------------------|-----------|-------------------------------|-------------------------------|
-| Banco de Bogotá     | bogota    | `Banco de Bogota:`            | Banco de Bogotá               |
-| Banco Itaú          | itau      | `ITAU Tel:`                   | Itaú Colombia                 |
-| Bancolombia         | bancolombia | `Bancolombia:`              | Bancolombia App               |
-| Davivienda          | davivienda | `DAVIVIENDA:`                | Mi Davivienda                 |
-| Nequi               | nequi     | _(sin SMS)_                   | Nequi                         |
-| Daviplata           | daviplata | `Daviplata:`                  | Daviplata                     |
-| Banco de Occidente  | occidente | `Banco de Occidente:`         | Banco de Occidente Móvil      |
-| Banco Popular       | popular   | `Banco Popular:`              | Banco Popular Colombia        |
-| AV Villas           | avvillas  | `AV Villas:`                  | AV Villas App                 |
-| dale!               | dale      | _(sin SMS)_                   | dale!                         |
-| Rappi Pay           | rappi     | _(sin SMS)_                   | Rappi                         |
+### Shortcut personal (userId fijo)
 
-> Si no sabes cuál trigger usar para SMS, espera un mensaje del banco y copia exactamente las primeras palabras.
+#### Crear la automatización
 
----
+1. Abre **Shortcuts** → pestaña **Automation** (ícono de reloj, barra inferior)
+2. Toca **+** → **New Automation**
+3. Selecciona **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next**
 
-## JSONs por banco
+#### La acción
 
-Reemplaza `TU_USER_ID` con `jose` o `dani` según corresponda.
+7. Toca **Add Action** → busca **"Get Contents of URL"**
+8. URL: `https://finanzas-abiertas.pages.dev/api/sms`
+9. Toca **Show More** → Method: **POST** → Request Body: **JSON**
+10. Toca **+** y agrega los campos:
 
-### Banco de Bogotá — SMS (Tipo A)
-```json
-{
-  "bank": "bogota",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
+| Key | Value |
+|-----|-------|
+| `userId` | escribe tu ID (ej: `jose`) |
+| `sms` | `{x}` → **Message Content** |
+| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
 
-### Banco de Bogotá — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "bogota",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Banco Itaú — SMS (Tipo A)
-```json
-{
-  "bank": "itau",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Banco Itaú — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "itau",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Bancolombia — SMS (Tipo A)
-```json
-{
-  "bank": "bancolombia",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Bancolombia — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "bancolombia",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Davivienda — SMS (Tipo A)
-```json
-{
-  "bank": "davivienda",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Davivienda — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "davivienda",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Nequi — Notificación push (Tipo B, no tiene SMS)
-```json
-{
-  "type": "notification",
-  "bank": "nequi",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Daviplata — SMS (Tipo A)
-```json
-{
-  "bank": "daviplata",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Daviplata — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "daviplata",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Banco de Occidente — SMS (Tipo A)
-```json
-{
-  "bank": "occidente",
-  "sms": "[Contenido del mensaje]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Banco de Occidente — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "occidente",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Banco Popular — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "popular",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### AV Villas — Notificación push (Tipo B)
-```json
-{
-  "type": "notification",
-  "bank": "avvillas",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### dale! — Notificación push (Tipo B, no tiene SMS)
-```json
-{
-  "type": "notification",
-  "bank": "dale",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
-
-### Rappi — Notificación push (Tipo B, no tiene SMS)
-```json
-{
-  "type": "notification",
-  "bank": "rappi",
-  "title": "[Título de notificación]",
-  "body": "[Cuerpo de notificación]",
-  "userId": "TU_USER_ID",
-  "timestamp": "[Fecha actual ISO 8601]"
-}
-```
+11. Toca **✓** → **Don't Ask** → **Done**
 
 ---
 
-## Verificación
+### Shortcut replicable (pide el ID la primera vez)
 
-Después de configurar un Shortcut:
+#### Crear la automatización
 
-1. Haz una transacción real (compra pequeña o transferencia).
-2. Espera la notificación push o el SMS.
-3. Abre el Google Sheet y confirma que apareció una fila nueva.
-4. Verifica: **Banco**, **Monto**, **Comercio** y **Fuente** (`sms` o `notification`).
+1. Abre **Shortcuts** → pestaña **Automation**
+2. Toca **+** → **New Automation**
+3. Selecciona **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next**
 
-Si aparece con **Tipo = "NO RECONOCIDO"**: el parser no reconoció el formato de la notificación.
-Copia el texto de la columna `SMS_Original` y guárdalo en `tools/notification_samples/{bank_code}.txt`
-para que se pueda mejorar el parser.
+#### Acción 1 — Leer el ID guardado (puede no existir aún)
+
+7. Toca **Add Action** → busca **"Get File from Folder"**
+8. Folder: **Shortcuts**
+9. File Name: `finanzas_usuario.txt`
+10. **"Error If Not Found"** → **OFF**
+
+#### Acción 2 — Condición: ¿ya tenemos el ID?
+
+11. Toca **Add Action** → busca **"If"**
+12. Primer campo: toca → selecciona **Name** (resultado Acción 1)
+13. Operador: **does not have any value**
+
+#### Acción 3 — (DENTRO del If) Pedir el ID
+
+14. Toca el **+** DENTRO del bloque "If" (entre "If" y "Otherwise")
+15. Busca **"Ask For Input"**
+16. Pregunta: `¿Cuál es tu user ID de Finanzas Personales?`
+17. Type: **Text**
+
+#### Acción 4 — (DENTRO del If) Guardar el ID
+
+18. Toca el **+** DENTRO del bloque "If" (debajo de "Ask For Input")
+19. Busca **"Save File"**
+20. Contenido: **Ask for Input** (automático)
+21. Destino: **Shortcuts**
+22. Subpath: `finanzas_usuario.txt`
+23. **"Overwrite If File Exists"** → **ON**
+
+#### Acción 5 — Leer el ID (FUERA del If, siempre existe)
+
+24. Toca el **+** DEBAJO de "End If"
+25. Busca **"Get File from Folder"**
+26. Folder: **Shortcuts**
+27. File Name: `finanzas_usuario.txt`
+28. **"Error If Not Found"** → **ON**
+
+#### Acción 6 — Enviar al servidor
+
+29. Toca **+** → busca **"Get Contents of URL"**
+30. URL: `https://finanzas-abiertas.pages.dev/api/sms`
+31. Toca **Show More** → Method: **POST** → Request Body: **JSON**
+32. Toca **+** y agrega los campos:
+
+| Key | Value |
+|-----|-------|
+| `userId` | `{x}` → **File** (resultado Acción 5) |
+| `sms` | `{x}` → **Message Content** |
+| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
+
+33. Toca **✓** → **Don't Ask** → **Done**
+
+#### Compartir
+
+34. En **My Shortcuts**, toca **···** sobre el Shortcut → **Share** → **Copy iCloud Link**
+35. Comparte ese link — quien lo instale, la primera vez que llegue un SMS con `$` el Shortcut pregunta su ID, lo guarda, y nunca vuelve a preguntar
 
 ---
 
-## Notas importantes
+## Bancos soportados
 
-- **"Ejecutar inmediatamente" DEBE estar activo.** Si lo desactivas, el Shortcut solo corre cuando tocas el banner.
-- **iOS 16+** recomendado para push automático. En iOS 15 necesitas tocar el banner.
-- Los datos **nunca** se comparten con terceros — el webhook es tu propio Google Apps Script.
-- Si recibes una notificación que NO es una transacción (publicidad, alertas de seguridad), se guardará como "NO RECONOCIDO" — puedes eliminarla del Sheet manualmente.
-- La columna **Fuente** indica el canal: `sms` o `notification`. Útil para saber qué canal está funcionando.
+| Banco | Canal |
+|-------|-------|
+| Banco Itaú | SMS |
+| Bancolombia | SMS |
+| Davivienda | SMS |
+| Banco de Bogotá | SMS |
+| AV Villas | SMS |
+| Daviplata | SMS |
+| Nequi | Push (por app) |
+| dale! | Push (por app) |
+| Rappi Pay | Push (por app) |
+
+Para bancos no listados: el servidor usa IA para parsear el SMS automáticamente.
+
+---
+
+## Si la transacción no aparece
+
+- Confirma que la automatización tenga "Run Immediately" activado
+- Verifica que la URL sea exactamente `https://finanzas-abiertas.pages.dev/api/sms`
+- Revisa que el SMS contenga `$` y sea de un banco (mensajes personales o promocionales se descartan automáticamente)
+- Para cambiar tu ID: borra `finanzas_usuario.txt` en iCloud Drive → Shortcuts, y el Shortcut vuelve a preguntar

@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { fetchTransactions, setActiveUser, Transaction, hasPin } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, Card, getUnknownCards } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
+import { applyPalettes } from './lib/palette';
 import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
@@ -18,17 +19,22 @@ import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
-import { registrarVisita, checkBadgesSync, BADGES } from './lib/gamification';
+import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha, awardBadge } from './lib/gamification';
+import { getMeta } from './lib/meta';
+import { detectSubscriptions } from './lib/subscriptions';
+import { verificarDesafio, getDesafioActual } from './lib/desafiosMensuales';
 import { getSuenos } from './lib/suenos';
 import { getRetos, computeProgress } from './lib/retos';
 
-const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
-const Historial = lazy(() => import('./pages/Historial').then(module => ({ default: module.Historial })));
-const Agregar = lazy(() => import('./pages/Agregar').then(module => ({ default: module.Agregar })));
-const Analisis = lazy(() => import('./pages/Analisis').then(module => ({ default: module.Analisis })));
-const Chat = lazy(() => import('./pages/Chat').then(module => ({ default: module.Chat })));
-const Settings = lazy(() => import('./pages/Settings').then(module => ({ default: module.Settings })));
-const SuenosPage = lazy(() => import('./pages/Suenos').then(module => ({ default: module.SuenosPage })));
+const Home     = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
+const Historial = lazy(() => import('./pages/Historial').then(m => ({ default: m.Historial })));
+const Agregar  = lazy(() => import('./pages/Agregar').then(m => ({ default: m.Agregar })));
+const Progreso = lazy(() => import('./pages/Progreso').then(m => ({ default: m.Progreso })));
+const Misiones = lazy(() => import('./pages/Misiones').then(m => ({ default: m.Misiones })));
+const Explorar = lazy(() => import('./pages/Explorar').then(m => ({ default: m.Explorar })));
+const Chat     = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Cuentas  = lazy(() => import('./pages/Cuentas').then(m => ({ default: m.Cuentas })));
 
 function PageFallback() {
   return (
@@ -43,8 +49,7 @@ function PageFallback() {
 }
 
 export default function App() {
-  // Apply saved theme preference immediately on mount
-  useEffect(() => { applyTheme(getTheme()); }, []);
+  useEffect(() => { applyTheme(getTheme()); applyPalettes(); }, []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
@@ -54,6 +59,7 @@ export default function App() {
   const [needsSetupPin, setNeedsSetupPin] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardDisplayName, setOnboardDisplayName] = useState<string | null>(null);
+  const [gamificationKey, setGamificationKey] = useState(0);
   const [showRedeem, setShowRedeem] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [initialInviteCode, setInitialInviteCode] = useState(
@@ -85,29 +91,25 @@ export default function App() {
   const [showBalanceWidget, setShowBalanceWidget] = useState(
     () => new URLSearchParams(window.location.search).get('view') === 'balance'
   );
-  const [showWelcomeToast, setShowWelcomeToast] = useState(false);
   const [nuevoBadge, setNuevoBadge] = useState<string | null>(null);
+  const [xpToast, setXpToast] = useState<number | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [initialUnknownCard, setInitialUnknownCard] = useState<{ banco: string; ultimos4: string } | undefined>();
 
-  // Migración: un dispositivo ya logueado antes de esta versión no tiene
-  // fm_known_profiles — sembrar con su perfil actual para que no caiga a la
-  // landing vacía.
+  // Migración: sembrar perfil actual si no hay profiles conocidos
   useEffect(() => {
     const current = localStorage.getItem('fm_profile');
     if (current && getKnownProfileIds().length === 0) addKnownProfile(current);
   }, []);
 
-  // Auto-abrir la redención si llegan con ?invite=CODE
   useEffect(() => {
     if (!userId && initialInviteCode) setShowRedeem(true);
   }, [userId, initialInviteCode]);
 
-  // Lista de perfiles de la landing: solo los conocidos por ESTE dispositivo
-  // (datos locales, sin red ni listUsers admin-only).
   useEffect(() => {
     if (!userId) setProfiles(getKnownProfiles());
   }, [userId]);
 
-  // When userId changes, register it in api.ts and check session
   useEffect(() => {
     if (userId) {
       setActiveUser(userId);
@@ -144,11 +146,18 @@ export default function App() {
     ));
   }, []);
 
+  const loadCards = useCallback(async () => {
+    try {
+      const data = await fetchCards();
+      setCards(data);
+    } catch { /* silently ignore card fetch errors */ }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await fetchTransactions();
+      const [data] = await Promise.all([fetchTransactions(), loadCards()]);
       const processed = userId ? applyLearnings(data, userId) : data;
       setTransactions(processed);
       lastFetchRef.current = Date.now();
@@ -156,13 +165,37 @@ export default function App() {
         setShowTutorial(true);
       }
       if (userId) {
+        registrarVisita(userId);
+        const meta = getMeta(userId);
+        const now = new Date();
+        const gastoMes = processed
+          .filter(tx => { const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T')); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+          .filter(isGasto)
+          .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+        const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
+        updateRacha(userId, isWithinBudget);
+        setGamificationKey(k => k + 1);
+        const subs = detectSubscriptions(processed);
         const suenos = getSuenos(userId).filter(s => s.activo);
         const retos = getRetos(userId);
         const retosCompletados = retos.filter(r => computeProgress(r, processed).completed).length;
-        const nuevos = checkBadgesSync(userId, suenos, retosCompletados);
+        const nuevos = checkBadgesSync(userId, suenos, retosCompletados, subs.length);
         if (nuevos.length > 0) {
           setNuevoBadge(nuevos[0]);
           setTimeout(() => setNuevoBadge(null), 4500);
+        }
+
+        // Verificar desafío mensual
+        const desafioGanado = verificarDesafio(userId, processed);
+        if (desafioGanado) {
+          const desafio = getDesafioActual();
+          if (desafio) {
+            awardBadge(userId, desafio.badgeId);
+            setTimeout(() => {
+              setNuevoBadge(desafio.badgeId);
+              setTimeout(() => setNuevoBadge(null), 4500);
+            }, nuevos.length > 0 ? 5000 : 0); // stagger if other badge already showing
+          }
         }
       }
     } catch (err) {
@@ -172,10 +205,8 @@ export default function App() {
     }
   }, [userId]);
 
-  // H-04: only fetch data after the user has authenticated
   useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
 
-  // Silent background refresh — skipped if data was fetched less than 30s ago
   const silentLoad = useCallback(async () => {
     if (Date.now() - lastFetchRef.current < 30_000) return;
     try {
@@ -185,7 +216,6 @@ export default function App() {
     } catch { /* silently ignore */ }
   }, []);
 
-  // Refresh when the app comes back to the foreground (e.g. after an iOS Shortcut runs)
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible' && unlocked) silentLoad();
@@ -197,32 +227,32 @@ export default function App() {
   const handleSelectProfile = useCallback(async (id: string) => {
     localStorage.setItem('fm_profile', id);
     setUserId(id);
-    // Check if first-time user (no PIN set yet)
     try {
       const exists = await hasPin(id);
       if (!exists) setNeedsSetupPin(true);
-    } catch { /* red de error — dejar que PinLock maneje */ }
+    } catch { /* red de error */ }
   }, []);
 
   const handleRedeemed = useCallback(async (newUserId: string, displayName: string, code: string) => {
     setShowRedeem(false);
     setInitialInviteCode('');
-    setRedeemCode(code); // SetupPin lo envía para vincularse a la invitación (fix H1)
+    setRedeemCode(code);
     localStorage.setItem('fm_profile', newUserId);
     setUserId(newUserId);
     setOnboardDisplayName(displayName);
     try {
       const exists = await hasPin(newUserId);
-      setNeedsSetupPin(!exists); // tras redimir, normalmente no tiene PIN aún
+      setNeedsSetupPin(!exists);
     } catch { setNeedsSetupPin(true); }
   }, []);
 
   const handleUnlock = useCallback(() => {
     if (userId) {
       sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
-      addKnownProfile(userId); // recordar este perfil en este dispositivo
+      addKnownProfile(userId);
       applyAccessibleMode(userId);
       applyColorScheme(userId);
+      applyPalettes();
       setAccessible(getAccessibleMode(userId));
       applyPersonalizedAppIcon(userId, getDisplayName(userId));
       registrarVisita(userId);
@@ -230,9 +260,32 @@ export default function App() {
     }
   }, [userId]);
 
+  const handleLoginWithCredentials = useCallback(async (id: string, pin: string): Promise<'ok' | 'invalid' | 'error'> => {
+    try {
+      const result = await validatePin(pin, id);
+      if (result.ok) {
+        localStorage.setItem('fm_profile', id);
+        sessionStorage.setItem(`fm_unlocked_${id}`, '1');
+        addKnownProfile(id);
+        applyAccessibleMode(id);
+        applyColorScheme(id);
+        applyPalettes();
+        setAccessible(getAccessibleMode(id));
+        applyPersonalizedAppIcon(id, getDisplayName(id));
+        registrarVisita(id);
+        setUserId(id);
+        setUnlocked(true);
+        return 'ok';
+      }
+      return 'invalid';
+    } catch {
+      return 'error';
+    }
+  }, []);
+
   const handleSwitchProfile = useCallback(() => {
     localStorage.removeItem('fm_profile');
-    document.documentElement.dataset.mode = ''; // clear accessible mode
+    document.documentElement.dataset.mode = '';
     resetAppIcon();
     setUserId(null);
     setUnlocked(false);
@@ -241,27 +294,31 @@ export default function App() {
     setAccessible(false);
   }, []);
 
-  // Redirect out of tabs that don't exist in accessible mode
+  // Dismiss anomaly badge when Explorar tab is opened
   useEffect(() => {
-    if (accessible && tab === 'analisis') setTab('home');
-  }, [accessible, tab]);
-
-  // Dismiss anomaly badge when Análisis tab is opened
-  useEffect(() => {
-    if (tab === 'analisis' && userId) {
+    if (tab === 'explorar' && userId) {
       const month = new Date().toISOString().slice(0, 7);
       localStorage.setItem(`fm_anomaly_seen_${userId}_${month}`, 'true');
       setDismissed(true);
     }
   }, [tab, userId]);
 
-  // Re-read dismissal state when profile changes
   useEffect(() => {
     if (userId) {
       const month = new Date().toISOString().slice(0, 7);
       setDismissed(localStorage.getItem(`fm_anomaly_seen_${userId}_${month}`) === 'true');
     }
   }, [userId]);
+
+  const showXpToast = useCallback((xp: number) => {
+    setXpToast(xp);
+    setTimeout(() => setXpToast(null), 2200);
+  }, []);
+
+  const showBadgeToast = useCallback((badgeId: string) => {
+    setNuevoBadge(badgeId);
+    setTimeout(() => setNuevoBadge(null), 4500);
+  }, []);
 
   return (
     <motion.div
@@ -281,55 +338,79 @@ export default function App() {
           transition={quickEase}
         >
           <Suspense fallback={<PageFallback />}>
-          {tab === 'home' && userId && (
-            <Home
-              transactions={transactions}
-              loading={loading}
-              error={loadError}
-              missingConfig={!HAS_WEBHOOK_URL}
-              highlightLatest={highlightLatest}
-              onRetry={load}
-              onAdd={() => setTab('agregar')}
-              onViewAll={() => setTab('historial')}
-              onLogout={handleSwitchProfile}
-              onSettings={() => setShowSettings(true)}
-              userId={userId}
-            />
-          )}
-          {tab === 'historial' && (
-            <Historial
-              transactions={transactions}
-              loading={loading}
-              userId={userId ?? ''}
-              onCategoryChange={handleCategoryChange}
-              onDelete={handleDeleteTransaction}
-              onTransactionUpdate={handleTransactionUpdate}
-            />
-          )}
-          {tab === 'agregar' && userId && (
-            <Agregar
-              transactions={transactions}
-              userId={userId}
-              onSaved={async () => {
-              await load();
-              setTab('home');
-              setHighlightLatest(true);
-              window.setTimeout(() => setHighlightLatest(false), 1600);
-            }} />
-          )}
-          {tab === 'analisis' && userId && (
-            <Analisis transactions={transactions} loading={loading} userId={userId} />
-          )}
-          {tab === 'chat' && (
-            <Chat transactions={transactions} />
-          )}
-          {tab === 'suenos' && userId && (
-            <SuenosPage
-              transactions={transactions}
-              userId={userId}
-              onNewBadge={(id) => { setNuevoBadge(id); setTimeout(() => setNuevoBadge(null), 4500); }}
-            />
-          )}
+            {tab === 'home' && userId && (
+              <Home
+                transactions={transactions}
+                loading={loading}
+                error={loadError}
+                missingConfig={!HAS_WEBHOOK_URL}
+                highlightLatest={highlightLatest}
+                onRetry={load}
+                onAdd={() => setTab('agregar')}
+                onViewAll={() => setTab('historial')}
+                onLogout={handleSwitchProfile}
+                onSettings={() => setShowSettings(true)}
+                userId={userId}
+                gamificationKey={gamificationKey}
+                cards={cards}
+                onManageCards={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
+                onRegisterUnknown={(banco, ultimos4) => { setInitialUnknownCard({ banco, ultimos4 }); setTab('cuentas'); }}
+              />
+            )}
+            {tab === 'progreso' && userId && (
+              <Progreso userId={userId} transactions={transactions} />
+            )}
+            {tab === 'misiones' && userId && (
+              <Misiones
+                transactions={transactions}
+                userId={userId}
+                onNewBadge={showBadgeToast}
+                onXpGanado={showXpToast}
+              />
+            )}
+            {tab === 'explorar' && userId && (
+              <Explorar
+                transactions={transactions}
+                loading={loading}
+                userId={userId}
+                onViewHistorial={() => setTab('historial')}
+              />
+            )}
+            {tab === 'historial' && (
+              <Historial
+                transactions={transactions}
+                loading={loading}
+                userId={userId ?? ''}
+                onCategoryChange={handleCategoryChange}
+                onDelete={handleDeleteTransaction}
+                onTransactionUpdate={handleTransactionUpdate}
+              />
+            )}
+            {tab === 'agregar' && userId && (
+              <Agregar
+                transactions={transactions}
+                userId={userId}
+                onSaved={async () => {
+                  // Otorgar XP por registrar transacción
+                  addXP(userId, 'registrarTransaccion');
+                  showXpToast(5);
+                  await load();
+                  setTab('home');
+                  setHighlightLatest(true);
+                  window.setTimeout(() => setHighlightLatest(false), 1600);
+                }}
+              />
+            )}
+            {tab === 'chat' && (
+              <Chat transactions={transactions} />
+            )}
+            {tab === 'cuentas' && userId && (
+              <Cuentas
+                userId={userId}
+                initialCard={initialUnknownCard}
+                onBack={() => setTab('home')}
+              />
+            )}
           </Suspense>
         </motion.main>
       </AnimatePresence>
@@ -341,7 +422,7 @@ export default function App() {
 
       <AnimatePresence>
         {!userId && !showRedeem && (
-          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} onRedeemInvite={() => setShowRedeem(true)} />
+          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} onLoginWithCredentials={handleLoginWithCredentials} onRedeemInvite={() => setShowRedeem(true)} />
         )}
         {!userId && showRedeem && (
           <InviteRedeem
@@ -368,7 +449,12 @@ export default function App() {
             key="onboarding"
             userId={userId}
             initialDisplayName={onboardDisplayName ?? undefined}
-            onFinish={() => { setShowOnboarding(false); setOnboardDisplayName(null); setShowWelcomeToast(true); setTimeout(() => setShowWelcomeToast(false), 5000); }}
+            onFinish={() => {
+              setShowOnboarding(false);
+              setOnboardDisplayName(null);
+              // Redirigir a Progreso para que vean su perfil creado
+              setTab('progreso');
+            }}
           />
         )}
         {showSettings && userId && (
@@ -395,6 +481,35 @@ export default function App() {
             onClose={() => setShowBalanceWidget(false)}
           />
         )}
+
+        {/* Toast de XP al guardar transacción */}
+        {xpToast !== null && (
+          <motion.div
+            key="xp-toast"
+            initial={{ opacity: 0, y: 0, scale: 0.9 }}
+            animate={{ opacity: 1, y: -20, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'fixed',
+              bottom: 'calc(100px + env(safe-area-inset-bottom))',
+              left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9997,
+              background: '#15803d',
+              borderRadius: 999, padding: '8px 18px',
+              display: 'flex', alignItems: 'center', gap: 6,
+              boxShadow: '0 4px 16px rgba(21,128,61,0.35)',
+              pointerEvents: 'none',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>⚡</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: '#fff' }}>
+              +{xpToast} XP
+            </span>
+          </motion.div>
+        )}
+
+        {/* Toast de badge desbloqueado */}
         {nuevoBadge && BADGES[nuevoBadge] && (
           <motion.div
             key="badge-toast"
@@ -427,45 +542,6 @@ export default function App() {
               style={{ flexShrink: 0, background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 20, cursor: 'pointer', padding: '4px 2px' }}
             >
               ×
-            </motion.button>
-          </motion.div>
-        )}
-        {showWelcomeToast && (
-          <motion.div
-            key="welcome-toast"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom))',
-              left: '50%', transform: 'translateX(-50%)',
-              zIndex: 9995, width: 'calc(100% - 48px)', maxWidth: 360,
-              background: 'var(--ink)', borderRadius: 16,
-              padding: '14px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-              boxShadow: '0 8px 32px rgba(15,23,42,0.28)',
-            }}
-          >
-            <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 2 }}>
-                ¡Bienvenido/a!
-              </div>
-              <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4 }}>
-                Añade tu primera transacción para empezar.
-              </div>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.94 }}
-              onClick={() => { setShowWelcomeToast(false); setTab('agregar'); }}
-              style={{
-                flexShrink: 0, height: 36, padding: '0 14px',
-                background: 'var(--blue-500, #3b82f6)', border: 'none', borderRadius: 10,
-                color: '#fff', fontSize: 13, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-body)',
-              }}
-            >
-              Añadir
             </motion.button>
           </motion.div>
         )}

@@ -8,6 +8,7 @@ import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAva
 import { TIMEZONE_OPTIONS } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode, COLOR_PRESETS, getUserColorScheme, setUserColorScheme, applyColorScheme } from '../lib/theme';
+import { DARK_PALETTES, LIGHT_PALETTES, getDarkPalette, getLightPalette, saveDarkPalette, saveLightPalette, applyPalettes, type DarkPaletteName, type LightPaletteName } from '../lib/palette';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
@@ -54,6 +55,9 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     const s = getUserColorScheme(userId);
     return s.startsWith('#') ? s : '#1d4ed8';
   });
+
+  const [darkPalette, setDarkPalette] = useState<DarkPaletteName | null>(getDarkPalette);
+  const [lightPalette, setLightPalette] = useState<LightPaletteName | null>(getLightPalette);
 
   const [tabOrder, setTabOrderState] = useState<ReorderableTab[]>(() => getUserTabOrder(userId));
   const [learnedMappings, setLearnedMappings] = useState<LearnedMapping[]>(() => getLearnedMappings(userId));
@@ -103,6 +107,18 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     setColorScheme(scheme);
     setUserColorScheme(userId, scheme);
     applyColorScheme(userId);
+  }
+
+  function handleDarkPaletteChange(id: DarkPaletteName | null) {
+    setDarkPalette(id);
+    saveDarkPalette(id);
+    applyPalettes();
+  }
+
+  function handleLightPaletteChange(id: LightPaletteName | null) {
+    setLightPalette(id);
+    saveLightPalette(id);
+    applyPalettes();
   }
 
   // Sync server profile to localStorage on mount (handles new-device logins).
@@ -539,6 +555,104 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                   </motion.button>
                 </div>
               </div>
+
+              {/* Paleta oscura */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Paleta oscura</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <motion.button
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => handleDarkPaletteChange(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '6px 12px', borderRadius: 999, fontSize: 12,
+                      border: `1.5px solid ${darkPalette === null ? 'var(--blue-600)' : 'var(--line)'}`,
+                      background: darkPalette === null ? 'var(--blue-50)' : 'var(--card)',
+                      color: darkPalette === null ? 'var(--blue-700)' : 'var(--muted)',
+                      fontWeight: darkPalette === null ? 600 : 400,
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    Predeterminado
+                  </motion.button>
+                  {DARK_PALETTES.map(p => (
+                    <motion.button
+                      key={p.id}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => handleDarkPaletteChange(p.id)}
+                      title={p.label}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 999, fontSize: 12,
+                        border: `1.5px solid ${darkPalette === p.id ? 'var(--blue-600)' : 'var(--line)'}`,
+                        background: darkPalette === p.id ? 'var(--blue-50)' : 'var(--card)',
+                        color: darkPalette === p.id ? 'var(--blue-700)' : 'var(--muted)',
+                        fontWeight: darkPalette === p.id ? 600 : 400,
+                        cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.bg, border: '1px solid rgba(255,255,255,0.2)', display: 'block' }} />
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.card, border: '1px solid rgba(0,0,0,0.08)', display: 'block' }} />
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.accent, display: 'block' }} />
+                      </span>
+                      {p.label}
+                    </motion.button>
+                  ))}
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                  Solo cambia fondos y bordes. El color de acento se controla arriba.
+                </p>
+              </div>
+
+              {/* Paleta clara */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Paleta clara</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <motion.button
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => handleLightPaletteChange(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '6px 12px', borderRadius: 999, fontSize: 12,
+                      border: `1.5px solid ${lightPalette === null ? 'var(--blue-600)' : 'var(--line)'}`,
+                      background: lightPalette === null ? 'var(--blue-50)' : 'var(--card)',
+                      color: lightPalette === null ? 'var(--blue-700)' : 'var(--muted)',
+                      fontWeight: lightPalette === null ? 600 : 400,
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    Blanco (predeterminado)
+                  </motion.button>
+                  {LIGHT_PALETTES.map(p => (
+                    <motion.button
+                      key={p.id}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => handleLightPaletteChange(p.id)}
+                      title={p.label}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 999, fontSize: 12,
+                        border: `1.5px solid ${lightPalette === p.id ? 'var(--blue-600)' : 'var(--line)'}`,
+                        background: lightPalette === p.id ? 'var(--blue-50)' : 'var(--card)',
+                        color: lightPalette === p.id ? 'var(--blue-700)' : 'var(--muted)',
+                        fontWeight: lightPalette === p.id ? 600 : 400,
+                        cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.bg, border: '1px solid rgba(0,0,0,0.1)', display: 'block' }} />
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.card, border: '1px solid rgba(0,0,0,0.08)', display: 'block' }} />
+                      </span>
+                      {p.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
             </div>
 
           </Section>
@@ -728,7 +842,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 Los primeros 2 aparecen a la izquierda del botón +, los últimos 2 a la derecha.
               </p>
               {tabOrder.map((tabId, i) => {
-                const labels: Record<ReorderableTab, string> = { home: 'Inicio', historial: 'Historial', suenos: 'Sueños', analisis: 'Análisis' };
+                const labels: Record<ReorderableTab, string> = { home: 'Inicio', progreso: 'Progreso', misiones: 'Misiones', explorar: 'Explorar' };
                 return (
                   <div key={tabId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < tabOrder.length - 1 ? '1px solid var(--line)' : 'none' }}>
                     <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{labels[tabId]}</span>

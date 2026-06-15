@@ -6,15 +6,16 @@ import { useEffect, useState } from 'react';
 interface Props {
   userId: string;
   onPress?: () => void;
+  gamificationKey?: number;
 }
 
-export function RachaDisplay({ userId, onPress }: Props) {
+export function RachaDisplay({ userId, onPress, gamificationKey }: Props) {
   const [racha, setRacha] = useState(0);
 
   useEffect(() => {
     const state = getGamification(userId);
     setRacha(state.racha);
-  }, [userId]);
+  }, [userId, gamificationKey]);
 
   const scale = racha === 0 ? 0.8 : racha >= 30 ? 1.3 : racha >= 7 ? 1.1 : 1.0;
 

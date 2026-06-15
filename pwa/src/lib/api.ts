@@ -64,6 +64,9 @@ export interface Transaction {
   Fuente?: string; // "sms" | "notification" | "email" | "manual"
 }
 
+export const INCOME_CATEGORY = 'Ingreso';
+export const isGasto = (tx: Transaction): boolean => tx.Categoría !== INCOME_CATEGORY;
+
 export interface ManualTransaction {
   banco: string;
   tipo: string;
@@ -469,4 +472,77 @@ export async function getShortcutConfig(): Promise<{ webhookUrl: string; secret:
   const data = await res.json();
   if (!data.ok) throw new Error(data.error ?? 'Error al obtener configuración del shortcut');
   return { webhookUrl: data.webhookUrl as string, secret: data.secret as string };
+}
+
+// ── Tarjetas/Cuentas ──────────────────────────────────────────
+
+export interface Card {
+  id: string;
+  banco: string;
+  chasis: string;
+  ultimos4: string;
+  alias?: string;
+  createdAt: string;
+}
+
+export function fetchCards(): Promise<Card[]> {
+  assertWebhookUrl();
+  const uid = _activeUserId || localStorage.getItem('fm_profile');
+  const extraParams: Record<string, string> = { action: 'cards' };
+  if (uid) extraParams.userId = uid;
+  if (_token) extraParams.token = _token;
+  return fetch(secureUrl(WEBHOOK_URL, extraParams))
+    .then(res => res.json())
+    .then(json => {
+      if (!json.ok) throw new Error(json.error || 'Error al cargar tarjetas');
+      return json.data as Card[];
+    });
+}
+
+export async function saveCard(card: Card): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'saveCard', card })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar tarjeta');
+}
+
+export async function deleteCard(id: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteCard', cardId: id })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar tarjeta');
+}
+
+export function extractLast4(tarjetaCuenta: string): string | null {
+  const matches = tarjetaCuenta.match(/\d{4}/g);
+  return matches ? matches[matches.length - 1] : null;
+}
+
+export function getUnknownCards(
+  transactions: Transaction[],
+  cards: Card[]
+): Array<{ banco: string; ultimos4: string; tarjetaCuenta: string }> {
+  const registered = new Set(cards.map(c => `${c.banco}|${c.ultimos4}`));
+  const seen = new Set<string>();
+  const unknown: Array<{ banco: string; ultimos4: string; tarjetaCuenta: string }> = [];
+  for (const tx of transactions) {
+    const raw = tx['Tarjeta/Cuenta'] || '';
+    if (!raw) continue;
+    const last4 = extractLast4(raw);
+    if (!last4) continue;
+    const key = `${tx.Banco}|${last4}`;
+    if (!registered.has(key) && !seen.has(key)) {
+      seen.add(key);
+      unknown.push({ banco: tx.Banco, ultimos4: last4, tarjetaCuenta: raw });
+    }
+  }
+  return unknown;
 }

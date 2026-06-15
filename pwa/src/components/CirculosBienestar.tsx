@@ -4,6 +4,7 @@ import { quickEase } from '../lib/motion';
 import { getGamification, getVisitasSemana } from '../lib/gamification';
 import { getMeta } from '../lib/meta';
 import type { Transaction } from '../lib/api';
+import { isGasto } from '../lib/api';
 import type { RetoProgress } from '../lib/retos';
 
 interface Props {
@@ -41,7 +42,7 @@ export function CirculosBienestar({ userId, monthTx, retosProgress }: Props) {
     const hoy = new Date();
     const todayStr = hoy.toISOString().split('T')[0];
     const txHoy = monthTx.filter(t => t.Fecha === todayStr);
-    const gastoHoy = txHoy.reduce((s, t) => s + t['Monto (COP)'], 0);
+    const gastoHoy = txHoy.filter(isGasto).reduce((s, t) => s + t['Monto (COP)'], 0);
 
     // Círculo rojo: presupuesto diario
     let pctPresupuesto = 0;

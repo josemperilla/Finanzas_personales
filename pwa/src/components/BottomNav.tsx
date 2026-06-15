@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { softSpring } from '../lib/motion';
 import { getUserTabOrder, ReorderableTab } from '../lib/profiles';
 
-export type Tab = 'home' | 'historial' | 'agregar' | 'analisis' | 'chat' | 'suenos';
+export type Tab = 'home' | 'progreso' | 'agregar' | 'misiones' | 'explorar' | 'historial' | 'chat' | 'cuentas';
 
 interface Props {
   active: Tab;
@@ -13,10 +13,10 @@ interface Props {
 }
 
 const TAB_META: Record<ReorderableTab, { label: string; icon: (active: boolean, size: number) => React.ReactNode }> = {
-  home:     { label: 'Inicio',    icon: (a, s) => <HomeIcon  active={a} size={s} /> },
-  historial:{ label: 'Historial', icon: (a, s) => <ListIcon  active={a} size={s} /> },
-  suenos:   { label: 'Sueños',    icon: (a, s) => <SuenosIcon active={a} size={s} /> },
-  analisis: { label: 'Análisis',  icon: (a, s) => <ChartIcon active={a} size={s} /> },
+  home:     { label: 'Inicio',   icon: (a, s) => <HomeIcon    active={a} size={s} /> },
+  progreso: { label: 'Progreso', icon: (a, s) => <TrophyIcon  active={a} size={s} /> },
+  misiones: { label: 'Misiones', icon: (a, s) => <LightningIcon active={a} size={s} /> },
+  explorar: { label: 'Explorar', icon: (a, s) => <CompassIcon  active={a} size={s} /> },
 };
 
 export function BottomNav({ active, onChange, accessibleMode = false, userId, hasAnomaly }: Props) {
@@ -24,9 +24,8 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
   const navMinHeight = accessibleMode ? '72px' : undefined;
   const btnPadding = accessibleMode ? '6px 16px' : '4px 10px';
 
-  // In accessible mode show fixed Home + Historial; otherwise respect user order
   const order = (accessibleMode || !userId)
-    ? (['home', 'historial', 'suenos', 'analisis'] as ReorderableTab[])
+    ? (['home', 'progreso', 'misiones', 'explorar'] as ReorderableTab[])
     : getUserTabOrder(userId);
 
   const leftTabs  = order.slice(0, 2);
@@ -46,26 +45,24 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
       minHeight: navMinHeight,
     }} aria-label="Navegación principal">
       {leftTabs.map(tabId => {
-        if (accessibleMode && tabId === 'analisis') return null;
         const meta = TAB_META[tabId];
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
             active={active === tabId} onClick={() => onChange(tabId as Tab)}
             padding={btnPadding} alwaysShowLabel={accessibleMode}
-            badge={tabId === 'analisis' && !!hasAnomaly}
-            ariaLabel={tabId === 'analisis' ? (hasAnomaly ? 'Análisis — gasto inusual detectado' : 'Análisis') : undefined} />
+            badge={tabId === 'explorar' && !!hasAnomaly}
+            ariaLabel={tabId === 'explorar' ? (hasAnomaly ? 'Explorar — gasto inusual detectado' : 'Explorar') : undefined} />
         );
       })}
       <AddTab active={active === 'agregar'} onClick={() => onChange('agregar')} accessibleMode={accessibleMode} />
       {rightTabs.map(tabId => {
-        if (accessibleMode && tabId === 'analisis') return null;
         const meta = TAB_META[tabId];
         return (
           <NavTab key={tabId} label={meta.label} icon={meta.icon(active === tabId, iconSize)}
             active={active === tabId} onClick={() => onChange(tabId as Tab)}
             padding={btnPadding} alwaysShowLabel={accessibleMode}
-            badge={tabId === 'analisis' && !!hasAnomaly}
-            ariaLabel={tabId === 'analisis' ? (hasAnomaly ? 'Análisis — gasto inusual detectado' : 'Análisis') : undefined} />
+            badge={tabId === 'explorar' && !!hasAnomaly}
+            ariaLabel={tabId === 'explorar' ? (hasAnomaly ? 'Explorar — gasto inusual detectado' : 'Explorar') : undefined} />
         );
       })}
     </nav>
@@ -199,32 +196,31 @@ function HomeIcon({ active, size }: { active: boolean; size: number }) {
   );
 }
 
-function ListIcon({ active, size }: { active: boolean; size: number }) {
+function TrophyIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+      <path d="M8 21h8M12 17v4M7 4H4a1 1 0 0 0-1 1v3a4 4 0 0 0 4 4h1M17 4h3a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4h-1" />
+      <path d="M7 4h10v8a5 5 0 0 1-10 0V4z" />
     </svg>
   );
 }
 
-function SuenosIcon({ active, size }: { active: boolean; size: number }) {
+function LightningIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? 'var(--blue-700)' : 'none'} stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   );
 }
 
-function ChartIcon({ active, size }: { active: boolean; size: number }) {
+function CompassIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="12" width="4" height="10" rx="1" />
-      <rect x="9" y="7" width="4" height="15" rx="1" />
-      <rect x="16" y="3" width="4" height="19" rx="1" />
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill={active ? 'var(--blue-700)' : 'none'} />
     </svg>
   );
 }
