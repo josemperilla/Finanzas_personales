@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
-import { Transaction, isGasto, INCOME_CATEGORY } from '../lib/api';
+import { Transaction, isGasto, INCOME_CATEGORY, Card, getUnknownCards } from '../lib/api';
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -39,6 +39,9 @@ interface Props {
   onSettings?: () => void;
   userId: string;
   gamificationKey?: number;
+  cards?: Card[];
+  onManageCards?: () => void;
+  onRegisterUnknown?: (banco: string, ultimos4: string) => void;
 }
 
 const slideVariants = {
@@ -60,12 +63,20 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId, gamificationKey }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
   const [showRecap, setShowRecap] = useState(false);
+  const [unknownBannerDismissed, setUnknownBannerDismissed] = useState(
+    () => sessionStorage.getItem(`fm_unknown_cards_dismissed_${userId}`) === '1'
+  );
+
+  const unknownCards = useMemo(
+    () => (!loading && cards.length >= 0) ? getUnknownCards(transactions, cards) : [],
+    [transactions, cards, loading]
+  );
 
   useEffect(() => {
     if (loading) return;
@@ -284,6 +295,63 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
+        {/* Banner productos desconocidos */}
+        {!loading && !unknownBannerDismissed && unknownCards.length > 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <div style={{
+              background: 'rgba(37,99,235,0.07)',
+              border: '1.5px solid rgba(37,99,235,0.22)',
+              borderRadius: 'var(--r-xl)',
+              padding: '12px 14px',
+              display: 'flex', alignItems: 'center', gap: 10,
+              marginBottom: 14,
+            }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>💳</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>
+                  {unknownCards.length === 1
+                    ? '1 producto sin registrar'
+                    : `${unknownCards.length} productos sin registrar`}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Tienes transacciones de {unknownCards[0].tarjetaCuenta}
+                  {unknownCards.length > 1 ? ` y ${unknownCards.length - 1} más` : ''} sin identificar.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <motion.button
+                  whileTap={{ scale: 0.88 }}
+                  onClick={() => onRegisterUnknown?.(unknownCards[0].banco, unknownCards[0].ultimos4)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 10, border: 'none',
+                    background: 'var(--blue-700)', color: '#fff',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  Registrar
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.88 }}
+                  onClick={() => {
+                    sessionStorage.setItem(`fm_unknown_cards_dismissed_${userId}`, '1');
+                    setUnknownBannerDismissed(true);
+                  }}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8, border: 'none',
+                    background: 'var(--surface)', color: 'var(--muted)',
+                    fontSize: 16, cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                  aria-label="Descartar"
+                >
+                  ×
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* DailyStatusCard — héroe del día */}
         {!loading && selectedOffset === 0 && (
           <motion.div variants={riseItem} transition={quickEase}>
@@ -420,6 +488,66 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && primerSueno && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <SuenoCard sueno={primerSueno} retosParaSueno={retosParaPrimerSueno} compact />
+          </motion.div>
+        )}
+
+        {/* Mis productos */}
+        {!loading && onManageCards && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <div style={{
+              background: 'var(--card)', borderRadius: 'var(--r-xl)',
+              boxShadow: 'var(--shadow-card)', padding: '14px 16px',
+              border: '1px solid var(--line)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: cards.length > 0 ? 12 : 0 }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>Mis productos</span>
+                <motion.button
+                  whileTap={{ scale: 0.93 }}
+                  onClick={onManageCards}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--blue-700)',
+                    padding: '4px 0', fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {cards.length === 0 ? 'Registrar' : 'Ver todos'}
+                </motion.button>
+              </div>
+              {cards.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.4 }}>
+                  Registra tus tarjetas y cuentas para identificar cada transacción.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {cards.slice(0, 3).map(card => (
+                    <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                        background: 'var(--blue-700)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>
+                          {card.banco.charAt(0)}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {card.alias || card.banco}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                          {card.chasis} · **** {card.ultimos4}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {cards.length > 3 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', paddingTop: 4 }}>
+                      +{cards.length - 3} más
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
 

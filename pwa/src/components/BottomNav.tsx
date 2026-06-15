@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { softSpring } from '../lib/motion';
 import { getUserTabOrder, ReorderableTab } from '../lib/profiles';
 
-export type Tab = 'home' | 'progreso' | 'agregar' | 'misiones' | 'explorar' | 'historial' | 'chat';
+export type Tab = 'home' | 'progreso' | 'agregar' | 'misiones' | 'explorar' | 'historial' | 'chat' | 'cuentas';
 
 interface Props {
   active: Tab;

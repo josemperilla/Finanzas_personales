@@ -1,127 +1,120 @@
 # Configuración del iPhone — iOS Shortcuts
 
-Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu ID de usuario automáticamente la primera vez y lo guarda. Quien lo instale desde un link solo escribe su ID una vez.
+Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu ID de usuario automáticamente la primera vez y lo guarda. Quien lo instale desde el link solo escribe su ID una vez.
 
 ---
 
-## Automatización SMS universal
+## Opción A — Instalar desde link (recomendado para nuevos usuarios)
 
-### Parte 1 — Crear la automatización
+1. Abre este link en tu iPhone: **https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858**
+2. Toca **Add Shortcut**
+3. Ve a la pestaña **Automation** → toca **+** → **New Automation** → **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next** → busca el Shortcut recién instalado y selecciónalo
+7. Toca **Done**
 
-1. Abre la app **Atajos** en tu iPhone
-2. Toca la pestaña **Automatización** (ícono de reloj, abajo)
-3. Toca **+** → **Crear automatización personal**
-4. Selecciona **Mensaje**
-5. En "Cuando recibo un mensaje que contiene" escribe: **`$`**
-6. Deja "De" en **Cualquiera**
-7. Activa **"Ejecutar inmediatamente"** y desactiva "Preguntar antes de ejecutar"
-8. Toca **Siguiente** — ahora estás en el editor de acciones
+La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario, lo guarda en iCloud Drive, y nunca vuelve a preguntar.
+
+---
+
+## Opción B — Crear desde ceros (para el admin o si el link no funciona)
+
+### Shortcut personal (userId fijo)
+
+#### Crear la automatización
+
+1. Abre **Shortcuts** → pestaña **Automation** (ícono de reloj, barra inferior)
+2. Toca **+** → **New Automation**
+3. Selecciona **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next**
+
+#### La acción
+
+7. Toca **Add Action** → busca **"Get Contents of URL"**
+8. URL: `https://finanzas-abiertas.pages.dev/api/sms`
+9. Toca **Show More** → Method: **POST** → Request Body: **JSON**
+10. Toca **+** y agrega los campos:
+
+| Key | Value |
+|-----|-------|
+| `userId` | escribe tu ID (ej: `jose`) |
+| `sms` | `{x}` → **Message Content** |
+| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
+
+11. Toca **✓** → **Don't Ask** → **Done**
 
 ---
 
-### Parte 2 — Agregar las acciones (en orden)
+### Shortcut replicable (pide el ID la primera vez)
 
-#### Acción 1 — Intentar leer el ID guardado
+#### Crear la automatización
 
-1. Toca **Agregar acción**
-2. Busca **"Obtener archivo"** y selecciónalo
-3. Toca el campo del archivo (donde dice "Atajos" o aparece un ícono de iCloud)
-4. Escribe la ruta: `Atajos/finanzas_usuario.txt`
-5. Busca la opción **"Error si no existe"** o **"Si el archivo no existe"** y **desactívala** (ponla en OFF o en "Continuar")
+1. Abre **Shortcuts** → pestaña **Automation**
+2. Toca **+** → **New Automation**
+3. Selecciona **Message**
+4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
+5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
+6. Toca **Next**
 
-> Esta acción intenta leer el archivo donde se guarda el ID. Si el archivo no existe todavía, devuelve vacío sin fallar.
+#### Acción 1 — Leer el ID guardado (puede no existir aún)
 
----
+7. Toca **Add Action** → busca **"Get File from Folder"**
+8. Folder: **Shortcuts**
+9. File Name: `finanzas_usuario.txt`
+10. **"Error If Not Found"** → **OFF**
 
 #### Acción 2 — Condición: ¿ya tenemos el ID?
 
-1. Toca **Agregar acción**
-2. Busca **"Si"** y selecciónalo
-3. Aparece el bloque Si con campos de condición. Configúralo así:
-   - Primer campo (el valor a evaluar): toca ahí → selecciona **"Archivos"** (el resultado de la acción anterior)
-   - Operador: **"No tiene valor"**
-4. Verás dos secciones: **"Si"** (arriba) y **"De lo contrario"** (abajo). Las acciones siguientes van DENTRO de la sección "Si"
+11. Toca **Add Action** → busca **"If"**
+12. Primer campo: toca → selecciona **Name** (resultado Acción 1)
+13. Operador: **does not have any value**
 
----
+#### Acción 3 — (DENTRO del If) Pedir el ID
 
-#### Acción 3 — (dentro del "Si") Pedir el ID al usuario
+14. Toca el **+** DENTRO del bloque "If" (entre "If" y "Otherwise")
+15. Busca **"Ask For Input"**
+16. Pregunta: `¿Cuál es tu user ID de Finanzas Personales?`
+17. Type: **Text**
 
-1. Toca el **"+"** que aparece DENTRO del bloque "Si" (entre "Si" y "De lo contrario")
-2. Agrega **"Solicitar entrada"**
-3. Toca el campo de pregunta y escribe:
-   `¿Cuál es tu ID de usuario en Finanzas Abiertas?`
-4. Tipo: **Texto**
+#### Acción 4 — (DENTRO del If) Guardar el ID
 
----
+18. Toca el **+** DENTRO del bloque "If" (debajo de "Ask For Input")
+19. Busca **"Save File"**
+20. Contenido: **Ask for Input** (automático)
+21. Destino: **Shortcuts**
+22. Subpath: `finanzas_usuario.txt`
+23. **"Overwrite If File Exists"** → **ON**
 
-#### Acción 4 — (dentro del "Si") Guardar el ID para siempre
+#### Acción 5 — Leer el ID (FUERA del If, siempre existe)
 
-1. Toca el **"+"** dentro del bloque "Si" (debajo de "Solicitar entrada")
-2. Agrega **"Guardar archivo"**
-3. El campo de contenido debería decir automáticamente "Entrada proporcionada" (el resultado de la acción anterior). Si no, toca ese campo → `{x}` → selecciona **"Entrada proporcionada"**
-4. Toca el campo de destino → selecciona **iCloud Drive**
-5. Escribe la ruta: `Atajos/finanzas_usuario.txt`
-6. Activa la opción **"Sobreescribir"**
+24. Toca el **+** DEBAJO de "End If"
+25. Busca **"Get File from Folder"**
+26. Folder: **Shortcuts**
+27. File Name: `finanzas_usuario.txt`
+28. **"Error If Not Found"** → **ON**
 
----
+#### Acción 6 — Enviar al servidor
 
-> Las acciones 3 y 4 solo corren la primera vez. Después el archivo ya existe y el bloque "Si" se salta.
+29. Toca **+** → busca **"Get Contents of URL"**
+30. URL: `https://finanzas-abiertas.pages.dev/api/sms`
+31. Toca **Show More** → Method: **POST** → Request Body: **JSON**
+32. Toca **+** y agrega los campos:
 
----
+| Key | Value |
+|-----|-------|
+| `userId` | `{x}` → **File** (resultado Acción 5) |
+| `sms` | `{x}` → **Message Content** |
+| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
 
-#### Acción 5 — Leer el ID (ahora sí existe siempre)
+33. Toca **✓** → **Don't Ask** → **Done**
 
-Esta acción va FUERA del bloque Si/De lo contrario, después del "Fin Si".
+#### Compartir
 
-1. Toca el **"+"** debajo del bloque entero (después de "Fin Si")
-2. Agrega otra vez **"Obtener archivo"**
-3. Ruta: `Atajos/finanzas_usuario.txt`
-4. Esta vez deja "Error si no existe" **activado** (es normal, el archivo ya existe)
-
-> En la primera ejecución, el archivo acaba de crearse en la Acción 4. En las siguientes, ya estaba. En ambos casos esta acción lo lee correctamente.
-
----
-
-#### Acción 6 — Enviar el SMS al servidor
-
-1. Toca **"+"** → agrega **"Obtener contenido de URL"**
-2. **URL**: `https://finanzas-abiertas.pages.dev/api/sms`
-3. Toca **Mostrar más** para expandir la acción
-4. **Método**: POST
-5. **Cuerpo de la solicitud**: JSON
-6. Agrega los campos con **"+"**:
-
-**Campo 1 — userId:**
-- Clave: escribe `userId`
-- Valor: toca `{x}` → selecciona **"Archivos"** (resultado de la Acción 5)
-
-**Campo 2 — sms:**
-- Clave: escribe `sms`
-- Valor: toca `{x}` → selecciona **"Contenido del Mensaje"**
-
-**Campo 3 — timestamp:**
-- Clave: escribe `timestamp`
-- Valor: toca `{x}` → selecciona **"Fecha Actual"** → formato **ISO 8601**
-
----
-
-### Parte 3 — Guardar
-
-1. Toca **Siguiente**
-2. Cuando pregunte → toca **No preguntar**
-3. Toca **Listo**
-
----
-
-## Cómo compartir el Shortcut
-
-1. Abre **Atajos** → toca los **tres puntos (···)** sobre el Shortcut
-2. Toca **Compartir** → **Copiar link de iCloud**
-3. Comparte ese link
-
-Quien lo instale verá una pantalla preguntando su ID la primera vez que llegue un SMS con `$`. Lo escribe una vez — el Shortcut lo guarda en iCloud Drive y nunca vuelve a preguntar.
-
-Para cambiar el ID: borrar `finanzas_usuario.txt` en iCloud Drive / Atajos, y el Shortcut vuelve a preguntar.
+34. En **My Shortcuts**, toca **···** sobre el Shortcut → **Share** → **Copy iCloud Link**
+35. Comparte ese link — quien lo instale, la primera vez que llegue un SMS con `$` el Shortcut pregunta su ID, lo guarda, y nunca vuelve a preguntar
 
 ---
 
@@ -145,6 +138,7 @@ Para bancos no listados: el servidor usa IA para parsear el SMS automáticamente
 
 ## Si la transacción no aparece
 
-- Confirma que la automatización tenga "Ejecutar inmediatamente" activado
+- Confirma que la automatización tenga "Run Immediately" activado
 - Verifica que la URL sea exactamente `https://finanzas-abiertas.pages.dev/api/sms`
 - Revisa que el SMS contenga `$` y sea de un banco (mensajes personales o promocionales se descartan automáticamente)
+- Para cambiar tu ID: borra `finanzas_usuario.txt` en iCloud Drive → Shortcuts, y el Shortcut vuelve a preguntar

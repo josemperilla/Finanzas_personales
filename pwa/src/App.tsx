@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { fetchTransactions, setActiveUser, Transaction, hasPin, isGasto } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, Card, getUnknownCards } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
@@ -34,6 +34,7 @@ const Misiones = lazy(() => import('./pages/Misiones').then(m => ({ default: m.M
 const Explorar = lazy(() => import('./pages/Explorar').then(m => ({ default: m.Explorar })));
 const Chat     = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Cuentas  = lazy(() => import('./pages/Cuentas').then(m => ({ default: m.Cuentas })));
 
 function PageFallback() {
   return (
@@ -92,6 +93,8 @@ export default function App() {
   );
   const [nuevoBadge, setNuevoBadge] = useState<string | null>(null);
   const [xpToast, setXpToast] = useState<number | null>(null);
+  const [cards, setCards] = useState<Card[]>([]);
+  const [initialUnknownCard, setInitialUnknownCard] = useState<{ banco: string; ultimos4: string } | undefined>();
 
   // Migración: sembrar perfil actual si no hay profiles conocidos
   useEffect(() => {
@@ -143,11 +146,18 @@ export default function App() {
     ));
   }, []);
 
+  const loadCards = useCallback(async () => {
+    try {
+      const data = await fetchCards();
+      setCards(data);
+    } catch { /* silently ignore card fetch errors */ }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await fetchTransactions();
+      const [data] = await Promise.all([fetchTransactions(), loadCards()]);
       const processed = userId ? applyLearnings(data, userId) : data;
       setTransactions(processed);
       lastFetchRef.current = Date.now();
@@ -250,6 +260,29 @@ export default function App() {
     }
   }, [userId]);
 
+  const handleLoginWithCredentials = useCallback(async (id: string, pin: string): Promise<'ok' | 'invalid' | 'error'> => {
+    try {
+      const result = await validatePin(pin, id);
+      if (result.ok) {
+        localStorage.setItem('fm_profile', id);
+        sessionStorage.setItem(`fm_unlocked_${id}`, '1');
+        addKnownProfile(id);
+        applyAccessibleMode(id);
+        applyColorScheme(id);
+        applyPalettes();
+        setAccessible(getAccessibleMode(id));
+        applyPersonalizedAppIcon(id, getDisplayName(id));
+        registrarVisita(id);
+        setUserId(id);
+        setUnlocked(true);
+        return 'ok';
+      }
+      return 'invalid';
+    } catch {
+      return 'error';
+    }
+  }, []);
+
   const handleSwitchProfile = useCallback(() => {
     localStorage.removeItem('fm_profile');
     document.documentElement.dataset.mode = '';
@@ -319,6 +352,9 @@ export default function App() {
                 onSettings={() => setShowSettings(true)}
                 userId={userId}
                 gamificationKey={gamificationKey}
+                cards={cards}
+                onManageCards={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
+                onRegisterUnknown={(banco, ultimos4) => { setInitialUnknownCard({ banco, ultimos4 }); setTab('cuentas'); }}
               />
             )}
             {tab === 'progreso' && userId && (
@@ -368,6 +404,13 @@ export default function App() {
             {tab === 'chat' && (
               <Chat transactions={transactions} />
             )}
+            {tab === 'cuentas' && userId && (
+              <Cuentas
+                userId={userId}
+                initialCard={initialUnknownCard}
+                onBack={() => setTab('home')}
+              />
+            )}
           </Suspense>
         </motion.main>
       </AnimatePresence>
@@ -379,7 +422,7 @@ export default function App() {
 
       <AnimatePresence>
         {!userId && !showRedeem && (
-          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} onRedeemInvite={() => setShowRedeem(true)} />
+          <ProfileSelector key="profile" profiles={profiles} onSelect={handleSelectProfile} onLoginWithCredentials={handleLoginWithCredentials} onRedeemInvite={() => setShowRedeem(true)} />
         )}
         {!userId && showRedeem && (
           <InviteRedeem
