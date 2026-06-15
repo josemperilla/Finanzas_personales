@@ -349,6 +349,10 @@ function doGet(e) {
     return jsonResponse({ ok: true, data: getTransactions(userId) });
   }
 
+  if (action === "cards") {
+    return jsonResponse({ ok: true, data: _getCards(userId) });
+  }
+
   return jsonResponse({ ok: true, message: "Finance Webhook v2 — usa ?action=transactions&userId=jose para leer datos" });
 }
 
@@ -697,6 +701,31 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    // ── Gestión de tarjetas/cuentas ──────────────────────────────
+    if (type === "saveCard") {
+      var cardData = payload.card;
+      if (!cardData || !cardData.id || !cardData.banco || !cardData.ultimos4) {
+        return jsonResponse({ ok: false, error: "Faltan campos requeridos en la tarjeta" });
+      }
+      var existingCards = _getCards(userId);
+      var cardIdx = -1;
+      for (var ci = 0; ci < existingCards.length; ci++) {
+        if (existingCards[ci].id === cardData.id) { cardIdx = ci; break; }
+      }
+      if (cardIdx >= 0) existingCards[cardIdx] = cardData;
+      else existingCards.push(cardData);
+      _saveCards(userId, existingCards);
+      return jsonResponse({ ok: true });
+    }
+
+    if (type === "deleteCard") {
+      var cardId = payload.cardId || "";
+      if (!cardId) return jsonResponse({ ok: false, error: "cardId requerido" });
+      var filteredCards = _getCards(userId).filter(function(c) { return c.id !== cardId; });
+      _saveCards(userId, filteredCards);
+      return jsonResponse({ ok: true });
+    }
+
     // Cambiar PIN del usuario
     if (type === "changePin") {
       var currentPin = String(payload.currentPin || "");
@@ -864,8 +893,9 @@ function doPost(e) {
       parsed = parseAvVillas(sms);
     } else {
       // Banco no reconocido → solo invocar Haiku si el SMS parece transaccional.
-      // Evita costos de API en mensajes personales que lleguen por el trigger universal "$".
-      var txSignal = /\$[\d,.]|\bcompra\b|\bd[eé]bito\b|\bretiro\b|\btransferencia\b|\bcobro\b|\bpago\b|\bBancolombia\b|\bDAVIVIENDA\b|\bITAU\b|\bBogot|\bNequi\b|\bDaviplata\b/i;
+      // Requiere monto en contexto transaccional ("por $X", "débito de $X") para
+      // evitar llamadas innecesarias por SMS promocionales ("cupo de $50,000,000").
+      var txSignal = /\bpor\s+\$[\d,.]|(?:compra|d[eé]bito|retiro|transferencia|cobro)\s+(?:de\s+)?\$[\d,.]|\bNequi\b|\bDaviplata\b/i;
       if (!txSignal.test(sms)) {
         return jsonResponse({ ok: true, skipped: true, reason: "no bank signal" });
       }
@@ -880,7 +910,13 @@ function doPost(e) {
     }
 
     if (!parsed) {
-      return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
+      // Banco conocido pero formato SMS no reconocido — intenta AI fallback.
+      // VETO_RULES ya descartó promocionales/OTP, así que es probable un nuevo
+      // formato transaccional que el banco introdujo.
+      var aiFallback = parseSmsFallback(sms);
+      if (!aiFallback) return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
+      if (aiFallback.skipped) return jsonResponse({ ok: true, skipped: true, reason: "not a transaction (AI)" });
+      parsed = aiFallback;
     }
 
     // Reversal: find and delete the original transaction instead of adding a new row
@@ -1037,12 +1073,30 @@ function handleChat(question, context) {
 // Add a regex per pattern you want to exclude.
 var VETO_RULES = [
   // Itaú outbound transfer from savings account (e.g. rent payment)
-  // "Se realizo Transferencia de tu Cuenta de Ahorros ****XXXX por $..."
   /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i,
   // AV Villas — login / security notifications (not transactions)
-  // "AVVillas. ... has iniciado sesion en AV Villas App ..."
   /AVVillas\..*iniciado\s+sesion/i,
-  /AVVillas\..*Audiovillas/i
+  /AVVillas\..*Audiovillas/i,
+
+  // Credit offers / pre-approved quota — all banks
+  /cupo\s+(?:pre)?aprobad/i,
+  /cr[eé]dito\s+pre(?:-?\s*)?aprobad/i,
+  /tienes\s+(?:disponible\s+)?\$[\d,.].*(?:aprobad|cupo|cr[eé]dito)/i,
+
+  // Balance alerts (NOT a debit/credit event)
+  /saldo\s+disponible\s+(?:es|de)\s+\$/i,
+  /tu\s+saldo\s+(?:actual|disponible)/i,
+
+  // Payment-due reminders (advisory, not a real debit)
+  /(?:cuota|pago)\s+(?:de\s+)?\$[\d,.]+\s+vence/i,
+
+  // OTP / one-time codes / security PINs
+  /\bOTP\b/,
+  /clave\s+(?:temp|din[aá]mic)/i,
+  /c[oó]digo\s+(?:de\s+)?verificaci[oó]n/i,
+
+  // Welcome / onboarding messages from banks
+  /bienvenid[ao]\s+a\b/i,
 ];
 
 function isVetoed(sms) {
@@ -2564,4 +2618,14 @@ function _sendWeeklySummary(userId) {
     subject: "📊 Tu resumen financiero — " + weekStr,
     htmlBody: htmlBody
   });
+}
+
+// ── Tarjetas/Cuentas registradas por usuario ──────────────────
+function _getCards(userId) {
+  var raw = PropertiesService.getScriptProperties().getProperty('cards_' + userId);
+  try { return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+}
+
+function _saveCards(userId, cards) {
+  PropertiesService.getScriptProperties().setProperty('cards_' + userId, JSON.stringify(cards));
 }
