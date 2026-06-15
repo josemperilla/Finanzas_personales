@@ -2,11 +2,11 @@
 
 Solo necesitas **dos automatizaciones** — una para SMS y una para notificaciones push — y cubren todos los bancos. No hay que crear un Shortcut por banco.
 
+El Shortcut de SMS detecta tu nombre de usuario automáticamente en el primer uso y lo guarda en iCloud Drive. Los usuarios que lo instalen desde un link solo tienen que escribir su ID una vez — después funciona solo.
+
 ---
 
 ## Automatización 1 — SMS universal (todos los bancos)
-
-Este Shortcut captura cualquier SMS bancario que llegue a tu teléfono. El servidor detecta el banco automáticamente.
 
 ### Paso 1 — Crear la automatización
 
@@ -18,12 +18,41 @@ Este Shortcut captura cualquier SMS bancario que llegue a tu teléfono. El servi
 
 1. Selecciona **Mensaje**
 2. En "Cuando recibo un mensaje que contiene" escribe: **`$`**
-   - El signo `$` aparece en todos los SMS bancarios colombianos con un monto
-3. Activa **"Ejecutar inmediatamente"** — desactiva "Preguntar antes de ejecutar"
+3. Deja "De" en **Cualquiera**
+4. Activa **"Ejecutar inmediatamente"** — desactiva "Preguntar antes de ejecutar"
 
-### Paso 3 — Acción POST
+### Paso 3 — Acción 1: Leer userId guardado
 
-1. Toca **Agregar acción** → busca **"Obtener contenido de URL"**
+1. Toca **Agregar acción** → busca **"Obtener archivo"**
+2. Configura:
+   - Servicio: **iCloud Drive**
+   - Ruta: `Atajos/finanzas_usuario.txt`
+   - Activa la opción **"Si no existe el archivo: continuar"** (o similar — evita error si el archivo no existe aún)
+
+### Paso 4 — Acción 2: Si no existe, preguntar una vez
+
+1. Agrega acción **"Si"**
+2. Condición: **[Archivo] → No tiene valor**
+3. Dentro del bloque "Si" (true):
+   - Agrega **"Solicitar entrada"**
+     - Pregunta: `¿Cuál es tu ID de usuario en Finanzas Abiertas?`
+     - Tipo: **Texto**
+   - Agrega **"Guardar archivo"**
+     - Contenido: `[Entrada proporcionada]`
+     - Destino: **iCloud Drive** → `Atajos/finanzas_usuario.txt`
+     - Activar: **Sobreescribir**
+   - Agrega **"Establecer variable"**
+     - Nombre de variable: `userId`
+     - Valor: `[Entrada proporcionada]`
+4. Dentro del bloque "De lo contrario" (else):
+   - Agrega **"Establecer variable"**
+     - Nombre de variable: `userId`
+     - Valor: `[Archivo]`
+5. Agrega **"Fin Si"** para cerrar el bloque
+
+### Paso 5 — Acción 3: Enviar el SMS al servidor
+
+1. Agrega acción **"Obtener contenido de URL"**
 2. Configura:
    - **URL**: `https://finanzas-abiertas.pages.dev/api/sms`
    - **Método**: POST
@@ -33,21 +62,19 @@ Este Shortcut captura cualquier SMS bancario que llegue a tu teléfono. El servi
 
 | Clave | Valor |
 |-------|-------|
-| `userId` | `jose` (texto fijo) |
-| `sms` | toca **{x}** → "Contenido del mensaje" |
-| `timestamp` | toca **{x}** → "Fecha actual" → formato **ISO 8601** |
+| `userId` | toca **{x}** → selecciona la variable **userId** |
+| `sms` | toca **{x}** → **Contenido del mensaje** |
+| `timestamp` | toca **{x}** → **Fecha actual** → formato **ISO 8601** |
 
-> No pongas el campo `bank` — el servidor lo detecta solo a partir del texto del SMS.
+### Paso 6 — Guardar
 
-### Paso 4 — Guardar
-
-Toca **Listo** → elige **No preguntar**.
+Toca **Siguiente** → elige **No preguntar** → **Listo**
 
 ---
 
 ## Automatización 2 — Notificaciones push (por app)
 
-Para bancos que no mandan SMS (Nequi, Daviplata, dale!, Rappi) o cuando prefieres capturar la notificación en lugar del SMS.
+Para bancos que no mandan SMS (Nequi, Daviplata, dale!, Rappi) o cuando prefieres capturar la notificación push.
 
 Se crea **una automatización por app bancaria**. Los pasos son iguales, solo cambia la app seleccionada.
 
@@ -64,7 +91,7 @@ Se crea **una automatización por app bancaria**. Los pasos son iguales, solo ca
 
 ### Paso 3 — Acción POST
 
-1. Toca **Agregar acción** → **"Obtener contenido de URL"**
+1. Agrega acción **"Obtener contenido de URL"**
 2. Configura:
    - **URL**: `https://finanzas-abiertas.pages.dev/api/sms`
    - **Método**: POST
@@ -75,16 +102,25 @@ Se crea **una automatización por app bancaria**. Los pasos son iguales, solo ca
 | Clave | Valor |
 |-------|-------|
 | `type` | `notification` (texto fijo) |
-| `userId` | `jose` (texto fijo) |
-| `title` | toca **{x}** → "Título de notificación" |
-| `body` | toca **{x}** → "Cuerpo de notificación" |
-| `timestamp` | toca **{x}** → "Fecha actual" → formato **ISO 8601** |
-
-> Tampoco pongas `bank` — el servidor lo infiere del título/cuerpo de la notificación.
+| `userId` | `jose` (texto fijo — o usar el mismo bloque de lectura de archivo del Shortcut de SMS) |
+| `title` | toca **{x}** → **Título de notificación** |
+| `body` | toca **{x}** → **Cuerpo de notificación** |
+| `timestamp` | toca **{x}** → **Fecha actual** → formato **ISO 8601** |
 
 ### Paso 4 — Guardar
 
-Toca **Listo** → **No preguntar**.
+Toca **Siguiente** → **No preguntar** → **Listo**
+
+---
+
+## Cómo compartir el Shortcut de SMS
+
+1. Abre **Atajos** → toca el Shortcut de SMS
+2. Toca los **tres puntos (···)** arriba a la derecha
+3. Toca **Compartir** → **Copiar link de iCloud**
+4. Comparte ese link
+
+Quien lo instale verá la primera vez una pantalla preguntando su ID de usuario. Lo escribe una sola vez — el Shortcut lo guarda en `iCloud Drive/Atajos/finanzas_usuario.txt` y nunca vuelve a preguntar.
 
 ---
 
@@ -120,11 +156,13 @@ Si la transacción no aparece:
 - Confirma que el SMS contenga `$`
 - Verifica que la URL sea exactamente `https://finanzas-abiertas.pages.dev/api/sms`
 
+Para cambiar tu ID de usuario: edita el archivo `finanzas_usuario.txt` en iCloud Drive / Atajos, o bórralo para que el Shortcut vuelva a preguntar.
+
 ---
 
 ## Notas
 
-- **Un SMS con `$` que no sea bancario** (ej. mensaje personal): el servidor lo descarta automáticamente sin registrarlo.
+- **Un SMS con `$` que no sea bancario** (ej. mensaje personal, oferta de crédito): el servidor lo descarta automáticamente sin registrarlo.
 - **"Ejecutar inmediatamente" es obligatorio.** Si está desactivado, el Shortcut solo corre si tocas el banner.
 - Los datos van a tu propio Google Apps Script — nunca a terceros.
 - La columna **Fuente** en el Sheet indica el canal: `sms` o `notification`.
