@@ -12,10 +12,17 @@ interface Slice {
 interface Props {
   slices: Slice[];
   total: number;
+  centerLabel?: string;
   onSliceClick?: (category: string) => void;
 }
 
-export const DonutChart = memo(function DonutChart({ slices, total, onSliceClick }: Props) {
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 2 })}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toLocaleString('es-CO', { maximumFractionDigits: 0 })}k`;
+  return formatCOP(n);
+}
+
+export const DonutChart = memo(function DonutChart({ slices, total, centerLabel, onSliceClick }: Props) {
   const SIZE = 180;
   const CX = SIZE / 2;
   const CY = SIZE / 2;
@@ -80,7 +87,25 @@ export const DonutChart = memo(function DonutChart({ slices, total, onSliceClick
             />
           ))}
 
-          {topCat && (
+          {centerLabel ? (
+            <motion.g
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ ...quickEase, delay: 0.18 }}
+              style={{ transformOrigin: `${CX}px ${CY}px` }}
+            >
+              <text x={CX} y={CY - 10} textAnchor="middle"
+                fill="var(--muted)" fontSize="8"
+                fontFamily='var(--font-body)' letterSpacing="0.02em">
+                {centerLabel}
+              </text>
+              <text x={CX} y={CY + 10} textAnchor="middle"
+                fill="var(--ink)" fontSize="15"
+                fontWeight="700" fontFamily='var(--font-mono)'>
+                {formatCompact(total)}
+              </text>
+            </motion.g>
+          ) : topCat && (
             <motion.g
               initial={{ opacity: 0, scale: 0.94 }}
               animate={{ opacity: 1, scale: 1 }}
