@@ -273,16 +273,11 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         paddingTop: 'max(20px, env(safe-area-inset-top))',
         padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
         marginBottom: 6,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <div>
-          <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            Nueva entrada
-          </p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
-            Agregar
-          </h1>
-        </div>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
+          Nuevo gasto
+        </h1>
         <div style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
           {/* QR */}
           <motion.button
@@ -319,10 +314,11 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
             onTouchEnd={e => { e.preventDefault(); stopVoice(); }}
             title="Entrada de voz"
             style={{
-              width: 40, height: 40, borderRadius: 12,
-              background: isVoiceActive ? '#fee2e2' : 'var(--card)',
-              border: `1.5px solid ${isVoiceActive ? '#fca5a5' : 'var(--line)'}`,
-              boxShadow: 'var(--shadow-card)', cursor: 'pointer',
+              width: 40, height: 40, borderRadius: 999,
+              background: isVoiceActive ? '#fee2e2' : 'var(--blue)',
+              border: isVoiceActive ? '1.5px solid #fca5a5' : 'none',
+              boxShadow: isVoiceActive ? 'none' : 'var(--shadow-blue)',
+              cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               WebkitTapHighlightColor: 'transparent',
               animation: voiceState === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
@@ -380,8 +376,8 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         >
           ${displayAmount}
         </motion.div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          pesos colombianos
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          COP · PESOS
         </div>
       </div>
 
@@ -579,13 +575,13 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
               whileTap={{ scale: 0.9 }}
               onClick={() => handleKey(key)}
               style={{
-                height: 60, borderRadius: 16,
-                background: key === '⌫' ? 'transparent' : 'var(--card)',
-                border: key === '⌫' ? 'none' : '1.5px solid var(--line)',
-                boxShadow: key === '⌫' ? 'none' : '0 1px 3px rgba(16,18,28,0.06)',
+                height: 64, borderRadius: 16,
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
                 color: key === '⌫' ? 'var(--muted)' : 'var(--ink)',
                 fontFamily: key === '⌫' || key === '000' ? 'var(--font-body)' : 'var(--font-display)',
-                fontSize: key === '⌫' ? 22 : key === '000' ? 18 : 26,
+                fontSize: key === '⌫' ? 22 : key === '000' ? 20 : 28,
                 fontWeight: 700,
                 cursor: 'pointer',
                 letterSpacing: '-0.02em',
@@ -608,13 +604,13 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           onClick={handleSubmit}
           disabled={saveState !== 'idle'}
           style={{
-            width: '100%', height: 56,
-            background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue)',
-            border: 'none', borderRadius: 'var(--r-lg)', color: '#fff',
+            width: '100%', height: 58,
+            background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'rgba(234,88,12,0.5)' : 'var(--orange)',
+            border: 'none', borderRadius: 'var(--r-pill)', color: '#fff',
             fontSize: 16, fontWeight: 700,
             cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer',
             fontFamily: 'var(--font-body)',
-            boxShadow: saveState === 'idle' ? 'var(--shadow-blue)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
+            boxShadow: saveState === 'idle' ? 'var(--shadow-orange)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
             transition: 'background 0.15s ease, box-shadow 0.15s ease',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
           }}
@@ -626,7 +622,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
                 </motion.span>
               : saveState === 'saving'
                 ? <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardando...</motion.span>
-                : <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardar transacción</motion.span>
+                : <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardar gasto</motion.span>
             }
           </AnimatePresence>
         </motion.button>
@@ -730,7 +726,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 }
 
 function MicIcon({ recording }: { recording: boolean }) {
-  const c = recording ? '#ef4444' : 'currentColor';
+  const c = recording ? '#ef4444' : '#fff';
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="2" width="6" height="11" rx="3" />
