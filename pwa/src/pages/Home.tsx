@@ -445,7 +445,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                   <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
+                  <div style={{ fontSize: 10, color: 'var(--orange-2)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700 }}>Reto activo</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
