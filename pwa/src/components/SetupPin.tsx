@@ -89,25 +89,31 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
         padding: 'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* Step indicator */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        {(['enter', 'confirm'] as Step[]).map(s => (
-          <motion.div key={s} animate={{ width: step === s ? 24 : 8, background: step === s ? 'var(--blue)' : 'var(--line)' }}
-            transition={{ duration: 0.25 }}
-            style={{ height: 8, borderRadius: 999 }} />
-        ))}
+      {/* Step indicator — progress bar + counter */}
+      <div style={{ width: '100%', maxWidth: 300, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, height: 4, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+          <motion.div
+            animate={{ width: step === 'enter' ? '50%' : '100%' }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ height: '100%', background: 'var(--blue)', borderRadius: 999 }}
+          />
+        </div>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--muted)', flexShrink: 0 }}>
+          {step === 'enter' ? '1/2' : '2/2'}
+        </span>
       </div>
 
-      {/* Logo + título */}
+      {/* Icon + título */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <div style={{
           width: 72, height: 72, borderRadius: 24,
-          background: 'var(--grad-orange)',
+          background: 'var(--blue-soft)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(234,88,12,.35)',
-          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
         }}>
-          💰
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
         </div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 23, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
           {step === 'enter' ? 'Crear PIN' : 'Confirmar PIN'}
