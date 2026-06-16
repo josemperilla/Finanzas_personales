@@ -93,6 +93,8 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
     });
   }, [userId]);
 
+  const [activeTab, setActiveTab] = useState<'suenos' | 'retos'>('suenos');
+
   const handleEliminarSueno = useCallback((id: string) => {
     deleteSueno(userId, id);
     setDeletingId(null);
@@ -102,53 +104,84 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 100 }}>
       {/* Header */}
-      <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 16px 0', marginBottom: 16 }}>
-        <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          Objetivos
-        </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+      <div style={{
+        padding: 'max(20px, env(safe-area-inset-top)) 16px 0',
+        marginBottom: 16,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em' }}>
           Misiones
         </h1>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => { setActiveTab('suenos'); setShowSuenoForm(true); }}
+          style={{
+            width: 36, height: 36, borderRadius: 999,
+            background: 'var(--blue)', border: 'none',
+            boxShadow: 'var(--shadow-blue)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          aria-label="Nuevo sueño"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </motion.button>
+      </div>
+
+      {/* Tab toggle */}
+      <div style={{ padding: '0 16px', marginBottom: 16 }}>
+        <div style={{
+          display: 'flex', background: 'var(--surface-2)',
+          borderRadius: 'var(--r-pill)', padding: 3,
+        }}>
+          {(['suenos', 'retos'] as const).map(tab => (
+            <motion.button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1, height: 36, borderRadius: 'var(--r-pill)',
+                background: activeTab === tab ? 'var(--card)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+                color: activeTab === tab ? 'var(--ink)' : 'var(--muted)',
+                boxShadow: activeTab === tab ? '0 1px 4px rgba(16,18,28,.1)' : 'none',
+                transition: 'background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {tab === 'suenos' ? 'Sueños' : 'Retos'}
+            </motion.button>
+          ))}
+        </div>
       </div>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px' }}>
 
-        {/* Retos activos */}
-        <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 20 }}>
-          <div style={{
-            background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)',
-            boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '18px 0 4px',
-          }}>
-            <RetosPanel userId={userId} transactions={transactions} />
-          </div>
-        </motion.div>
+        {/* Retos tab */}
+        {activeTab === 'retos' && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 20 }}>
+            <div style={{
+              background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)',
+              boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '18px 0 4px',
+            }}>
+              <RetosPanel userId={userId} transactions={transactions} />
+            </div>
+          </motion.div>
+        )}
 
-        {/* Sueños */}
+        {/* Sueños tab */}
+        {activeTab === 'suenos' && (
         <motion.div variants={riseItem} transition={quickEase}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
-                Mis Sueños
-              </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
                 {suenos.length === 0
                   ? 'Define una meta y crea retos para alcanzarla'
                   : `${suenos.filter(s => s.activo).length} activo${suenos.filter(s => s.activo).length !== 1 ? 's' : ''}`}
               </div>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.93 }}
-              onClick={() => setShowSuenoForm(true)}
-              style={{
-                height: 34, padding: '0 14px',
-                background: 'var(--blue-700)', border: 'none',
-                borderRadius: 'var(--r-xl)', color: '#fff',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5,
-              }}
-            >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Nuevo
-            </motion.button>
           </div>
 
           {suenos.length === 0 ? (
@@ -191,6 +224,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
             </AnimatePresence>
           )}
         </motion.div>
+        )}
       </motion.div>
 
       {/* Form de nuevo sueño */}
