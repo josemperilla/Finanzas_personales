@@ -51,9 +51,10 @@ export function RachaCalendarCard({ userId }: Props) {
   return (
     <div style={{
       background: 'var(--card)',
-      borderRadius: 'var(--r-2xl)',
+      borderRadius: 24,
+      border: '1px solid var(--line)',
       padding: '18px 16px',
-      boxShadow: 'var(--shadow-card)',
+      boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -78,7 +79,7 @@ export function RachaCalendarCard({ userId }: Props) {
             🔥
           </motion.div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: racha > 0 ? 'var(--ink)' : 'var(--muted)', lineHeight: 1, fontFamily: 'var(--font-display)' }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: racha > 0 ? 'var(--orange)' : 'var(--muted)', lineHeight: 1, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>
               {racha}
             </div>
             <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

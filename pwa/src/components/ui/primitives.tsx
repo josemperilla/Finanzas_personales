@@ -34,8 +34,8 @@ type ActionButtonProps = Omit<HTMLMotionProps<'button'>, 'children'> & {
 export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
   ({ variant = 'primary', busy, children, disabled, style, ...props }, ref) => {
     const palette = {
-      primary: { background: 'var(--blue-700)', color: '#fff', border: '1px solid transparent', shadow: 'var(--shadow-blue)' },
-      secondary: { background: 'var(--blue-50)', color: 'var(--blue-700)', border: '1px solid var(--blue-100)', shadow: 'none' },
+      primary: { background: 'var(--grad-orange)', color: '#fff', border: '1px solid transparent', shadow: '0 8px 20px rgba(234,88,12,.35)' },
+      secondary: { background: 'var(--blue-50)', color: 'var(--blue)', border: '1px solid var(--blue-100)', shadow: 'none' },
       ghost: { background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--line)', shadow: 'none' },
       danger: { background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid color-mix(in srgb, var(--danger) 20%, transparent)', shadow: 'none' },
     }[variant];
@@ -47,9 +47,10 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
         disabled={disabled || busy}
         aria-busy={busy}
         style={{
-          minHeight: 'var(--touch-min)', borderRadius: 'var(--r-md)', padding: '0 16px',
+          minHeight: 'var(--touch-min)', borderRadius: 16, padding: '0 20px',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          fontWeight: 700, cursor: disabled || busy ? 'default' : 'pointer',
+          fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: '-0.01em',
+          cursor: disabled || busy ? 'default' : 'pointer',
           opacity: disabled ? 0.55 : 1, boxShadow: palette.shadow,
           background: palette.background, color: palette.color, border: palette.border,
           ...style,

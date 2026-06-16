@@ -19,38 +19,39 @@ export function RachaDisplay({ userId, onPress, gamificationKey }: Props) {
 
   const scale = racha === 0 ? 0.8 : racha >= 30 ? 1.3 : racha >= 7 ? 1.1 : 1.0;
 
+  const isActive = racha > 0;
+
   return (
     <motion.button
       whileTap={{ scale: 0.92 }}
       onClick={onPress}
       style={{
-        background: 'none', border: 'none', padding: 0,
+        background: isActive ? 'var(--orange-soft)' : 'var(--surface-2)',
+        border: isActive ? '1px solid rgba(234,88,12,.18)' : '1px solid var(--line)',
+        borderRadius: 999,
+        padding: '6px 12px 6px 8px',
         cursor: onPress ? 'pointer' : 'default',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+        display: 'flex', alignItems: 'center', gap: 5,
+        WebkitTapHighlightColor: 'transparent',
       }}
       aria-label={`Racha: ${racha} días consecutivos`}
     >
-      <motion.div
+      <motion.span
         animate={{ scale, rotate: racha >= 7 ? [0, -5, 5, -3, 3, 0] : 0 }}
         transition={{ ...softSpring, rotate: { duration: 0.5, ease: 'easeInOut' } }}
-        style={{ fontSize: racha >= 7 ? 28 : 24, lineHeight: 1, filter: racha === 0 ? 'grayscale(1) opacity(0.4)' : 'none' }}
+        style={{ fontSize: 16, lineHeight: 1, filter: !isActive ? 'grayscale(1) opacity(0.4)' : 'none', display: 'block' }}
       >
         🔥
-      </motion.div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <motion.span
-          key={racha}
-          initial={{ scale: 1.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={softSpring}
-          style={{ fontSize: 16, fontWeight: 800, color: racha > 0 ? 'var(--ink)' : 'var(--muted)', lineHeight: 1.1 }}
-        >
-          {racha}
-        </motion.span>
-        <span style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {racha === 1 ? 'día' : 'días'}
-        </span>
-      </div>
+      </motion.span>
+      <motion.span
+        key={racha}
+        initial={{ scale: 1.3, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={softSpring}
+        style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: isActive ? 'var(--orange)' : 'var(--muted)', letterSpacing: '-0.01em', lineHeight: 1 }}
+      >
+        {racha}
+      </motion.span>
     </motion.button>
   );
 }

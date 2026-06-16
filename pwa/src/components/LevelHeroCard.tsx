@@ -38,7 +38,7 @@ export function LevelHeroCard({ userId }: Props) {
   return (
     <div style={{
       background: gradient,
-      borderRadius: 'var(--r-2xl)',
+      borderRadius: 24,
       padding: '24px 20px 20px',
       position: 'relative',
       overflow: 'hidden',
@@ -102,7 +102,7 @@ export function LevelHeroCard({ userId }: Props) {
             animate={{ width: `${pct * 100}%` }}
             initial={{ width: 0 }}
             transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
-            style={{ height: '100%', background: 'rgba(255,255,255,0.85)', borderRadius: 8 }}
+            style={{ height: '100%', background: 'var(--orange-2)', borderRadius: 8 }}
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

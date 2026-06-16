@@ -89,23 +89,35 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
         padding: 'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* Avatar + nombre */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      {/* Step indicator */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {(['enter', 'confirm'] as Step[]).map(s => (
+          <motion.div key={s} animate={{ width: step === s ? 24 : 8, background: step === s ? 'var(--blue)' : 'var(--line)' }}
+            transition={{ duration: 0.25 }}
+            style={{ height: 8, borderRadius: 999 }} />
+        ))}
+      </div>
+
+      {/* Logo + título */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <div style={{
-          width: 72, height: 72, borderRadius: '50%',
-          background: 'var(--grad-brand)',
+          width: 72, height: 72, borderRadius: 24,
+          background: 'var(--grad-orange)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
+          boxShadow: '0 8px 24px rgba(234,88,12,.35)',
+          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
         }}>
-          {profile?.initial ?? userId.charAt(0).toUpperCase()}
+          💰
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>
-          Hola, {profile?.name ?? userId}
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 23, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+          {step === 'enter' ? 'Creá tu PIN' : 'Confirmá tu PIN'}
         </div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)', textAlign: 'center', maxWidth: 260 }}>
-          {step === 'enter'
-            ? 'Crea un PIN de 4 a 6 dígitos para proteger tu cuenta'
-            : 'Ingresa el PIN otra vez para confirmarlo'}
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: status === 'error' ? '#ef4444' : 'var(--muted)', textAlign: 'center', maxWidth: 260 }}>
+          {status === 'error'
+            ? 'Los PIN no coinciden, intentá de nuevo'
+            : step === 'enter'
+              ? 'Elige 4 dígitos para proteger tu cuenta'
+              : 'Repetí el PIN para confirmarlo'}
         </div>
       </div>
 
@@ -115,18 +127,18 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
           animate={status === 'error'
             ? { x: [-12,12,-8,8,-4,4,0], transition: { duration: 0.44, ease: 'easeOut' } }
             : { x: 0 }}
-          style={{ display: 'flex', gap: 20 }}
+          style={{ display: 'flex', gap: 22 }}
         >
           {[0,1,2,3].map(i => (
             <motion.div
               key={i}
               animate={{
-                scale: digits.length > i ? 1.18 : 1,
-                backgroundColor: digits.length > i ? dotColor : 'rgba(0,0,0,0)',
-                borderColor: digits.length > i ? dotColor : 'rgba(15,23,42,0.22)',
+                scale: digits.length > i ? 1.12 : 1,
+                backgroundColor: digits.length > i ? dotColor : 'var(--surface-2)',
+                borderColor: digits.length > i ? dotColor : 'var(--line)',
               }}
               transition={softSpring}
-              style={{ width: 13, height: 13, borderRadius: '50%', border: '2.5px solid rgba(15,23,42,0.22)' }}
+              style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--line)' }}
             />
           ))}
         </motion.div>
@@ -156,10 +168,10 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
               onClick={() => handleDigit(key)}
               disabled={status !== 'idle'}
               style={{
-                height: 76, borderRadius: 9999,
-                background: key === '⌫' ? 'transparent' : 'var(--card)',
-                border: key === '⌫' ? 'none' : '1px solid rgba(15,23,42,0.06)',
-                boxShadow: key === '⌫' ? 'none' : 'var(--shadow-card)',
+                height: 72, borderRadius: 9999,
+                background: key === '⌫' ? 'transparent' : 'var(--surface-2)',
+                border: 'none',
+                boxShadow: 'none',
                 color: key === '⌫' ? 'var(--muted)' : 'var(--ink)',
                 fontFamily: key === '⌫' ? 'var(--font-body)' : 'var(--font-display)',
                 fontSize: key === '⌫' ? 22 : 28,

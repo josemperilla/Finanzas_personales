@@ -100,6 +100,12 @@ export const RetoCard = memo(function RetoCard({ progress, onDelete }: Props) {
       ? current > 0 ? formatCOP(current) : 'Sin gastos ✓'
       : `${formatCOP(Math.round(current))} / ${formatCOP(reto.objetivo)}`;
 
+  const headerBg = completed
+    ? 'linear-gradient(100deg, #15803d 0%, #16a34a 100%)'
+    : failed
+      ? 'linear-gradient(100deg, #b91c1c 0%, #dc2626 100%)'
+      : 'linear-gradient(100deg, var(--blue) 0%, #1d4fd0 100%)';
+
   return (
     <motion.div
       layout
@@ -109,62 +115,62 @@ export const RetoCard = memo(function RetoCard({ progress, onDelete }: Props) {
       transition={quickEase}
       style={{
         position: 'relative',
-        background: statusBg,
-        borderRadius: 'var(--r-xl)',
-        padding: '14px 14px 12px',
-        border: `1.5px solid ${completed ? '#bbf7d0' : failed ? '#fecaca' : 'var(--line)'}`,
+        borderRadius: 20,
+        border: '1px solid var(--line)',
         overflow: 'hidden',
       }}
     >
       {completed && <Confetti />}
 
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {reto.titulo}
+      {/* Blue gradient header */}
+      <div style={{ background: headerBg, padding: '16px 18px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: reto.tipo !== 'no_spend' ? 12 : 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600, marginBottom: 3 }}>
+              {TIPO_LABEL[reto.tipo]}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {reto.titulo}
+            </div>
+            <div style={{ marginTop: 4 }}><TargetChips reto={reto} /></div>
           </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{TIPO_LABEL[reto.tipo]}</span>
-            <TargetChips reto={reto} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, color: '#fff' }}>
+              {diasRestantes === 0 ? 'Hoy' : `${diasRestantes}d`}
+            </span>
+            <button
+              onClick={onDelete}
+              style={{ background: 'rgba(255,255,255,.18)', border: 'none', cursor: 'pointer', fontSize: 14, color: '#fff', width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+            >
+              ×
+            </button>
           </div>
         </div>
-        <button
-          onClick={onDelete}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--muted)', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
-        >
-          ×
-        </button>
-      </div>
 
-      {/* Progress bar */}
-      {reto.tipo !== 'no_spend' && (
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ height: 6, borderRadius: 999, background: 'var(--line)', overflow: 'hidden' }}>
+        {/* Progress bar in header */}
+        {reto.tipo !== 'no_spend' && (
+          <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${pct * 100}%` }}
+              animate={{ width: `${Math.min(pct * 100, 100)}%` }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              style={{ height: '100%', borderRadius: 999, background: barColor }}
+              style={{ height: '100%', borderRadius: 999, background: 'var(--orange-2)' }}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Footer row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: statusText }}>
-          {goalLabel}
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-          {completed
-            ? '✓ Completado'
-            : failed
-              ? '✗ Límite superado'
-              : diasRestantes === 0
-                ? 'Hoy termina'
-                : `${diasRestantes} día${diasRestantes !== 1 ? 's' : ''} restante${diasRestantes !== 1 ? 's' : ''}`}
-        </span>
+      {/* Surface footer */}
+      <div style={{ background: 'var(--card)', padding: '14px 18px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: reto.tipo !== 'no_spend' ? 0 : 0 }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Progreso</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: statusText }}>
+            {goalLabel}
+          </span>
+        </div>
+        <div style={{ fontSize: 11, color: completed ? 'var(--good)' : failed ? '#ef4444' : 'var(--muted)', marginTop: 4 }}>
+          {completed ? '✓ Completado' : failed ? '✗ Límite superado' : diasRestantes === 0 ? 'Termina hoy' : `${diasRestantes} día${diasRestantes !== 1 ? 's' : ''} restante${diasRestantes !== 1 ? 's' : ''}`}
+        </div>
       </div>
     </motion.div>
   );

@@ -22,11 +22,11 @@ export function Progreso({ userId, transactions }: Props) {
 
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 100 }}>
-      <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 16px 0', marginBottom: 16 }}>
-        <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+      <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 0', marginBottom: 20 }}>
+        <p style={{ margin: '0 0 3px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
           Mi aventura
         </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
           Progreso
         </h1>
       </div>
@@ -50,8 +50,8 @@ export function Progreso({ userId, transactions }: Props) {
         {/* Círculos de bienestar expandidos */}
         <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
           <div style={{
-            background: 'var(--card)', borderRadius: 'var(--r-2xl)',
-            padding: '18px 16px', boxShadow: 'var(--shadow-card)',
+            background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)',
+            padding: '18px 16px', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
           }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 16 }}>
               Hábitos de esta semana
@@ -108,8 +108,8 @@ export function Progreso({ userId, transactions }: Props) {
         {/* Galería de badges */}
         <motion.div variants={riseItem} transition={quickEase}>
           <div style={{
-            background: 'var(--card)', borderRadius: 'var(--r-2xl)',
-            padding: '18px 16px', boxShadow: 'var(--shadow-card)',
+            background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)',
+            padding: '18px 16px', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
           }}>
             <BadgeGallery userId={userId} />
           </div>

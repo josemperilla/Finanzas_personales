@@ -374,39 +374,28 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && selectedOffset === 0 && desafioActual && desafioProgress && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <div style={{
-              background: 'var(--card)',
-              borderRadius: 'var(--r-2xl)',
-              padding: '14px 16px',
-              boxShadow: 'var(--shadow-card)',
+              background: desafioCompletadoHoy
+                ? 'linear-gradient(100deg, #15803d 0%, #16a34a 100%)'
+                : 'linear-gradient(100deg, var(--blue) 0%, #1d4fd0 100%)',
+              borderRadius: 20, padding: '16px 18px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 18 }}>{desafioActual.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>
-                    Desafío: {desafioActual.titulo}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
-                    {desafioActual.descripcion}
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
                 </div>
-                {desafioCompletadoHoy && (
-                  <span style={{ fontSize: 18 }}>✅</span>
-                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
               </div>
-              <div style={{ background: 'var(--surface)', borderRadius: 999, height: 6, overflow: 'hidden' }}>
+              <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(desafioProgress.pct * 100, 100)}%` }}
                   transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                  style={{
-                    height: '100%',
-                    background: desafioCompletadoHoy ? '#22c55e' : 'var(--accent)',
-                    borderRadius: 999,
-                  }}
+                  style={{ height: '100%', background: 'var(--orange-2)', borderRadius: 999 }}
                 />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, textAlign: 'right' }}>
-                {desafioProgress.texto}
               </div>
             </div>
           </motion.div>
@@ -419,21 +408,22 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           style={{
-            background: 'var(--card)', borderRadius: 'var(--r-2xl)',
-            padding: 22, boxShadow: 'var(--shadow-card)',
+            background: 'var(--card)', borderRadius: 24,
+            border: '1px solid var(--line)',
+            padding: 22, boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
             marginBottom: 14, overflow: 'hidden',
             touchAction: 'pan-y',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(-1)} disabled={selectedOffset <= -11}
                 style={{ background: 'none', border: 'none', cursor: selectedOffset <= -11 ? 'default' : 'pointer', color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
                 ‹
               </motion.button>
               <motion.span key={selectedOffset} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={quickEase}
-                style={{ fontSize: 13.5, color: 'var(--muted)', minWidth: 86, textAlign: 'center', fontFamily: 'var(--font-body)' }}>
-                {selectedOffset === 0 ? 'Este mes' : selMonthStr}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)', minWidth: 86, textAlign: 'center' }}>
+                {selectedOffset === 0 ? 'Gastos de ' + new Date().toLocaleString('es-CO', { month: 'long' }) : selMonthStr}
               </motion.span>
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0}
                 style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
@@ -441,12 +431,12 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               </motion.button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
                 {loading ? '—' : formatCOP(animatedTotal)}
               </span>
               {!loading && totalPrev > 0 && selectedOffset === 0 && (
                 <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={softSpring}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: diff <= 0 ? '#dcfce7' : '#fee2e2', color: diff <= 0 ? '#15803d' : '#b91c1c', fontSize: 11, fontWeight: 600 }}>
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: diff <= 0 ? 'var(--good-soft)' : '#fee2e2', color: diff <= 0 ? 'var(--good)' : '#b91c1c', fontSize: 11, fontWeight: 600 }}>
                   {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
                 </motion.span>
               )}
@@ -586,7 +576,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', padding: '4px 16px' }}
+                style={{ background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '4px 16px' }}
               >
                 {recent.map((tx, i) => (
                   <div key={i}>
@@ -697,23 +687,23 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
 
   return (
     <motion.div
-      animate={{ backgroundColor: highlighted ? 'rgba(37,99,235,0.08)' : 'rgba(255,255,255,0)', scale: highlighted ? 1.01 : 1 }}
+      animate={{ backgroundColor: highlighted ? 'rgba(37,99,235,0.06)' : 'transparent', scale: highlighted ? 1.01 : 1 }}
       transition={softSpring}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 8px', margin: '0 -8px', borderRadius: 14 }}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderRadius: 14 }}
     >
-      <MerchantLogo domain={domain} name={name} size={38} color={color} />
+      <MerchantLogo domain={domain} name={name} size={40} color={color} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>
           {name}
         </div>
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{tx.Categoría || 'Otro'} · {formatDateShort(fecha)}</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{tx.Categoría || 'Otro'} · {formatDateShort(fecha)}</div>
         {tx.Nota && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
             {tx.Nota}
           </div>
         )}
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: isIncome ? '#16a34a' : 'var(--ink)', flexShrink: 0 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14.5, fontWeight: 700, color: isIncome ? 'var(--good)' : 'var(--ink)', flexShrink: 0, letterSpacing: '-0.02em' }}>
         {isIncome ? '+' : '−'}{formatCOP(Number(tx['Monto (COP)']))}
       </div>
     </motion.div>

@@ -106,7 +106,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
         <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Objetivos
         </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', margin: 0, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
           Misiones
         </h1>
       </div>
@@ -116,8 +116,8 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
         {/* Retos activos */}
         <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 20 }}>
           <div style={{
-            background: 'var(--card)', borderRadius: 'var(--r-2xl)',
-            boxShadow: 'var(--shadow-card)', padding: '18px 0 4px',
+            background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)',
+            boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '18px 0 4px',
           }}>
             <RetosPanel userId={userId} transactions={transactions} />
           </div>

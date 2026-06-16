@@ -30,8 +30,8 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
 
   return (
     <div style={{
-      background: 'var(--surface)',
-      borderRadius: 16,
+      background: 'var(--card)',
+      borderRadius: 20,
       padding: compact ? '14px 16px' : '18px 18px',
       border: '1px solid var(--line)',
     }}>
@@ -39,10 +39,10 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <span style={{ fontSize: compact ? 24 : 28 }}>{sueno.emoji}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--ink)', lineHeight: 1.2 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--ink)', lineHeight: 1.2 }}>
             {sueno.nombre}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>
             {calc.mesesRestantes >= 1
               ? `${Math.ceil(calc.mesesRestantes)} ${Math.ceil(calc.mesesRestantes) === 1 ? 'mes' : 'meses'} restantes`
               : `${calc.diasRestantes} días restantes`}
@@ -72,14 +72,14 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
       {/* Barra de progreso */}
       <div style={{ marginBottom: compact ? 8 : 12 }}>
         <div style={{
-          height: barHeight, background: 'var(--line)',
+          height: barHeight, background: 'var(--surface-2)',
           borderRadius: barHeight, overflow: 'hidden',
         }}>
           <motion.div
             animate={{ width: `${calc.pctCompletado * 100}%` }}
             initial={{ width: 0 }}
             transition={{ ...softSpring, duration: 0.8 }}
-            style={{ height: '100%', background: color, borderRadius: barHeight }}
+            style={{ height: '100%', background: calc.pctCompletado >= 1 ? '#f59e0b' : 'var(--blue)', borderRadius: barHeight }}
           />
         </div>
         {!compact && (

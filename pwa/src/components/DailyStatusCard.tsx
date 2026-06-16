@@ -32,9 +32,10 @@ export function DailyStatusCard({ userId, monthTx, retosProgress }: Props) {
   return (
     <div style={{
       background: 'var(--card)',
-      borderRadius: 'var(--r-2xl)',
+      borderRadius: 24,
+      border: '1px solid var(--line)',
       padding: '16px',
-      boxShadow: 'var(--shadow-card)',
+      boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
       marginBottom: 14,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

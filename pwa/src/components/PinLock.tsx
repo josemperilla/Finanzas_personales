@@ -154,10 +154,10 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
   const rows = [['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']];
   const isLocked = lockSecondsLeft > 0;
 
-  const dotColor = status === 'success' ? '#22c55e'
+  const dotColor = status === 'success' ? 'var(--good)'
     : status === 'error' ? '#ef4444'
-    : isLocked ? '#94a3b8'
-    : 'var(--blue-700)';
+    : isLocked ? 'var(--muted)'
+    : 'var(--blue)';
 
   return (
     <motion.div
@@ -214,18 +214,18 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
             ? { x: [-14, 14, -10, 10, -5, 5, 0], transition: { duration: 0.46, ease: 'easeOut' } }
             : { x: 0 }
           }
-          style={{ display: 'flex', gap: 20 }}
+          style={{ display: 'flex', gap: 22 }}
         >
           {[0,1,2,3].map(i => (
             <motion.div
               key={i}
               animate={{
-                scale: digits.length > i ? 1.18 : 1,
-                backgroundColor: digits.length > i ? dotColor : 'rgba(0,0,0,0)',
-                borderColor: digits.length > i ? dotColor : 'rgba(15,23,42,0.22)',
+                scale: digits.length > i ? 1.12 : 1,
+                backgroundColor: digits.length > i ? dotColor : 'var(--surface-2)',
+                borderColor: digits.length > i ? dotColor : 'var(--line)',
               }}
               transition={softSpring}
-              style={{ width: 13, height: 13, borderRadius: '50%', border: '2.5px solid rgba(15,23,42,0.22)' }}
+              style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--line)' }}
             />
           ))}
         </motion.div>
@@ -266,11 +266,11 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
               onClick={() => key === '⌫' ? handleDelete() : handleDigit(key)}
               disabled={isLocked || status !== 'idle'}
               style={{
-                height: 76, borderRadius: 9999,
-                background: key === '⌫' ? 'transparent' : 'var(--card)',
-                border: key === '⌫' ? 'none' : '1px solid rgba(15,23,42,0.06)',
-                boxShadow: key === '⌫' ? 'none' : 'var(--shadow-card)',
-                color: isLocked ? '#cbd5e1' : key === '⌫' ? 'var(--muted)' : 'var(--ink)',
+                height: 72, borderRadius: 9999,
+                background: key === '⌫' ? 'transparent' : 'var(--surface-2)',
+                border: 'none',
+                boxShadow: 'none',
+                color: isLocked ? 'var(--muted)' : key === '⌫' ? 'var(--muted)' : 'var(--ink)',
                 fontFamily: key === '⌫' ? 'var(--font-body)' : 'var(--font-display)',
                 fontSize: key === '⌫' ? 22 : 28,
                 fontWeight: key === '⌫' ? 400 : 600,
@@ -342,7 +342,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
               whileTap={{ scale: 0.97 }}
               onClick={activateBiometric}
               style={{
-                height: 50, background: 'var(--blue-700)', border: 'none',
+                height: 52, background: 'var(--grad-orange)', border: 'none', boxShadow: '0 8px 20px rgba(234,88,12,.35)',
                 borderRadius: 14, color: '#fff', fontSize: 'var(--text-base)',
                 fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
               }}

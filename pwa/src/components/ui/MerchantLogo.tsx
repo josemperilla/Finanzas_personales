@@ -23,7 +23,7 @@ export function MerchantLogo({ domain, name, size = 38, color }: Props) {
     <div style={{
       width: size,
       height: size,
-      borderRadius: Math.round(size * 0.29),
+      borderRadius: Math.round(size * 0.325),
       flexShrink: 0,
       background: src ? '#fff' : color,
       border: src ? '1px solid var(--line)' : 'none',

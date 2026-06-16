@@ -83,9 +83,10 @@ export function MetaMensualWidget({ monthTx, userId }: Props) {
     <motion.div style={{ marginBottom: 14 }}>
       <div style={{
         background: 'var(--card)',
-        borderRadius: 'var(--r-2xl)',
+        borderRadius: 24,
+        border: '1px solid var(--line)',
         padding: '14px 16px',
-        boxShadow: 'var(--shadow-card)',
+        boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

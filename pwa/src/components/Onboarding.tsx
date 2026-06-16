@@ -56,9 +56,11 @@ const IOS_AUTOMATION_STEPS = [
 ];
 
 const primaryBtn: React.CSSProperties = {
-  width: '100%', height: 50, borderRadius: 14, border: 'none',
-  background: 'var(--blue-700)', color: '#fff',
-  fontSize: 'var(--text-base)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+  width: '100%', height: 52, borderRadius: 16, border: 'none',
+  background: 'var(--grad-orange)', color: '#fff',
+  fontSize: 'var(--text-base)', fontWeight: 700, cursor: 'pointer',
+  fontFamily: 'var(--font-display)', letterSpacing: '-0.01em',
+  boxShadow: '0 8px 20px rgba(234,88,12,.35)',
 };
 const ghostBtn: React.CSSProperties = {
   width: '100%', height: 50, background: 'none', border: '1px solid var(--line)', borderRadius: 14,
@@ -160,12 +162,23 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
         padding: 'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
       }}
     >
+      {/* Logo mark */}
+      <div style={{
+        width: 64, height: 64, borderRadius: 22,
+        background: 'var(--grad-orange)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 8px 24px rgba(234,88,12,.35)',
+        fontSize: 28, marginBottom: 8, flexShrink: 0,
+      }}>
+        💰
+      </div>
+
       {/* Dots de progreso */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 32, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexShrink: 0 }}>
         {STEPS.map((s, i) => (
           <div key={s} style={{
-            width: i === stepIndex ? 22 : 8, height: 8, borderRadius: 4,
-            background: i <= stepIndex ? claseColor : 'var(--line)',
+            width: i === stepIndex ? 24 : 8, height: 8, borderRadius: 999,
+            background: i <= stepIndex ? (i === stepIndex ? 'var(--blue)' : 'var(--blue-soft)') : 'var(--line)',
             transition: 'all 0.25s ease',
           }} />
         ))}
