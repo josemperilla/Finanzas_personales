@@ -174,15 +174,29 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
         {/* Sueños tab */}
         {activeTab === 'suenos' && (
         <motion.div variants={riseItem} transition={quickEase}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
-                {suenos.length === 0
-                  ? 'Define una meta y crea retos para alcanzarla'
-                  : `${suenos.filter(s => s.activo).length} activo${suenos.filter(s => s.activo).length !== 1 ? 's' : ''}`}
+          {/* Stats row */}
+          {suenos.filter(s => s.activo).length > 0 && (
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              <div style={{
+                flex: 1, background: 'var(--card)', borderRadius: 16, border: '1px solid var(--line)',
+                padding: '12px 14px',
+              }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: 'var(--ink)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  {suenos.filter(s => s.activo).length}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>sueños activos</div>
+              </div>
+              <div style={{
+                flex: 2, background: 'var(--card)', borderRadius: 16, border: '1px solid var(--line)',
+                padding: '12px 14px',
+              }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1 }}>
+                  {formatCOP(suenos.filter(s => s.activo).reduce((sum, s) => sum + (s.ahorrado || 0), 0))}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>ahorrados en total</div>
               </div>
             </div>
-          </div>
+          )}
 
           {suenos.length === 0 ? (
             <motion.div
