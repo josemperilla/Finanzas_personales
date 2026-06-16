@@ -127,6 +127,19 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
 
+  const incomeMonth = useMemo(
+    () => monthTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    [monthTx],
+  );
+  const incomePrev = useMemo(
+    () => prevTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    [prevTx],
+  );
+  const balanceMonth = incomeMonth - totalMonth;
+  const balancePrev = incomePrev - totalPrev;
+  const balanceDiff = balancePrev !== 0 ? ((balanceMonth - balancePrev) / Math.abs(balancePrev)) * 100 : 0;
+  const animatedBalance = useCountUp(loading ? 0 : balanceMonth);
+
   const retosProgress = useMemo(
     () => getRetos(userId).map(r => computeProgress(r, transactions)),
     [userId, transactions],
@@ -352,56 +365,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
-        {/* DailyStatusCard — héroe del día */}
-        {!loading && selectedOffset === 0 && (
-          <motion.div variants={riseItem} transition={quickEase}>
-            <DailyStatusCard
-              userId={userId}
-              monthTx={monthTx}
-              retosProgress={retosProgress}
-            />
-          </motion.div>
-        )}
-
-        {/* Meta mensual */}
-        {!loading && selectedOffset === 0 && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <MetaMensualWidget monthTx={monthTx} userId={userId} />
-          </motion.div>
-        )}
-
-        {/* Desafío mensual — solo si hay uno para este mes */}
-        {!loading && selectedOffset === 0 && desafioActual && desafioProgress && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <div style={{
-              background: desafioCompletadoHoy
-                ? 'linear-gradient(100deg, #15803d 0%, #16a34a 100%)'
-                : 'linear-gradient(100deg, var(--blue) 0%, #1d4fd0 100%)',
-              borderRadius: 20, padding: '16px 18px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
-              </div>
-              <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(desafioProgress.pct * 100, 100)}%` }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                  style={{ height: '100%', background: 'var(--orange-2)', borderRadius: 999 }}
-                />
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Donut chart card */}
+        {/* 1. Donut chart card — protagonista */}
         <motion.div
           variants={riseItem}
           transition={quickEase}
@@ -466,6 +430,82 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             </AnimatePresence>
           )}
         </motion.div>
+
+        {/* 2. Desafío mensual — blue gradient */}
+        {!loading && selectedOffset === 0 && desafioActual && desafioProgress && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <div style={{
+              background: desafioCompletadoHoy
+                ? 'linear-gradient(100deg, #15803d 0%, #16a34a 100%)'
+                : 'linear-gradient(100deg, var(--blue) 0%, #1d4fd0 100%)',
+              borderRadius: 20, padding: '16px 18px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
+              </div>
+              <div style={{ height: 7, borderRadius: 999, background: 'rgba(255,255,255,.2)', overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(desafioProgress.pct * 100, 100)}%` }}
+                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ height: '100%', background: 'var(--orange-2)', borderRadius: 999 }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 3. Balance compacto */}
+        {!loading && incomeMonth > 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 18 }}>
+            <div style={{
+              background: 'var(--card)', border: '1px solid var(--line)',
+              borderRadius: 18, padding: '14px 18px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              boxShadow: '0 1px 2px rgba(16,18,28,.04)',
+            }}>
+              <div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 2 }}>Balance del mes</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 24, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1 }}>
+                  {formatCOP(animatedBalance)}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                {balancePrev !== 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: balanceDiff >= 0 ? 'var(--good-soft)' : '#fee2e2', color: balanceDiff >= 0 ? 'var(--good)' : '#b91c1c', fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 999 }}>
+                    <span style={{ fontSize: 9 }}>{balanceDiff >= 0 ? '▲' : '▼'}</span> {Math.abs(balanceDiff).toFixed(1)}%
+                  </span>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>vs. mes anterior</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 4. DailyStatusCard */}
+        {!loading && selectedOffset === 0 && (
+          <motion.div variants={riseItem} transition={quickEase}>
+            <DailyStatusCard
+              userId={userId}
+              monthTx={monthTx}
+              retosProgress={retosProgress}
+            />
+          </motion.div>
+        )}
+
+        {/* 5. Meta mensual */}
+        {!loading && selectedOffset === 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <MetaMensualWidget monthTx={monthTx} userId={userId} />
+          </motion.div>
+        )}
 
         {/* Primer reto activo (compacto) */}
         {!loading && primerRetoActivo && (

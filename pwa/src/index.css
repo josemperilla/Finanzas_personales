@@ -9,12 +9,20 @@
   --blue-300: #bfd4fb;
   --blue-100: #dbeafe;
   --blue-50:  #e9f0fe;
+  /* shorthand aliases used in components */
+  --blue:      #2563eb;
+  --blue-2:    #3b82f6;
+  --blue-soft: #e9f0fe;
 
   --orange-600: #ea580c;
   --orange-500: #f97316;
   --orange-400: #fb923c;
   --orange-100: #fdeadd;
   --orange-50:  #fff7ed;
+  /* shorthand aliases */
+  --orange:      #ea580c;
+  --orange-2:    #f97316;
+  --orange-soft: #fdeadd;
 
   --ink:       #16171c;
   --ink-2:     #4a4d56;
@@ -287,9 +295,15 @@ select option {
   --blue-50:  #16243f;
   --blue-100: #1e3a8a;
   --blue-300: #60a5fa;
+  --blue:      #3b82f6;
+  --blue-2:    #60a5fa;
+  --blue-soft: #16243f;
 
   --orange-50:  #2e1c10;
   --orange-100: #431407;
+  --orange:      #f97316;
+  --orange-2:    #fb923c;
+  --orange-soft: #2e1c10;
 
   --good:      #22c55e;
   --good-soft: #13301f;
@@ -318,9 +332,15 @@ select option {
     --blue-50:  #16243f;
     --blue-100: #1e3a8a;
     --blue-300: #60a5fa;
+    --blue:      #3b82f6;
+    --blue-2:    #60a5fa;
+    --blue-soft: #16243f;
 
     --orange-50:  #2e1c10;
     --orange-100: #431407;
+    --orange:      #f97316;
+    --orange-2:    #fb923c;
+    --orange-soft: #2e1c10;
 
     --good:      #22c55e;
     --good-soft: #13301f;

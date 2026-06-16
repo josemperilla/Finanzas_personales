@@ -102,8 +102,11 @@ export const DonutChart = memo(function DonutChart({ slices, total, onSliceClick
         </svg>
       </div>
 
-      {/* Legend */}
-      <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+      {/* Legend — 2-column grid */}
+      <motion.div
+        variants={staggerContainer} initial="initial" animate="animate"
+        style={{ marginTop: '18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 18px' }}
+      >
         {nonZero.slice(0, 6).map(s => (
           <motion.div
             key={s.category}
@@ -112,22 +115,18 @@ export const DonutChart = memo(function DonutChart({ slices, total, onSliceClick
             whileTap={onSliceClick ? { scale: 0.97 } : undefined}
             onClick={() => onSliceClick?.(s.category)}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              display: 'flex', alignItems: 'center', gap: 8,
               cursor: onSliceClick ? 'pointer' : 'default',
-              padding: '2px 4px', margin: '0 -4px', borderRadius: 8,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                width: '7px', height: '7px', borderRadius: '50%',
-                background: getCategoryColor(s.category),
-                flexShrink: 0,
-              }} />
-              <span style={{ color: 'var(--muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
-                {s.category}
-              </span>
-            </div>
-            <span style={{ color: 'var(--ink)', fontSize: '13px', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+            <span style={{
+              width: 9, height: 9, borderRadius: 3, flexShrink: 0,
+              background: getCategoryColor(s.category),
+            }} />
+            <span style={{ color: 'var(--ink-2)', fontSize: 12.5, fontFamily: 'var(--font-body)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {s.category}
+            </span>
+            <span style={{ color: 'var(--ink)', fontSize: 11.5, fontFamily: 'var(--font-mono)', fontWeight: 600, flexShrink: 0 }}>
               {formatCOP(s.amount)}
             </span>
           </motion.div>
