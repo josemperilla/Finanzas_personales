@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
-import { getShortcutConfig } from '../lib/api';
 
 type Platform = 'ios' | 'android';
 
@@ -35,11 +34,11 @@ const CARDS: Card[] = [
       'Listo — cada pago se registrará solo',
     ],
     iosPasos: [
-      'Abre la app Atajos (Shortcuts) en tu iPhone',
-      'Busca el Shortcut "Finanzas SMS" y agrégalo',
-      'Edita el shortcut: ingresa tu ID de usuario, la URL del webhook y el secreto',
-      'Activa la automatización: que se ejecute cuando recibes un SMS bancario',
-      'Listo — cada pago se registrará solo',
+      'Toca "Instalar Shortcut" aquí abajo para agregar el atajo a tu iPhone',
+      'Abre Atajos → Automatización → + → Nueva Automatización → Mensaje',
+      'Escribe "$" en "contiene" — deja "De" en "Cualquiera"',
+      'Activa "Ejecutar inmediatamente" → desactiva "Preguntar antes de ejecutar"',
+      'Toca Siguiente → elige el Shortcut recién instalado → Listo',
     ],
     androidPasos: [
       'Android no permite a apps de terceros leer SMS bancarios directamente',
@@ -47,7 +46,7 @@ const CARDS: Card[] = [
       'O importa tus movimientos manualmente con el canal de Extracto',
     ],
     nota: 'Funciona con Bancolombia, Davivienda, Banco de Bogotá e Itaú',
-    iosNota: 'Funciona con Bancolombia, Davivienda, Banco de Bogotá e Itaú',
+    iosNota: 'La primera vez que llegue un SMS bancario, el Shortcut te pedirá tu ID (te lo mostramos abajo). ¡Solo una vez! Funciona con cualquier banco.',
     androidNota: 'Para Android, el canal recomendado es Notificaciones push.',
   },
   {
@@ -113,83 +112,14 @@ function getNota(card: Card, platform: Platform | null): string | undefined {
   return card.androidNota ?? card.nota;
 }
 
-interface ShortcutConfig {
-  webhookUrl: string;
-  secret: string;
-}
-
-function CopyField({ label, value, secret }: { label: string; value: string; secret?: boolean }) {
+function ShortcutSetup({ userId }: { userId: string }) {
   const [copied, setCopied] = useState(false);
-  const [revealed, setRevealed] = useState(false);
 
-  function copy() {
-    navigator.clipboard.writeText(value).then(() => {
+  function copyId() {
+    navigator.clipboard.writeText(userId).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     });
-  }
-
-  const display = secret && !revealed ? '•'.repeat(Math.min(value.length, 16)) : value;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        background: 'var(--card)', border: '1px solid var(--line)',
-        borderRadius: 10, padding: '7px 10px',
-      }}>
-        <span style={{
-          flex: 1, fontSize: 12, fontFamily: 'monospace',
-          color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          letterSpacing: secret && !revealed ? '0.1em' : undefined,
-        }}>
-          {display}
-        </span>
-        {secret && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setRevealed(r => !r)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', color: 'var(--muted)', fontSize: 14 }}
-          >
-            {revealed ? '🙈' : '👁'}
-          </motion.button>
-        )}
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={copy}
-          style={{
-            background: copied ? 'var(--emerald-500, #10b981)' : 'var(--blue-600)',
-            border: 'none', borderRadius: 7, padding: '4px 10px',
-            color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', transition: 'background 0.2s',
-          }}
-        >
-          {copied ? '✓' : 'Copiar'}
-        </motion.button>
-      </div>
-    </div>
-  );
-}
-
-function ShortcutCredentials({ userId }: { userId: string }) {
-  const [loading, setLoading] = useState(false);
-  const [config, setConfig] = useState<ShortcutConfig | null>(null);
-  const [error, setError] = useState('');
-
-  async function load() {
-    setLoading(true);
-    setError('');
-    try {
-      const cfg = await getShortcutConfig();
-      setConfig(cfg);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al cargar');
-    } finally {
-      setLoading(false);
-    }
   }
 
   return (
@@ -197,11 +127,8 @@ function ShortcutCredentials({ userId }: { userId: string }) {
       background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
       borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
     }}>
-      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)' }}>
-        Paso 1 — Instala el Shortcut
-      </div>
       <motion.a
-        href="https://www.icloud.com/shortcuts/7f14dfbf9b814a008b728879787ae0c5"
+        href="https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858"
         target="_blank"
         rel="noopener noreferrer"
         whileTap={{ scale: 0.97 }}
@@ -214,43 +141,36 @@ function ShortcutCredentials({ userId }: { userId: string }) {
       >
         <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
       </motion.a>
+      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)' }}>
+        La primera vez que llegue un SMS bancario, el Shortcut pedirá tu ID:
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'var(--card)', border: '1.5px solid var(--blue-300, #93c5fd)',
+        borderRadius: 10, padding: '10px 14px',
+      }}>
+        <span style={{
+          flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20,
+          color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.06em',
+        }}>
+          {userId}
+        </span>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={copyId}
+          style={{
+            background: copied ? '#10b981' : 'var(--blue-600)',
+            border: 'none', borderRadius: 7, padding: '4px 10px',
+            color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'var(--font-body)', transition: 'background 0.2s', whiteSpace: 'nowrap',
+          }}
+        >
+          {copied ? '✓ Copiado' : 'Copiar ID'}
+        </motion.button>
+      </div>
       <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
-        Tarda menos de 2 minutos. Toca el botón de arriba para instalarlo.
+        Solo lo pregunta una vez — queda guardado para siempre.
       </div>
-
-      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)', marginTop: 4 }}>
-        Paso 2 — Copia tus datos de configuración
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
-        Reemplaza los valores del Shortcut con estos datos.
-      </div>
-      {!config && (
-        <>
-          {error && (
-            <div style={{ fontSize: 12, color: 'var(--red-600, #dc2626)' }}>{error}</div>
-          )}
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={load}
-            disabled={loading}
-            style={{
-              height: 38, background: 'none', border: '1.5px solid var(--blue-300, #93c5fd)',
-              borderRadius: 10, color: 'var(--blue-700)', fontSize: 'var(--text-sm)', fontWeight: 600,
-              cursor: loading ? 'default' : 'pointer', fontFamily: 'var(--font-body)',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? 'Cargando…' : 'Ver mis datos de configuración'}
-          </motion.button>
-        </>
-      )}
-      {config && (
-        <>
-          <CopyField label="Tu ID de usuario" value={userId} />
-          <CopyField label="URL del webhook" value={config.webhookUrl} />
-          <CopyField label="Secreto" value={config.secret} secret />
-        </>
-      )}
     </div>
   );
 }
@@ -258,9 +178,14 @@ function ShortcutCredentials({ userId }: { userId: string }) {
 export function TutorialCanales({ userId, onClose, initialCard }: Props) {
   const PLATFORM_KEY = `fm_tutorial_platform_${userId}`;
 
-  const [platform, setPlatform] = useState<Platform | null>(
-    () => (localStorage.getItem(PLATFORM_KEY) as Platform | null)
-  );
+  const [platform, setPlatform] = useState<Platform | null>(() => {
+    const stored = localStorage.getItem(PLATFORM_KEY) as Platform | null;
+    if (stored) return stored;
+    const ua = navigator.userAgent;
+    const detected: Platform | null = /iPhone|iPad|iPod/.test(ua) ? 'ios' : /Android/.test(ua) ? 'android' : null;
+    if (detected) localStorage.setItem(PLATFORM_KEY, detected);
+    return detected;
+  });
   const [idx, setIdx] = useState(initialCard ?? 0);
   const [direction, setDirection] = useState(1);
 
@@ -418,9 +343,9 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
                   ))}
                 </ol>
 
-                {/* Credenciales del shortcut — solo iOS + card SMS */}
+                {/* Setup del shortcut — solo iOS + card SMS */}
                 {platform === 'ios' && idx === 0 && (
-                  <ShortcutCredentials userId={userId} />
+                  <ShortcutSetup userId={userId} />
                 )}
 
                 {getNota(card, platform) && (

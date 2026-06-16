@@ -1,10 +1,10 @@
 # Configuración del iPhone — iOS Shortcuts
 
-Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu ID de usuario automáticamente la primera vez y lo guarda. Quien lo instale desde el link solo escribe su ID una vez.
+Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu banco automáticamente y te pide tu ID de usuario la primera vez (nunca más).
 
 ---
 
-## Opción A — Instalar desde link (recomendado para nuevos usuarios)
+## Opción A — Instalar desde link (recomendado)
 
 1. Abre este link en tu iPhone: **https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858**
 2. Toca **Add Shortcut**
@@ -14,15 +14,15 @@ Solo necesitas **una automatización de SMS** que funciona para todos los bancos
 6. Toca **Next** → busca el Shortcut recién instalado y selecciónalo
 7. Toca **Done**
 
-La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario, lo guarda en iCloud Drive, y nunca vuelve a preguntar.
+La primera vez que llegue un SMS bancario con `$`, el Shortcut pregunta tu ID de usuario, lo guarda en iCloud Drive, y nunca vuelve a preguntar.
+
+> **¿Cuál es mi ID?** Lo ves en la app → Tutorial → canal SMS, o en Ajustes → perfil.
 
 ---
 
 ## Opción B — Crear desde ceros (para el admin o si el link no funciona)
 
-### Shortcut personal (userId fijo)
-
-#### Crear la automatización
+### Crear la automatización
 
 1. Abre **Shortcuts** → pestaña **Automation** (ícono de reloj, barra inferior)
 2. Toca **+** → **New Automation**
@@ -31,55 +31,27 @@ La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario,
 5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
 6. Toca **Next**
 
-#### La acción
-
-7. Toca **Add Action** → busca **"Get Contents of URL"**
-8. URL: `https://finanzas-abiertas.pages.dev/api/sms`
-9. Toca **Show More** → Method: **POST** → Request Body: **JSON**
-10. Toca **+** y agrega los campos:
-
-| Key | Value |
-|-----|-------|
-| `userId` | escribe tu ID (ej: `jose`) |
-| `sms` | `{x}` → **Message Content** |
-| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
-
-11. Toca **✓** → **Don't Ask** → **Done**
-
----
-
-### Shortcut replicable (pide el ID la primera vez)
-
-#### Crear la automatización
-
-1. Abre **Shortcuts** → pestaña **Automation**
-2. Toca **+** → **New Automation**
-3. Selecciona **Message**
-4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
-5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
-6. Toca **Next**
-
-#### Acción 1 — Leer el ID guardado (puede no existir aún)
+### Acción 1 — Leer el ID guardado (puede no existir aún)
 
 7. Toca **Add Action** → busca **"Get File from Folder"**
 8. Folder: **Shortcuts**
 9. File Name: `finanzas_usuario.txt`
 10. **"Error If Not Found"** → **OFF**
 
-#### Acción 2 — Condición: ¿ya tenemos el ID?
+### Acción 2 — Condición: ¿ya tenemos el ID?
 
 11. Toca **Add Action** → busca **"If"**
 12. Primer campo: toca → selecciona **Name** (resultado Acción 1)
 13. Operador: **does not have any value**
 
-#### Acción 3 — (DENTRO del If) Pedir el ID
+### Acción 3 — (DENTRO del If) Pedir el ID
 
 14. Toca el **+** DENTRO del bloque "If" (entre "If" y "Otherwise")
 15. Busca **"Ask For Input"**
 16. Pregunta: `¿Cuál es tu user ID de Finanzas Personales?`
 17. Type: **Text**
 
-#### Acción 4 — (DENTRO del If) Guardar el ID
+### Acción 4 — (DENTRO del If) Guardar el ID
 
 18. Toca el **+** DENTRO del bloque "If" (debajo de "Ask For Input")
 19. Busca **"Save File"**
@@ -88,7 +60,7 @@ La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario,
 22. Subpath: `finanzas_usuario.txt`
 23. **"Overwrite If File Exists"** → **ON**
 
-#### Acción 5 — Leer el ID (FUERA del If, siempre existe)
+### Acción 5 — Leer el ID (FUERA del If, siempre existe)
 
 24. Toca el **+** DEBAJO de "End If"
 25. Busca **"Get File from Folder"**
@@ -96,7 +68,7 @@ La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario,
 27. File Name: `finanzas_usuario.txt`
 28. **"Error If Not Found"** → **ON**
 
-#### Acción 6 — Enviar al servidor
+### Acción 6 — Enviar al servidor
 
 29. Toca **+** → busca **"Get Contents of URL"**
 30. URL: `https://finanzas-abiertas.pages.dev/api/sms`
@@ -111,10 +83,7 @@ La primera vez que llegue un SMS con `$`, el Shortcut pregunta tu ID de usuario,
 
 33. Toca **✓** → **Don't Ask** → **Done**
 
-#### Compartir
-
-34. En **My Shortcuts**, toca **···** sobre el Shortcut → **Share** → **Copy iCloud Link**
-35. Comparte ese link — quien lo instale, la primera vez que llegue un SMS con `$` el Shortcut pregunta su ID, lo guarda, y nunca vuelve a preguntar
+> El servidor inyecta el secreto automáticamente — no necesitas configurarlo en el Shortcut.
 
 ---
 

@@ -8,26 +8,30 @@
   --blue-500: #3b82f6;
   --blue-300: #bfd4fb;
   --blue-100: #dbeafe;
-  --blue-50:  #eff6ff;
+  --blue-50:  #e9f0fe;
 
   --orange-600: #ea580c;
   --orange-500: #f97316;
   --orange-400: #fb923c;
-  --orange-100: #ffedd5;
+  --orange-100: #fdeadd;
   --orange-50:  #fff7ed;
 
-  --ink:      #0f172a;
-  --ink-2:    #1e293b;
-  --muted:    #64748b;
-  --muted-2:  #94a3b8;
-  --line:     #e9eef5;
-  --surface:  #f6f8fc;
-  --card:     #ffffff;
-  --white:    #ffffff;
+  --ink:       #16171c;
+  --ink-2:     #4a4d56;
+  --muted:     #8d909a;
+  --muted-2:   #8d909a;
+  --line:      #ecece6;
+  --surface:   #f5f5f2;
+  --card:      #ffffff;
+  --surface-2: #f0f0ec;
+  --white:     #ffffff;
 
-  --font-display: 'Syne', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  --good:      #15a34a;
+  --good-soft: #e4f6ea;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Plus Jakarta Sans', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
 
   /* ── Escala tipográfica ─────────────────────────────────── */
   --text-2xs:  11px;  /* timestamps, badges muy secundarios   */
@@ -49,16 +53,17 @@
   --r-2xl:  24px;
   --r-pill: 999px;
 
-  --shadow-card:   0 10px 30px rgba(15,23,42,0.05);
-  --shadow-blue:   0 8px 20px rgba(29,78,216,0.28);
-  --shadow-orange: 0 8px 20px rgba(249,115,22,0.30);
-  --shadow-float:  0 24px 50px rgba(15,23,42,0.16);
-  --shadow-nav:    0 -12px 36px rgba(15,23,42,0.08);
+  --shadow-card:   0 2px 8px rgba(16,18,28,0.06), 0 1px 2px rgba(16,18,28,0.04);
+  --shadow-blue:   0 8px 20px rgba(37,99,235,0.28);
+  --shadow-orange: 0 8px 20px rgba(249,115,22,0.32);
+  --shadow-float:  0 24px 50px rgba(16,18,28,0.16);
+  --shadow-nav:    0 -4px 24px rgba(16,18,28,0.06);
   --shadow-focus:  0 0 0 4px rgba(37,99,235,0.16);
 
-  --grad-brand:  linear-gradient(150deg, #1d4ed8, #2563eb 60%, #1e40af);
-  --grad-card:   linear-gradient(125deg, #1d4ed8 0%, #2563eb 45%, #f97316 130%);
-  --grad-accent: linear-gradient(90deg, #2563eb, #f97316);
+  --grad-brand:   linear-gradient(150deg, #1d4ed8, #2563eb 60%, #1e40af);
+  --grad-card:    linear-gradient(125deg, #1d4ed8 0%, #2563eb 45%, #f97316 130%);
+  --grad-accent:  linear-gradient(90deg, #2563eb, #f97316);
+  --grad-orange:  linear-gradient(135deg, #f97316, #ea580c);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -77,14 +82,14 @@
   --z-overlay: 300;
   --z-toast: 10000;
 
-  --success: #15803d;
-  --success-bg: #dcfce7;
+  --success: #15a34a;
+  --success-bg: #e4f6ea;
   --danger: #b91c1c;
   --danger-bg: #fee2e2;
   --warning: #c2410c;
-  --warning-bg: #ffedd5;
-  --nav-glass: rgba(255, 255, 255, 0.76);
-  --nav-border: rgba(148, 163, 184, 0.28);
+  --warning-bg: #fdeadd;
+  --nav-glass: rgba(245, 245, 242, 0.92);
+  --nav-border: rgba(148, 163, 184, 0.20);
 }
 
 *, *::before, *::after {
@@ -163,6 +168,24 @@ textarea:focus-visible,
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+
+@keyframes pinpulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes blobFloat1 {
@@ -247,26 +270,30 @@ select option {
 
 /* ── Dark mode ─────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --surface:  #0f172a;
-  --card:     #1e293b;
-  --ink:      #f1f5f9;
-  --ink-2:    #e2e8f0;
-  --muted:    #94a3b8;
-  --muted-2:  #64748b;
-  --line:     #334155;
+  --surface:   #0a0d13;
+  --card:      #141923;
+  --surface-2: #1b212c;
+  --ink:       #f2f4f8;
+  --ink-2:     #a7adba;
+  --muted:     #697084;
+  --muted-2:   #697084;
+  --line:      #222a36;
 
-  --blue-50:  #172554;
+  --blue-50:  #16243f;
   --blue-100: #1e3a8a;
   --blue-300: #60a5fa;
 
-  --orange-50:  #2d1500;
+  --orange-50:  #2e1c10;
   --orange-100: #431407;
 
-  --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
+  --good:      #22c55e;
+  --good-soft: #13301f;
+
+  --shadow-card:  0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
   --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
-  --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
-  --nav-glass: rgba(15, 23, 42, 0.78);
-  --nav-border: rgba(148, 163, 184, 0.18);
+  --shadow-blue:  0 8px 20px rgba(59,130,246,0.40);
+  --nav-glass: rgba(10, 13, 19, 0.90);
+  --nav-border: rgba(255, 255, 255, 0.06);
 
   color-scheme: dark;
 }
@@ -274,26 +301,30 @@ select option {
 /* Auto: follow system preference when user hasn't set a manual override */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface:  #0f172a;
-    --card:     #1e293b;
-    --ink:      #f1f5f9;
-    --ink-2:    #e2e8f0;
-    --muted:    #94a3b8;
-    --muted-2:  #64748b;
-    --line:     #334155;
+    --surface:   #0a0d13;
+    --card:      #141923;
+    --surface-2: #1b212c;
+    --ink:       #f2f4f8;
+    --ink-2:     #a7adba;
+    --muted:     #697084;
+    --muted-2:   #697084;
+    --line:      #222a36;
 
-    --blue-50:  #172554;
+    --blue-50:  #16243f;
     --blue-100: #1e3a8a;
     --blue-300: #60a5fa;
 
-    --orange-50:  #2d1500;
+    --orange-50:  #2e1c10;
     --orange-100: #431407;
 
-    --shadow-card:  0 2px 12px rgba(0,0,0,0.45);
+    --good:      #22c55e;
+    --good-soft: #13301f;
+
+    --shadow-card:  0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
     --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
-    --shadow-blue:  0 8px 20px rgba(29,78,216,0.5);
-    --nav-glass: rgba(15, 23, 42, 0.78);
-    --nav-border: rgba(148, 163, 184, 0.18);
+    --shadow-blue:  0 8px 20px rgba(59,130,246,0.40);
+    --nav-glass: rgba(10, 13, 19, 0.90);
+    --nav-border: rgba(255, 255, 255, 0.06);
 
     color-scheme: dark;
   }

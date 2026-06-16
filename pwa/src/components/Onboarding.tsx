@@ -2,8 +2,6 @@ import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setUserNickname, setUserAvatar, getUserAvatar } from '../lib/profiles';
 import { resizeImageToAvatar } from '../lib/avatar';
-import { ImportarExtracto } from './ImportarExtracto';
-import { TutorialCanales } from './TutorialCanales';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { addSueno } from '../lib/suenos';
 import { setMeta } from '../lib/meta';
@@ -44,8 +42,18 @@ interface Props {
   onFinish: () => void;
 }
 
-type Step = 'clase' | 'name' | 'photo' | 'sueno' | 'meta' | 'import' | 'tutorial';
-const STEPS: Step[] = ['clase', 'name', 'photo', 'sueno', 'meta', 'import', 'tutorial'];
+type Step = 'clase' | 'profile' | 'sueno' | 'meta' | 'shortcut';
+const STEPS: Step[] = ['clase', 'profile', 'sueno', 'meta', 'shortcut'];
+
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858';
+const IOS_AUTOMATION_STEPS = [
+  'Abre Atajos → Automatización → + → Nueva Automatización → Mensaje',
+  'En "contiene" escribe: $  —  deja "De" en "Cualquiera"',
+  'Activa "Ejecutar inmediatamente" → desactiva "Preguntar antes de ejecutar"',
+  'Toca Siguiente → selecciona el Shortcut recién instalado → Listo',
+];
 
 const primaryBtn: React.CSSProperties = {
   width: '100%', height: 50, borderRadius: 14, border: 'none',
@@ -65,7 +73,15 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
   const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(userId));
   const [selectedSueno, setSelectedSueno] = useState<number | null>(null);
   const [metaInput, setMetaInput] = useState('');
+  const [copied, setCopied] = useState(false);
   useOverlayA11y(true, undefined, containerRef);
+
+  function copyUserId() {
+    navigator.clipboard.writeText(userId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }
 
   const claseInfo = clase ? CLASES.find(c => c.id === clase) : null;
   const claseColor = claseInfo?.color ?? 'var(--blue-600)';
@@ -73,7 +89,10 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
   function next() {
     const i = STEPS.indexOf(step);
     if (i < STEPS.length - 1) setStep(STEPS[i + 1]);
-    else onFinish();
+    else {
+      localStorage.setItem(`fm_tutorial_seen_${userId}`, '1');
+      onFinish();
+    }
   }
 
   function saveClaseAndNext(c: Clase) {
@@ -82,7 +101,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
     next();
   }
 
-  function saveNameAndNext() {
+  function saveProfileAndNext() {
     const trimmed = name.trim();
     if (trimmed) setUserNickname(userId, trimmed);
     next();
@@ -118,13 +137,6 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
     const monto = parseInt(metaInput.replace(/\D/g, ''), 10);
     if (monto > 0) setMeta(userId, { monto, activo: true });
     next();
-  }
-
-  if (step === 'import') {
-    return <ImportarExtracto userId={userId} onClose={next} showSkipButton />;
-  }
-  if (step === 'tutorial') {
-    return <TutorialCanales userId={userId} onClose={onFinish} />;
   }
 
   const stepIndex = STEPS.indexOf(step);
@@ -197,25 +209,42 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
             </motion.div>
           )}
 
-          {/* ── Paso 2: Nombre ── */}
-          {step === 'name' && (
-            <motion.div key="name" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+          {/* ── Paso 2: Perfil (nombre + foto) ── */}
+          {step === 'profile' && (
+            <motion.div key="profile" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
               style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 44, marginBottom: 10 }}>{claseInfo?.emoji ?? '👋'}</div>
                 <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
                   ¿Cómo te llamas?
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  {claseInfo ? `${claseInfo.nombre}, un nombre te distingue` : 'Así te mostraremos en la app'}
+                  {claseInfo ? `${claseInfo.nombre}, bienvenido` : 'Así te mostraremos en la app'}
                 </div>
+              </div>
+              <label style={{ cursor: 'pointer' }}>
+                <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
+                <motion.div whileTap={{ scale: 0.96 }} style={{
+                  width: 100, height: 100, borderRadius: '50%',
+                  background: avatar ? 'var(--card)' : claseColor,
+                  border: `4px solid ${claseColor}`,
+                  boxShadow: `0 8px 28px ${claseColor}44`,
+                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 36,
+                }}>
+                  {avatar
+                    ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : (name.trim().charAt(0).toUpperCase() || claseInfo?.emoji || '+')}
+                </motion.div>
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                Toca para añadir una foto · opcional
               </div>
               <input
                 autoFocus
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveNameAndNext(); }}
+                onKeyDown={e => { if (e.key === 'Enter' && name.trim()) saveProfileAndNext(); }}
                 placeholder="Tu nombre"
                 style={{
                   width: '100%', boxSizing: 'border-box', height: 52, padding: '0 16px',
@@ -225,46 +254,10 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                 }}
               />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={saveNameAndNext}
-                  style={{ ...primaryBtn, background: claseColor }}>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={saveProfileAndNext}
+                  disabled={!name.trim()}
+                  style={{ ...primaryBtn, background: name.trim() ? claseColor : 'var(--line)', cursor: name.trim() ? 'pointer' : 'default' }}>
                   Continuar
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Paso 3: Foto ── */}
-          {step === 'photo' && (
-            <motion.div key="photo" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  Tu foto de perfil
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Opcional. Le da un toque personal a tu cuenta.
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer' }}>
-                <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
-                <motion.div whileTap={{ scale: 0.96 }} style={{
-                  width: 120, height: 120, borderRadius: '50%',
-                  background: avatar ? 'var(--card)' : claseColor,
-                  border: `4px solid ${claseColor}`,
-                  boxShadow: `0 8px 28px ${claseColor}44`,
-                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40,
-                }}>
-                  {avatar
-                    ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : (name.trim().charAt(0).toUpperCase() || claseInfo?.emoji || '+')}
-                </motion.div>
-              </label>
-              <div style={{ fontSize: 12, color: claseColor, fontWeight: 600 }}>Toca el círculo para subir una foto</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={next}
-                  style={{ ...primaryBtn, background: claseColor }}>
-                  {avatar ? 'Continuar' : 'Omitir'}
                 </motion.button>
               </div>
             </motion.div>
@@ -370,7 +363,115 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                 <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
                   Configurar después
                 </motion.button>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+                  Podrás cambiarlo cuando quieras desde ajustes.
+                </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* ── Paso 5: Shortcut iOS / canal Android ── */}
+          {step === 'shortcut' && (
+            <motion.div key="shortcut" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+
+              {IS_IOS ? (
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 44, marginBottom: 10 }}>📱</div>
+                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
+                      Activa el Shortcut
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
+                      Cada SMS bancario llegará solo a la app — sin tocar nada.
+                    </div>
+                  </div>
+
+                  {/* Install button */}
+                  <motion.a
+                    href={SHORTCUT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileTap={{ scale: 0.97 }}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      width: '100%', height: 52, background: claseColor, borderRadius: 14,
+                      textDecoration: 'none', color: '#fff',
+                      fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
+                  </motion.a>
+
+                  {/* Automation steps */}
+                  <div style={{ width: '100%', background: 'var(--card)', borderRadius: 14, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+                      Luego activa la automatización
+                    </div>
+                    <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {IOS_AUTOMATION_STEPS.map((paso, i) => (
+                        <li key={i} style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{paso}</li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  {/* userId copy */}
+                  <div style={{ width: '100%', background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)', borderRadius: 12, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue-700, #1d4ed8)', marginBottom: 8 }}>
+                      La primera vez te pide tu ID — aquí está:
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18, color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {userId}
+                      </span>
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={copyUserId}
+                        style={{
+                          flexShrink: 0, background: copied ? '#10b981' : 'var(--blue-600)',
+                          border: 'none', borderRadius: 8, padding: '6px 12px',
+                          color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          fontFamily: 'var(--font-body)', transition: 'background 0.2s',
+                        }}
+                      >
+                        {copied ? '✓ Copiado' : 'Copiar'}
+                      </motion.button>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>
+                      Solo lo pregunta una vez — queda guardado para siempre.
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={next}
+                      style={{ ...primaryBtn, background: claseColor }}>
+                      ¡Listo, ya lo instalé!
+                    </motion.button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
+                      Lo configuro después
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 44, marginBottom: 10 }}>🔔</div>
+                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
+                      Captura automática
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
+                      En Android usamos notificaciones push. Descarga la app Finanzas Captura y configúrala desde Ajustes → Canales.
+                    </div>
+                  </div>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={next}
+                    style={{ ...primaryBtn, background: claseColor, width: '100%' }}>
+                    Entendido, continuar
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
+                    Lo configuro después
+                  </motion.button>
+                </>
+              )}
             </motion.div>
           )}
 

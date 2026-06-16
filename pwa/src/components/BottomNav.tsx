@@ -34,14 +34,11 @@ export function BottomNav({ active, onChange, accessibleMode = false, userId, ha
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'var(--nav-glass)',
-      backdropFilter: 'blur(24px) saturate(1.35)', WebkitBackdropFilter: 'blur(24px) saturate(1.35)',
-      borderTop: '1px solid var(--nav-border)',
+      background: 'linear-gradient(to top, var(--surface) 65%, transparent)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-around',
-      paddingTop: accessibleMode ? '12px' : '10px',
+      paddingTop: accessibleMode ? '16px' : '12px',
       paddingBottom: 'max(18px, env(safe-area-inset-bottom))',
       zIndex: 'var(--z-nav)',
-      boxShadow: '0 -1px 0 rgba(255,255,255,0.5), var(--shadow-nav)',
       minHeight: navMinHeight,
     }} aria-label="Navegación principal">
       {leftTabs.map(tabId => {
@@ -82,18 +79,8 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge,
       minHeight: 'var(--touch-min)', minWidth: 'var(--touch-min)',
       justifyContent: 'center',
     }}>
-      {active && (
-        <motion.span
-          layoutId="nav-active-pill"
-          transition={softSpring}
-          style={{
-            position: 'absolute', top: 0, width: 42, height: 28,
-            borderRadius: 999, background: 'var(--blue-50)',
-          }}
-        />
-      )}
       <motion.span
-        animate={{ scale: active ? 1.08 : 1, opacity: active ? 1 : (alwaysShowLabel ? 0.6 : 0.45) }}
+        animate={{ scale: active ? 1.08 : 1, opacity: active ? 1 : (alwaysShowLabel ? 0.65 : 0.45) }}
         transition={softSpring}
         style={{ display: 'flex', position: 'relative' }}
       >
@@ -108,7 +95,7 @@ function NavTab({ label, icon, active, onClick, padding, alwaysShowLabel, badge,
       </motion.span>
       <span style={{
         fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,
-        color: active ? 'var(--blue-700)' : 'var(--muted-2)',
+        color: active ? 'var(--blue-600)' : 'var(--muted)',
         letterSpacing: '0.01em',
         transition: 'color 0.15s ease',
       }}>
@@ -132,8 +119,8 @@ function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick:
           transition={softSpring}
           style={{
             width: 52, height: 52, borderRadius: 16,
-            background: active ? 'var(--grad-accent)' : 'var(--blue-700)',
-            boxShadow: active ? 'var(--shadow-blue)' : '0 4px 14px rgba(29,78,216,0.22)',
+            background: 'var(--grad-orange)',
+            boxShadow: 'var(--shadow-orange)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -144,7 +131,7 @@ function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick:
         </motion.span>
         <span style={{
           fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,
-          color: active ? 'var(--blue-700)' : 'var(--muted-2)',
+          color: active ? 'var(--orange-500)' : 'var(--muted)',
           letterSpacing: '0.01em',
         }}>
           Agregar
@@ -163,21 +150,20 @@ function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick:
         animate={{ y: active ? -2 : 0, scale: active ? 1.04 : 1 }}
         transition={softSpring}
         style={{
-        width: '50px', height: '50px', borderRadius: '16px',
-        background: active ? 'var(--grad-accent)' : 'var(--blue-700)',
-        boxShadow: active ? 'var(--shadow-blue)' : '0 4px 14px rgba(29,78,216,0.22)',
+        width: '58px', height: '58px', borderRadius: '20px',
+        background: 'var(--grad-orange)',
+        boxShadow: 'var(--shadow-orange)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.2s ease',
-        marginTop: '-24px',
+        marginTop: '-28px',
       }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       </motion.span>
       <span style={{
         fontSize: 'var(--text-xs)', fontFamily: 'var(--font-body)', fontWeight: 600,
-        color: active ? 'var(--blue-700)' : 'var(--muted-2)',
+        color: active ? 'var(--orange-500)' : 'var(--muted)',
         letterSpacing: '0.01em',
       }}>
         Agregar
@@ -187,40 +173,40 @@ function AddTab({ active, onClick, accessibleMode }: { active: boolean; onClick:
 }
 
 function HomeIcon({ active, size }: { active: boolean; size: number }) {
-  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
+  const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5 9.5V20h14V9.5" />
     </svg>
   );
 }
 
 function TrophyIcon({ active, size }: { active: boolean; size: number }) {
-  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
+  const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 21h8M12 17v4M7 4H4a1 1 0 0 0-1 1v3a4 4 0 0 0 4 4h1M17 4h3a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4h-1" />
-      <path d="M7 4h10v8a5 5 0 0 1-10 0V4z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 20V10M12 20V5M19 20v-7" />
     </svg>
   );
 }
 
 function LightningIcon({ active, size }: { active: boolean; size: number }) {
-  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
+  const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? 'var(--blue-700)' : 'none'} stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
 function CompassIcon({ active, size }: { active: boolean; size: number }) {
-  const c = active ? 'var(--blue-700)' : 'var(--muted-2)';
+  const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill={active ? 'var(--blue-700)' : 'none'} />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="11" rx="2" />
+      <path d="M3 10h18" />
     </svg>
   );
 }

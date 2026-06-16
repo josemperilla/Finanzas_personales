@@ -119,7 +119,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
 
   function copyInviteCode(code: string) {
     const link = `${window.location.origin}?invite=${code}`;
-    navigator.clipboard.writeText(`Tu código para entrar a la app: ${code}\n${link}`).then(() => {
+    navigator.clipboard.writeText(link).then(() => {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     });
@@ -444,7 +444,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                   <motion.button whileTap={{ scale: 0.97 }} onClick={() => copyInviteCode(lastInvite.code)}
                     style={{ flex: 1, height: 38, background: 'var(--blue-700)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                    {copiedCode === lastInvite.code ? '✓ Copiado' : 'Copiar código + enlace'}
+                    {copiedCode === lastInvite.code ? '✓ Copiado' : 'Copiar enlace'}
                   </motion.button>
                   <motion.button whileTap={{ scale: 0.97 }} onClick={() => setLastInvite(null)}
                     style={{ padding: '0 14px', height: 38, background: 'none', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--muted)', fontSize: 'var(--text-sm)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>

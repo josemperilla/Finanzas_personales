@@ -24,7 +24,9 @@ export async function onRequest(context) {
     sms:       typeof body.sms === 'string' ? body.sms : '',
     bank:      typeof body.bank === 'string' ? body.bank : '',
     timestamp: typeof body.timestamp === 'string' ? body.timestamp : '',
-    _secret:   typeof body._secret === 'string' ? body._secret : '',
+    // Secret injected from env so the iOS Shortcut never needs to know it.
+    // Falls back to client body for backwards-compat with older shortcut versions.
+    _secret:   env.WEBHOOK_SECRET || (typeof body._secret === 'string' ? body._secret : ''),
   };
 
   try {

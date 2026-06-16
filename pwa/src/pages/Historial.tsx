@@ -8,6 +8,7 @@ import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
+import { ImportarExtracto } from '../components/ImportarExtracto';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { exportToCSV } from '../lib/export';
 import { CalendarHeatmap } from '../components/CalendarHeatmap';
@@ -104,6 +105,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
   const [dateTo, setDateTo]               = useState('');
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [viewMode, setViewMode]           = useState<'list' | 'calendar'>('list');
+  const [showImport, setShowImport]       = useState(false);
   const activeFilterCount = [
     activeFilter !== 'Todas',
     dateRange !== 'all' || !!dateFrom || !!dateTo,
@@ -417,7 +419,12 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
         ) : sortedKeys.length === 0 ? (
           searchQuery
             ? <FriendlyEmptyState title="Sin resultados" message={`No hay transacciones que coincidan con "${searchQuery}".`} />
-            : <EmptyState />
+            : <FriendlyEmptyState
+                title="Sin historial todavía"
+                message="Cuando entren transacciones desde SMS o manuales, aparecerán agrupadas por día aquí."
+                actionLabel="Importar extracto bancario"
+                onAction={() => setShowImport(true)}
+              />
         ) : (
           <motion.div variants={staggerContainer} initial="initial" animate="animate">
             {sortedKeys.map(dateKey => {
@@ -508,6 +515,10 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showImport && userId && (
+        <ImportarExtracto userId={userId} onClose={() => setShowImport(false)} showSkipButton />
+      )}
     </div>
   );
 }
@@ -862,11 +873,13 @@ function SkeletonCard() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onImport }: { onImport: () => void }) {
   return (
     <FriendlyEmptyState
       title="Sin historial todavía"
       message="Cuando entren transacciones desde SMS o manuales, aparecerán agrupadas por día aquí."
+      actionLabel="Importar extracto bancario"
+      onAction={onImport}
     />
   );
 }
