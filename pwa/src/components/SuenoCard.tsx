@@ -14,10 +14,8 @@ interface Props {
 }
 
 function progressColor(pct: number): string {
-  if (pct >= 1) return '#f59e0b';      // dorado — logrado
-  if (pct >= 0.8) return '#22c55e';    // verde — casi
-  if (pct >= 0.5) return '#3b82f6';    // azul — bien
-  return 'var(--muted)';               // gris — inicio
+  if (pct >= 1) return '#f59e0b';  // dorado — logrado
+  return 'var(--orange)';          // naranja — en progreso (alineado con diseño)
 }
 
 export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, compact = false }: Props) {
@@ -36,16 +34,24 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
       border: '1px solid var(--line)',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: compact ? 24 : 28 }}>{sueno.emoji}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        {/* Emoji in colored circle */}
+        <div style={{
+          width: compact ? 40 : 48, height: compact ? 40 : 48, borderRadius: compact ? 12 : 14, flexShrink: 0,
+          background: 'var(--orange-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: compact ? 20 : 24 }}>{sueno.emoji}</span>
+        </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: compact ? 14 : 16, color: 'var(--ink)', lineHeight: 1.2 }}>
             {sueno.nombre}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)' }}>
-            {calc.mesesRestantes >= 1
-              ? `${Math.ceil(calc.mesesRestantes)} ${Math.ceil(calc.mesesRestantes) === 1 ? 'mes' : 'meses'} restantes`
-              : `${calc.diasRestantes} días restantes`}
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            {sueno.fechaObjetivo
+              ? `Meta · ${new Date(sueno.fechaObjetivo + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`
+              : calc.mesesRestantes >= 1
+                ? `${Math.ceil(calc.mesesRestantes)} ${Math.ceil(calc.mesesRestantes) === 1 ? 'mes' : 'meses'} restantes`
+                : `${calc.diasRestantes} días restantes`}
           </div>
         </div>
         {!compact && (
@@ -53,7 +59,7 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
             key={animatedPct}
             initial={{ scale: 1.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             transition={softSpring}
-            style={{ fontSize: 20, fontWeight: 800, color }}
+            style={{ fontSize: 18, fontWeight: 800, color, flexShrink: 0 }}
           >
             {animatedPct}%
           </motion.span>
@@ -79,17 +85,19 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
             animate={{ width: `${calc.pctCompletado * 100}%` }}
             initial={{ width: 0 }}
             transition={{ ...softSpring, duration: 0.8 }}
-            style={{ height: '100%', background: calc.pctCompletado >= 1 ? '#f59e0b' : 'var(--blue)', borderRadius: barHeight }}
+            style={{ height: '100%', background: color, borderRadius: barHeight }}
           />
         </div>
         {!compact && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {formatCOP(animatedAhorrado)} ahorrado
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>
+              {formatCOP(animatedAhorrado)} / {formatCOP(sueno.monto)}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              Meta: {formatCOP(sueno.monto)}
-            </span>
+            {sueno.monto > sueno.ahorrado && (
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                faltan {formatCOP(sueno.monto - sueno.ahorrado)}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -146,11 +154,11 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
 
       {/* Vista compacta: monto y % */}
       {compact && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
             {formatCOP(sueno.ahorrado)} / {formatCOP(sueno.monto)}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color }}>
             {Math.round(calc.pctCompletado * 100)}%
           </span>
         </div>
