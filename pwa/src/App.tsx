@@ -199,7 +199,15 @@ export default function App() {
         }
       }
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'No pude conectar con Google Sheets');
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('no autorizado')) {
+        // Session token expired — force re-login
+        if (userId) sessionStorage.removeItem(`fm_unlocked_${userId}`);
+        setUnlocked(false);
+        setTransactions([]);
+        return;
+      }
+      setLoadError(msg || 'No pude conectar con Google Sheets');
     } finally {
       setLoading(false);
     }
@@ -260,7 +268,7 @@ export default function App() {
     }
   }, [userId]);
 
-  const handleLoginWithCredentials = useCallback(async (id: string, pin: string): Promise<'ok' | 'invalid' | 'error'> => {
+  const handleLoginWithCredentials = useCallback(async (id: string, pin: string): Promise<{ status: 'ok' | 'invalid' | 'error'; message?: string }> => {
     try {
       const result = await validatePin(pin, id);
       if (result.ok) {
@@ -275,11 +283,11 @@ export default function App() {
         registrarVisita(id);
         setUserId(id);
         setUnlocked(true);
-        return 'ok';
+        return { status: 'ok' };
       }
-      return 'invalid';
-    } catch {
-      return 'error';
+      return { status: 'invalid', message: result.error };
+    } catch (e) {
+      return { status: 'error', message: e instanceof Error ? e.message : undefined };
     }
   }, []);
 

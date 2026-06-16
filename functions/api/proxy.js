@@ -47,7 +47,14 @@ export async function onRequest(context) {
       if (WEBHOOK_SECRET) target.searchParams.set('_secret', WEBHOOK_SECRET);
 
       const res = await fetch(target.toString());
-      return new Response(await res.text(), {
+      const text = await res.text();
+      try { JSON.parse(text); } catch (_) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'El servidor devolvió una respuesta inválida. Verifica la URL del webhook.' }),
+          { status: 502, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(text, {
         status: res.status,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -63,7 +70,14 @@ export async function onRequest(context) {
         headers: { 'Content-Type': 'text/plain' },
         body:    JSON.stringify(payload),
       });
-      return new Response(await res.text(), {
+      const text = await res.text();
+      try { JSON.parse(text); } catch (_) {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'El servidor devolvió una respuesta inválida. Verifica la URL del webhook.' }),
+          { status: 502, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(text, {
         status: res.status,
         headers: { 'Content-Type': 'application/json' },
       });

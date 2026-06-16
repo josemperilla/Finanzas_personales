@@ -5,7 +5,7 @@ import { quickEase } from '../lib/motion';
 
 interface Props {
   onSelect: (userId: string) => void;
-  onLoginWithCredentials: (userId: string, pin: string) => Promise<'ok' | 'invalid' | 'error'>;
+  onLoginWithCredentials: (userId: string, pin: string) => Promise<{ status: 'ok' | 'invalid' | 'error'; message?: string }>;
   onRedeemInvite: () => void;
   profiles: Profile[];
 }
@@ -36,8 +36,8 @@ export function ProfileSelector({ onSelect, onLoginWithCredentials, onRedeemInvi
     setLoading(true);
     const result = await onLoginWithCredentials(id, pin);
     setLoading(false);
-    if (result === 'invalid') setError('Usuario o contraseña incorrectos.');
-    if (result === 'error') setError('Sin conexión. Intenta de nuevo.');
+    if (result.status === 'invalid') setError(result.message || 'Usuario o contraseña incorrectos.');
+    if (result.status === 'error') setError(result.message || 'Sin conexión. Intenta de nuevo.');
   }
 
   const inputStyle: React.CSSProperties = {
