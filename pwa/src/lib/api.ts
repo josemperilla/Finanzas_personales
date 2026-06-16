@@ -482,6 +482,7 @@ export interface Card {
   chasis: string;
   ultimos4: string;
   alias?: string;
+  cupo?: number; // cupo total (límite de crédito) en COP — habilita el optimizador de productos
   createdAt: string;
 }
 

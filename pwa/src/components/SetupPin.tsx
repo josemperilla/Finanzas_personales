@@ -31,7 +31,7 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
   function handleDigit(key: string) {
     if (status !== 'idle') return;
     if (key === '⌫') { setDigits(d => d.slice(0, -1)); return; }
-    if (digits.length >= 6) return;
+    if (digits.length >= 4) return;
     const next = digits + key;
     setDigits(next);
     if (next.length >= 4) tryAdvance(next);
@@ -110,7 +110,7 @@ export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Pr
           💰
         </div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 23, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
-          {step === 'enter' ? 'Creá tu PIN' : 'Confirmá tu PIN'}
+          {step === 'enter' ? 'Crear PIN' : 'Confirmar PIN'}
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: status === 'error' ? '#ef4444' : 'var(--muted)', textAlign: 'center', maxWidth: 260 }}>
           {status === 'error'

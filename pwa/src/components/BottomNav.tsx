@@ -195,8 +195,7 @@ function LightningIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="3" />
+      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
     </svg>
   );
 }
@@ -205,8 +204,7 @@ function CompassIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="11" rx="2" />
-      <path d="M3 10h18" />
+      <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
     </svg>
   );
 }

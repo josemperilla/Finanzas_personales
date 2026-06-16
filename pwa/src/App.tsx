@@ -9,7 +9,6 @@ import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
-import { applyPalettes } from './lib/palette';
 import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
@@ -49,7 +48,14 @@ function PageFallback() {
 }
 
 export default function App() {
-  useEffect(() => { applyTheme(getTheme()); applyPalettes(); }, []);
+  useEffect(() => {
+    // Reset sub-palettes — only Claro / Sistema / Oscuro are supported now
+    localStorage.removeItem('fm_dark_palette');
+    localStorage.removeItem('fm_light_palette');
+    document.documentElement.removeAttribute('data-dark-palette');
+    document.documentElement.removeAttribute('data-light-palette');
+    applyTheme(getTheme());
+  }, []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
@@ -252,7 +258,6 @@ export default function App() {
       addKnownProfile(userId);
       applyAccessibleMode(userId);
       applyColorScheme(userId);
-      applyPalettes();
       setAccessible(getAccessibleMode(userId));
       applyPersonalizedAppIcon(userId, getDisplayName(userId));
       registrarVisita(userId);
@@ -269,8 +274,7 @@ export default function App() {
         addKnownProfile(id);
         applyAccessibleMode(id);
         applyColorScheme(id);
-        applyPalettes();
-        setAccessible(getAccessibleMode(id));
+          setAccessible(getAccessibleMode(id));
         applyPersonalizedAppIcon(id, getDisplayName(id));
         registrarVisita(id);
         setUserId(id);
@@ -407,6 +411,7 @@ export default function App() {
             {tab === 'cuentas' && userId && (
               <Cuentas
                 userId={userId}
+                transactions={transactions}
                 initialCard={initialUnknownCard}
                 onBack={() => setTab('home')}
               />
