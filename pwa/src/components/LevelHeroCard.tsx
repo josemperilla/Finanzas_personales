@@ -1,126 +1,110 @@
 import { motion } from 'framer-motion';
 import { getGamification, getLevelProgress, NIVELES } from '../lib/gamification';
 import { useCountUp } from '../lib/useCountUp';
-import { getUserNickname, getUserAvatar, getProfile } from '../lib/profiles';
-import { useState } from 'react';
+import { quickEase } from '../lib/motion';
 
 interface Props {
   userId: string;
 }
-
-const LEVEL_GRADIENTS: Record<number, string> = {
-  1: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 60%, #2563eb 100%)',
-  2: 'linear-gradient(135deg, #14532d 0%, #15803d 60%, #16a34a 100%)',
-  3: 'linear-gradient(135deg, #4c1d95 0%, #6d28d9 60%, #7c3aed 100%)',
-  4: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 60%, #ea580c 100%)',
-  5: 'linear-gradient(135deg, #78350f 0%, #b45309 40%, #d97706 70%, #f59e0b 100%)',
-};
-
-const LEVEL_EMOJIS: Record<number, string> = {
-  1: '🐜', 2: '🌱', 3: '📊', 4: '💹', 5: '👑',
-};
 
 export function LevelHeroCard({ userId }: Props) {
   const state = getGamification(userId);
   const { pct, xpToNext, nivelActual } = getLevelProgress(state);
   const nivelSig = NIVELES.find(n => n.nivel === state.nivel + 1);
   const animatedXP = useCountUp(state.xp);
+  const xpMax = nivelSig ? nivelSig.xpMin : state.xp;
+  const xpMin = nivelActual.xpMin;
+  const xpCurrent = state.xp;
 
-  const profile  = getProfile(userId);
-  const customAvatar = getUserAvatar(userId);
-  const displayName = getUserNickname(userId) || profile?.name || userId;
-  const avatarSrc = customAvatar || profile?.avatar;
-  const [avatarFailed, setAvatarFailed] = useState(false);
-
-  const gradient = LEVEL_GRADIENTS[state.nivel] ?? LEVEL_GRADIENTS[1];
-  const emoji = LEVEL_EMOJIS[state.nivel] ?? '🐜';
+  const dashFill = Math.round(pct * 100);
+  const dashEmpty = 100 - dashFill;
 
   return (
     <div style={{
-      background: gradient,
+      background: 'var(--card)',
+      border: '1px solid var(--line)',
       borderRadius: 24,
-      padding: '24px 20px 20px',
-      position: 'relative',
-      overflow: 'hidden',
+      padding: '24px 20px 22px',
+      boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)',
     }}>
-      {/* Decorative circle */}
-      <div style={{
-        position: 'absolute', top: -30, right: -30,
-        width: 140, height: 140, borderRadius: '50%',
-        background: 'rgba(255,255,255,0.06)',
-      }} />
-      <div style={{
-        position: 'absolute', bottom: -20, left: -20,
-        width: 100, height: 100, borderRadius: '50%',
-        background: 'rgba(255,255,255,0.04)',
-      }} />
-
-      {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, position: 'relative' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: '50%',
-          border: '3px solid rgba(255,255,255,0.35)',
-          overflow: 'hidden', flexShrink: 0,
-          background: 'rgba(255,255,255,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {avatarSrc && !avatarFailed ? (
-            <img
-              src={avatarSrc} alt={displayName}
-              onError={() => setAvatarFailed(true)}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      {/* Ring */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+        <div style={{ position: 'relative', width: 176, height: 176 }}>
+          <svg viewBox="0 0 36 36" style={{ width: 176, height: 176 }}>
+            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" strokeWidth="3" />
+            <motion.circle
+              cx="18" cy="18" r="15.9155"
+              fill="none"
+              stroke="var(--blue)"
+              strokeWidth="3.6"
+              strokeLinecap="round"
+              strokeDasharray={`${dashFill} ${dashEmpty}`}
+              transform="rotate(-90 18 18)"
+              initial={{ strokeDasharray: '0 100' }}
+              animate={{ strokeDasharray: `${dashFill} ${dashEmpty}` }}
+              transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
             />
-          ) : (
-            <span style={{ fontSize: 22, color: '#fff', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
-              {displayName.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-body)' }}>
-            Hola, {displayName.split(' ')[0]}
+          </svg>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 7,
+          }}>
+            <div style={{
+              width: 50, height: 50, borderRadius: 16,
+              background: 'linear-gradient(145deg, var(--blue-2), var(--blue))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 6px 16px rgba(37,99,235,.3)',
+            }}>
+              <div style={{
+                width: 18, height: 18, border: '2.5px solid #fff',
+                borderRadius: 5, transform: 'rotate(45deg)',
+              }} />
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              letterSpacing: '.14em', color: 'var(--muted)',
+              textTransform: 'uppercase',
+            }}>
+              Nivel {state.nivel}
+            </div>
           </div>
-          <div style={{ fontSize: 22, fontFamily: 'var(--font-display)', fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>
-            {emoji} {nivelActual.nombre}
-          </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
-            Nivel {state.nivel}
-          </div>
-        </div>
-        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-            {animatedXP}
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>XP total</div>
         </div>
       </div>
 
-      {/* XP bar */}
-      <div>
-        <div style={{ height: 8, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}>
-          <motion.div
-            animate={{ width: `${pct * 100}%` }}
-            initial={{ width: 0 }}
-            transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
-            style={{ height: '100%', background: 'var(--orange-2)', borderRadius: 8 }}
-          />
+      {/* Level name + XP */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontWeight: 700,
+          fontSize: 26, color: 'var(--ink)', lineHeight: 1, marginBottom: 8,
+        }}>
+          {nivelActual.nombre}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {nivelSig ? (
-            <>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>
-                {xpToNext} XP para {nivelSig.nombre}
-              </span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>
-                {Math.round(pct * 100)}%
-              </span>
-            </>
-          ) : (
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-              👑 Nivel máximo alcanzado
-            </span>
-          )}
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 13,
+          color: 'var(--ink-2)', fontWeight: 600, marginBottom: 4,
+        }}>
+          {animatedXP} / {xpMax} XP
         </div>
+        {nivelSig ? (
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+            faltan{' '}
+            <motion.b
+              key={xpToNext}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={quickEase}
+              style={{ color: 'var(--blue)' }}
+            >
+              {xpToNext} XP
+            </motion.b>
+            {' '}para subir a {nivelSig.nombre}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12.5, color: 'var(--orange)', fontWeight: 600 }}>
+            Nivel máximo alcanzado
+          </div>
+        )}
       </div>
     </div>
   );

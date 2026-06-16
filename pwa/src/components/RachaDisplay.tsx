@@ -39,9 +39,11 @@ export function RachaDisplay({ userId, onPress, gamificationKey }: Props) {
       <motion.span
         animate={{ scale, rotate: racha >= 7 ? [0, -5, 5, -3, 3, 0] : 0 }}
         transition={{ ...softSpring, rotate: { duration: 0.5, ease: 'easeInOut' } }}
-        style={{ fontSize: 16, lineHeight: 1, filter: !isActive ? 'grayscale(1) opacity(0.4)' : 'none', display: 'block' }}
+        style={{ lineHeight: 1, opacity: !isActive ? 0.35 : 1, display: 'flex', alignItems: 'center' }}
       >
-        🔥
+        <svg width="15" height="16" viewBox="0 0 24 24" fill={isActive ? 'var(--orange)' : 'var(--muted)'}>
+          <path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z" />
+        </svg>
       </motion.span>
       <motion.span
         key={racha}
