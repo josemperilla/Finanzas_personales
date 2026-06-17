@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
-import { Transaction, isGasto, INCOME_CATEGORY, Card, getUnknownCards } from '../lib/api';
+import { Transaction, isGasto, isIncomeTx, INCOME_CATEGORY, Card, getUnknownCards } from '../lib/api';
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -128,11 +128,11 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
 
   const incomeMonth = useMemo(
-    () => monthTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => monthTx.filter(isIncomeTx).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [monthTx],
   );
   const incomePrev = useMemo(
-    () => prevTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => prevTx.filter(isIncomeTx).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [prevTx],
   );
   const balanceMonth = incomeMonth - totalMonth;
@@ -719,7 +719,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
 }
 
 function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
-  const isIncome = tx.Categoría === INCOME_CATEGORY;
+  const isIncome = isIncomeTx(tx);
   const color = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
@@ -736,7 +736,7 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
         <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>
           {name}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{tx.Categoría || 'Otro'} · {formatDateShort(fecha)}</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{isIncome ? 'Ingreso' : (tx.Categoría || 'Otro')} · {formatDateShort(fecha)}</div>
         {tx.Nota && (
           <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
             {tx.Nota}
