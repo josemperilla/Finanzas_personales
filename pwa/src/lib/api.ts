@@ -1,4 +1,4 @@
-import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
+import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory, isIncomeCategory } from './config';
 
 let _activeUserId: string | null = null;
 let _token: string | null = null;
@@ -65,7 +65,7 @@ export interface Transaction {
 }
 
 export const INCOME_CATEGORY = 'Ingreso';
-export const isGasto = (tx: Transaction): boolean => tx.Categoría !== INCOME_CATEGORY;
+export const isGasto = (tx: Transaction): boolean => !isIncomeCategory(tx.Categoría);
 
 export interface ManualTransaction {
   banco: string;

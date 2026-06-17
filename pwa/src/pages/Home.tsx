@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
 import { Transaction, isGasto, INCOME_CATEGORY, Card, getUnknownCards } from '../lib/api';
+import { isIncomeCategory } from '../lib/config';
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -128,11 +129,11 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
 
   const incomeMonth = useMemo(
-    () => monthTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => monthTx.filter(tx => isIncomeCategory(tx.Categoría)).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [monthTx],
   );
   const incomePrev = useMemo(
-    () => prevTx.filter(tx => tx.Categoría === INCOME_CATEGORY).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
+    () => prevTx.filter(tx => isIncomeCategory(tx.Categoría)).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
     [prevTx],
   );
   const balanceMonth = incomeMonth - totalMonth;
@@ -719,7 +720,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
 }
 
 function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) {
-  const isIncome = tx.Categoría === INCOME_CATEGORY;
+  const isIncome = isIncomeCategory(tx.Categoría);
   const color = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const fecha = tx.Fecha || tx.Timestamp;
   const name = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);

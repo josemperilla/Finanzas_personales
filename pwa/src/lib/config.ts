@@ -12,26 +12,32 @@ export const WEBHOOK_SECRET = import.meta.env.PROD
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
 export const CATEGORIES = [
-  { name: 'Restaurantes',   color: '#f59e0b' },
-  { name: 'Domicilios',     color: '#fb923c' },
-  { name: 'Mercado',        color: '#10b981' },
-  { name: 'Transporte',     color: '#06b6d4' },
-  { name: 'Hogar',          color: '#f97316' },
-  { name: 'Salud',          color: '#f43f5e' },
-  { name: 'Deporte',        color: '#3b82f6' },
-  { name: 'Compras',        color: '#ec4899' },
-  { name: 'Suscripciones',  color: '#8b5cf6' },
-  { name: 'Viajes',         color: '#14b8a6' },
-  { name: 'Software',       color: '#a855f7' },
-  { name: 'Bre-B',          color: '#0ea5e9' },
-  { name: 'Entretenimiento', color: '#ef4444' },
-  { name: 'Otro',           color: '#6366f1' },
+  { name: 'Restaurantes',    color: '#f59e0b', is_income: false },
+  { name: 'Domicilios',      color: '#fb923c', is_income: false },
+  { name: 'Mercado',         color: '#10b981', is_income: false },
+  { name: 'Transporte',      color: '#06b6d4', is_income: false },
+  { name: 'Hogar',           color: '#f97316', is_income: false },
+  { name: 'Salud',           color: '#f43f5e', is_income: false },
+  { name: 'Deporte',         color: '#3b82f6', is_income: false },
+  { name: 'Compras',         color: '#ec4899', is_income: false },
+  { name: 'Suscripciones',   color: '#8b5cf6', is_income: false },
+  { name: 'Viajes',          color: '#14b8a6', is_income: false },
+  { name: 'Software',        color: '#a855f7', is_income: false },
+  { name: 'Bre-B',           color: '#0ea5e9', is_income: false },
+  { name: 'Entretenimiento', color: '#ef4444', is_income: false },
+  { name: 'Ingreso',         color: '#22c55e', is_income: true  },
+  { name: 'Depósito',        color: '#16a34a', is_income: true  },
+  { name: 'Otro',            color: '#6366f1', is_income: false },
 ] as const;
 
 export type CategoryName = typeof CATEGORIES[number]['name'];
 
 export function getCategoryColor(name: string): string {
   return CATEGORIES.find(c => c.name === name)?.color ?? '#6366f1';
+}
+
+export function isIncomeCategory(name: string): boolean {
+  return CATEGORIES.find(c => c.name === name)?.is_income ?? false;
 }
 
 // Mapa de nombres obsoletos → nuevos (para transacciones antes de la migración GAS)

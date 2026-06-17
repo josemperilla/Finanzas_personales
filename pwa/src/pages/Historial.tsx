@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction } from '../lib/api';
 import { addLearnedMapping, getLearnedMappings, removeLearnedMapping, clearLearnedMappings, LearnedMapping } from '../lib/merchantLearning';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
-import { getCategoryColor, CATEGORIES } from '../lib/config';
+import { getCategoryColor, CATEGORIES, isIncomeCategory } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
@@ -429,7 +429,10 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
           <motion.div variants={staggerContainer} initial="initial" animate="animate">
             {sortedKeys.map(dateKey => {
               const group = grouped[dateKey];
-              const dayTotal = group.reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0);
+              const dayTotal = group.reduce((sum, tx) => {
+                const amount = Number(tx['Monto (COP)'] || 0);
+                return sum + (isIncomeCategory(tx.Categoría) ? -amount : amount);
+              }, 0);
               return (
                 <motion.div key={dateKey} variants={riseItem} transition={quickEase} style={{ marginBottom: 18 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7, padding: '0 2px' }}>
@@ -524,7 +527,8 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
 }
 
 function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void; onDelete: (ts: string) => void }) {
-  const color    = getCategoryColor(tx.Categoría || 'Otro');
+  const isIncome = isIncomeCategory(tx.Categoría);
+  const color    = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const name     = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain   = getMerchantDomain(name);
   const startX   = useRef(0);
@@ -592,8 +596,8 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
               </p>
             )}
           </div>
-          <span style={{ color: 'var(--ink)', fontSize: 'var(--text-sm)', fontWeight: 600, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-            −{formatCOP(Number(tx['Monto (COP)']))}
+          <span style={{ color: isIncome ? '#16a34a' : 'var(--ink)', fontSize: 'var(--text-sm)', fontWeight: 600, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+            {isIncome ? '+' : '−'}{formatCOP(Number(tx['Monto (COP)']))}
           </span>
         </div>
       </motion.div>

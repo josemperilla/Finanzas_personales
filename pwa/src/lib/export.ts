@@ -1,5 +1,6 @@
 import { Transaction } from './api';
 import { cleanMerchant } from './merchantCleaner';
+import { isIncomeCategory } from './config';
 
 export function exportToCSV(transactions: Transaction[], filename = 'gastos.csv'): void {
   const headers = ['Fecha', 'Comercio', 'Banco', 'Tipo', 'Monto (COP)', 'Categoría', 'Tarjeta/Cuenta'];
@@ -11,7 +12,7 @@ export function exportToCSV(transactions: Transaction[], filename = 'gastos.csv'
     escape(cleanMerchant(tx.Comercio) || tx.Comercio || ''),
     tx.Banco || '',
     tx.Tipo || '',
-    String(tx['Monto (COP)'] || 0),
+    String(isIncomeCategory(tx.Categoría) ? (tx['Monto (COP)'] || 0) : -(tx['Monto (COP)'] || 0)),
     tx.Categoría || '',
     escape(tx['Tarjeta/Cuenta'] || ''),
   ]);
