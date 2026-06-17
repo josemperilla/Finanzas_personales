@@ -1,89 +1,87 @@
-# Configuración del iPhone — iOS Shortcuts
+# Configuración del iPhone — Atajo "Finanzas SMS"
 
-Solo necesitas **una automatización de SMS** que funciona para todos los bancos. El Shortcut detecta tu banco automáticamente y te pide tu ID de usuario la primera vez (nunca más).
+Capturar tus SMS bancarios en iPhone son **dos pasos separados**. El error más común es
+hacer solo el primero:
 
----
+1. **Instalar el atajo** → queda en *Mis Atajos / My Shortcuts*. **Por sí solo NO captura nada.**
+2. **Crear la Automatización** → es la que ejecuta el atajo cuando llega un SMS. **Sin esto, nada se reenvía.**
 
-## Opción A — Instalar desde link (recomendado)
-
-1. Abre este link en tu iPhone: **https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858**
-2. Toca **Add Shortcut**
-3. Ve a la pestaña **Automation** → toca **+** → **New Automation** → **Message**
-4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
-5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
-6. Toca **Next** → busca el Shortcut recién instalado y selecciónalo
-7. Toca **Done**
-
-La primera vez que llegue un SMS bancario con `$`, el Shortcut pregunta tu ID de usuario, lo guarda en iCloud Drive, y nunca vuelve a preguntar.
-
-> **¿Cuál es mi ID?** Lo ves en la app → Tutorial → canal SMS, o en Ajustes → perfil.
+> 💡 La app tiene un **asistente guiado** (Ajustes → *Ver tutorial de canales* → SMS) que te lleva
+> por estos dos pasos y al final hace una **prueba en vivo** que confirma si quedó funcionando.
+> Esta guía es el respaldo escrito (incluye etiquetas en español **y en inglés**, porque muchos
+> iPhone están en inglés).
 
 ---
 
-## Opción B — Crear desde ceros (para el admin o si el link no funciona)
+## Paso 1 — Instalar el atajo (link)
 
-### Crear la automatización
+1. Abre este link en tu iPhone:
+   **https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858**
+2. Toca **Agregar atajo / Add Shortcut**.
+3. Si te lo pide al instalar, escribe tu **ID de Finanzas** (te lo muestra la app). Queda guardado.
 
-1. Abre **Shortcuts** → pestaña **Automation** (ícono de reloj, barra inferior)
-2. Toca **+** → **New Automation**
-3. Selecciona **Message**
-4. En "contains" escribe: **`$`** — deja "From" en **Anyone**
-5. Activa **"Run Immediately"** → desactiva **"Ask Before Running"**
-6. Toca **Next**
+Esto agrega *Finanzas SMS* a **Mis Atajos / My Shortcuts**. Falta el Paso 2.
 
-### Acción 1 — Leer el ID guardado (puede no existir aún)
+> **¿Cuál es mi ID?** App → Ajustes → tu perfil, o en el asistente de canales (lo muestra y se copia).
 
-7. Toca **Add Action** → busca **"Get File from Folder"**
-8. Folder: **Shortcuts**
-9. File Name: `finanzas_usuario.txt`
-10. **"Error If Not Found"** → **OFF**
+---
 
-### Acción 2 — Condición: ¿ya tenemos el ID?
+## Paso 2 — Crear la Automatización (el paso que SIEMPRE se olvida)
 
-11. Toca **Add Action** → busca **"If"**
-12. Primer campo: toca → selecciona **Name** (resultado Acción 1)
-13. Operador: **does not have any value**
+1. Abre **Atajos / Shortcuts** → pestaña **Automatización / Automation** (ícono de reloj, abajo).
+2. Toca **+** → **Nueva automatización / New Automation** → **Mensaje / Message**.
+3. En **Contiene / Contains** escribe **`$`** — deja **De / Sender** en **Cualquiera / Any**.
+4. Toca **Siguiente / Next**.
+5. Agrega la acción **Ejecutar atajo / Run Shortcut** → elige **Finanzas SMS**.
+6. Toca **Listo / Done**.
 
-### Acción 3 — (DENTRO del If) Pedir el ID
+### ⚠️ Los 2 ajustes críticos
 
-14. Toca el **+** DENTRO del bloque "If" (entre "If" y "Otherwise")
-15. Busca **"Ask For Input"**
-16. Pregunta: `¿Cuál es tu user ID de Finanzas Personales?`
-17. Type: **Text**
+| Ajuste (es / EN) | Debe quedar | Por qué |
+|---|---|---|
+| **Ejecutar inmediatamente / Run Immediately** | ✅ **ACTIVADO** | Si no, te pregunta cada vez y nunca corre solo |
+| **Preguntar antes de ejecutar / Run After Confirmation** | ❌ **DESACTIVADO** | Si queda activo, cada SMS muestra un aviso que debes confirmar |
 
-### Acción 4 — (DENTRO del If) Guardar el ID
+> Atajo para llegar rápido: abrir `shortcuts://create-automation` salta directo a la pantalla de
+> Nueva Automatización (igual el trigger se elige a mano — iOS no permite preconfigurarlo).
 
-18. Toca el **+** DENTRO del bloque "If" (debajo de "Ask For Input")
-19. Busca **"Save File"**
-20. Contenido: **Ask for Input** (automático)
-21. Destino: **Shortcuts**
-22. Subpath: `finanzas_usuario.txt`
-23. **"Overwrite If File Exists"** → **ON**
+---
 
-### Acción 5 — Leer el ID (FUERA del If, siempre existe)
+## Paso 3 — Probar
 
-24. Toca el **+** DEBAJO de "End If"
-25. Busca **"Get File from Folder"**
-26. Folder: **Shortcuts**
-27. File Name: `finanzas_usuario.txt`
-28. **"Error If Not Found"** → **ON**
+1. En el asistente de la app, toca **Iniciar prueba**.
+2. Desde **Mensajes**, envíate a tu propio número un SMS con el texto: **`$1 prueba`**.
+3. La app detecta que tu iPhone reenvió el SMS y muestra ✅ **¡Funcionó!** (puede tardar hasta ~1 min).
 
-### Acción 6 — Enviar al servidor
+El mensaje de prueba no necesita parsearse como transacción: el servidor solo confirma que **recibió**
+el SMS desde tu teléfono, que es justo lo que valida que la Automatización dispara.
 
-29. Toca **+** → busca **"Get Contents of URL"**
-30. URL: `https://finanzas-abiertas.pages.dev/api/sms`
-31. Toca **Show More** → Method: **POST** → Request Body: **JSON**
-32. Toca **+** y agrega los campos:
+---
 
-| Key | Value |
-|-----|-------|
-| `userId` | `{x}` → **File** (resultado Acción 5) |
-| `sms` | `{x}` → **Message Content** |
-| `timestamp` | `{x}` → **Current Date** → ISO 8601 |
+## Construir el atajo "Finanzas SMS" desde cero (admin)
 
-33. Toca **✓** → **Don't Ask** → **Done**
+Solo si hay que regenerar el atajo (p. ej. el link de iCloud murió). El atajo es deliberadamente simple:
 
-> El servidor inyecta el secreto automáticamente — no necesitas configurarlo en el Shortcut.
+1. **Atajos → +** (nuevo atajo). Renómbralo **Finanzas SMS** (nombre claro: facilita elegirlo en el Paso 2).
+2. Acción **Texto / Text** con tu ID. Mantén pulsado el valor → **Import Question / Pregunta al importar**
+   con el texto *"¿Cuál es tu ID de Finanzas?"*. Así iOS pide el ID **al instalar** (una vez, explícito) en
+   vez de esperar al primer SMS.
+3. Acción **Obtener contenido de URL / Get Contents of URL**:
+   - URL: `https://finanzas-abiertas.pages.dev/api/sms`
+   - **Mostrar más / Show More** → Método **POST** → Cuerpo **JSON**:
+
+   | Key | Value |
+   |-----|-------|
+   | `userId` | el **Texto** del paso 2 |
+   | `sms` | **Entrada del atajo / Shortcut Input** (el contenido del mensaje que pasa la automatización) |
+   | `timestamp` | **Fecha actual / Current Date** → formato ISO 8601 |
+
+4. Guardar. Luego **Compartir → Copiar enlace de iCloud / Copy iCloud Link** y reemplazar el link en:
+   - `pwa/src/lib/config.ts` → constante **`IOS_SHORTCUT_URL`** (única fuente de verdad en el código)
+   - este archivo (`ios_shortcut/SETUP.md`, Paso 1)
+
+> El servidor inyecta el secreto automáticamente (Cloudflare `functions/api/sms.js`) — el atajo nunca
+> necesita conocerlo. El contrato del POST (`userId`, `sms`, `timestamp`) lo espera ese mismo archivo.
 
 ---
 
@@ -107,7 +105,12 @@ Para bancos no listados: el servidor usa IA para parsear el SMS automáticamente
 
 ## Si la transacción no aparece
 
-- Confirma que la automatización tenga "Run Immediately" activado
-- Verifica que la URL sea exactamente `https://finanzas-abiertas.pages.dev/api/sms`
-- Revisa que el SMS contenga `$` y sea de un banco (mensajes personales o promocionales se descartan automáticamente)
-- Para cambiar tu ID: borra `finanzas_usuario.txt` en iCloud Drive → Shortcuts, y el Shortcut vuelve a preguntar
+- **El atajo está en Mis Atajos pero la Automatización no existe** → es el error #1. Vuelve al Paso 2.
+- Confirma **"Ejecutar inmediatamente / Run Immediately"** activado y **"Preguntar antes / Run After
+  Confirmation"** desactivado.
+- Si no puedes seleccionar el atajo (aparece en gris), ejecuta una vez cualquier atajo de la Galería
+  para habilitar atajos de terceros.
+- Algunos modos de **Concentración / No molestar** pausan las automatizaciones.
+- El SMS debe contener **`$`** (los promocionales/OTP se descartan automáticamente).
+- Para cambiar tu ID: si usaste la versión con archivo, borra `finanzas_usuario.txt` en iCloud Drive →
+  Shortcuts; si usaste *Import Question*, reinstala el atajo desde el link.

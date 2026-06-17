@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
+import { SmsSetupWizard } from './SmsSetupWizard';
 
 type Platform = 'ios' | 'android';
 
@@ -8,6 +9,7 @@ interface Props {
   userId: string;
   onClose: () => void;
   initialCard?: number;
+  onVerified?: () => void;
 }
 
 interface Card {
@@ -112,70 +114,7 @@ function getNota(card: Card, platform: Platform | null): string | undefined {
   return card.androidNota ?? card.nota;
 }
 
-function ShortcutSetup({ userId }: { userId: string }) {
-  const [copied, setCopied] = useState(false);
-
-  function copyId() {
-    navigator.clipboard.writeText(userId).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
-  }
-
-  return (
-    <div style={{
-      background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
-      borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
-    }}>
-      <motion.a
-        href="https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858"
-        target="_blank"
-        rel="noopener noreferrer"
-        whileTap={{ scale: 0.97 }}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          height: 46, background: 'var(--blue-700)', borderRadius: 12, textDecoration: 'none',
-          color: '#fff', fontSize: 'var(--text-base)', fontWeight: 700,
-          fontFamily: 'var(--font-body)',
-        }}
-      >
-        <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
-      </motion.a>
-      <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--blue-700, #1d4ed8)' }}>
-        La primera vez que llegue un SMS bancario, el Shortcut pedirá tu ID:
-      </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        background: 'var(--card)', border: '1.5px solid var(--blue-300, #93c5fd)',
-        borderRadius: 10, padding: '10px 14px',
-      }}>
-        <span style={{
-          flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20,
-          color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.06em',
-        }}>
-          {userId}
-        </span>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={copyId}
-          style={{
-            background: copied ? '#10b981' : 'var(--blue-600)',
-            border: 'none', borderRadius: 7, padding: '4px 10px',
-            color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-body)', transition: 'background 0.2s', whiteSpace: 'nowrap',
-          }}
-        >
-          {copied ? '✓ Copiado' : 'Copiar ID'}
-        </motion.button>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
-        Solo lo pregunta una vez — queda guardado para siempre.
-      </div>
-    </div>
-  );
-}
-
-export function TutorialCanales({ userId, onClose, initialCard }: Props) {
+export function TutorialCanales({ userId, onClose, initialCard, onVerified }: Props) {
   const PLATFORM_KEY = `fm_tutorial_platform_${userId}`;
 
   const [platform, setPlatform] = useState<Platform | null>(() => {
@@ -335,17 +274,17 @@ export function TutorialCanales({ userId, onClose, initialCard }: Props) {
                     {card.descripcion}
                   </div>
                 </div>
-                <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {getPasos(card, platform).map((paso, i) => (
-                    <li key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
-                      {paso}
-                    </li>
-                  ))}
-                </ol>
-
-                {/* Setup del shortcut — solo iOS + card SMS */}
-                {platform === 'ios' && idx === 0 && (
-                  <ShortcutSetup userId={userId} />
+                {/* Asistente SMS interactivo (iOS + card SMS); el resto usa la lista de pasos */}
+                {platform === 'ios' && idx === 0 ? (
+                  <SmsSetupWizard userId={userId} onVerified={onVerified} />
+                ) : (
+                  <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {getPasos(card, platform).map((paso, i) => (
+                      <li key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
+                        {paso}
+                      </li>
+                    ))}
+                  </ol>
                 )}
 
                 {getNota(card, platform) && (

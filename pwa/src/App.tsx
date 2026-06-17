@@ -470,6 +470,7 @@ export default function App() {
             <Settings key="settings" userId={userId} transactions={transactions}
               onProfilesChanged={() => setProfiles(getKnownProfiles())}
               onCategoryChange={handleCategoryChange}
+              onDataRefresh={() => { void load(); }}
               onClose={() => {
                 setShowSettings(false);
                 setAccessible(getAccessibleMode(userId));
@@ -478,7 +479,7 @@ export default function App() {
           </Suspense>
         )}
         {showTutorial && userId && (
-          <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} />
+          <TutorialCanales key="tutorial" userId={userId} onClose={() => setShowTutorial(false)} onVerified={() => { void load(); }} />
         )}
         {showBalanceWidget && userId && unlocked && (
           <BalanceWidget

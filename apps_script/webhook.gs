@@ -468,6 +468,14 @@ function doPost(e) {
     var ADMIN_TYPES = ["generateEmergencyPin","listUsers","createUser","createInvite","listInvites","listUsersData","disableUser","enableUser","revokeInvite","resetPin","deleteUser"];
     if (ADMIN_TYPES.indexOf(type) !== -1) _checkRateLimit("admin", userId);
 
+    // Prueba en vivo del onboarding: devuelve el timestamp (ms) del último SMS que el
+    // iPhone reenvió al servidor. La PWA hace polling para confirmar que la
+    // Automatización de iOS dispara, sin depender de que el SMS se parsee.
+    if (type === "lastSmsSeen") {
+      var lastSms = PropertiesService.getScriptProperties().getProperty("LAST_SMS_AT_" + userId);
+      return jsonResponse({ ok: true, at: lastSms ? parseInt(lastSms, 10) : 0 });
+    }
+
     // Ensure Fuente column exists (cached -- runs once per user per 6h)
     _migrateSheetHeaders(userId);
 
@@ -872,6 +880,11 @@ function doPost(e) {
     var sentAt = payload.timestamp || new Date().toISOString();
 
     if (!sms) return jsonResponse({ ok: false, error: "empty sms" });
+
+    // Registra que llegó un SMS desde el iPhone, ANTES del veto/parseo. Confirma que
+    // la Automatización de iOS está disparando (lo consulta la prueba en vivo del
+    // onboarding vía type:"lastSmsSeen"), aunque el mensaje no sea transaccional.
+    try { PropertiesService.getScriptProperties().setProperty("LAST_SMS_AT_" + userId, String(Date.now())); } catch (eStamp) {}
 
     // Silently drop vetoed messages (never reach the Sheet)
     if (isVetoed(sms)) {

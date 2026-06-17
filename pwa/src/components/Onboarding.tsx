@@ -6,6 +6,7 @@ import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { addSueno } from '../lib/suenos';
 import { setMeta } from '../lib/meta';
 import { awardBadge } from '../lib/gamification';
+import { SmsSetupWizard } from './SmsSetupWizard';
 
 type Clase = 'hormiga' | 'administrador' | 'sonador';
 
@@ -47,14 +48,6 @@ const STEPS: Step[] = ['clase', 'profile', 'sueno', 'meta', 'shortcut'];
 
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858';
-const IOS_AUTOMATION_STEPS = [
-  'Abre Atajos → Automatización → + → Nueva Automatización → Mensaje',
-  'En "contiene" escribe: $  —  deja "De" en "Cualquiera"',
-  'Activa "Ejecutar inmediatamente" → desactiva "Preguntar antes de ejecutar"',
-  'Toca Siguiente → selecciona el Shortcut recién instalado → Listo',
-];
-
 const primaryBtn: React.CSSProperties = {
   width: '100%', height: 52, borderRadius: 16, border: 'none',
   background: 'var(--grad-orange)', color: '#fff',
@@ -75,15 +68,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
   const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(userId));
   const [selectedSueno, setSelectedSueno] = useState<number | null>(null);
   const [metaInput, setMetaInput] = useState('');
-  const [copied, setCopied] = useState(false);
   useOverlayA11y(true, undefined, containerRef);
-
-  function copyUserId() {
-    navigator.clipboard.writeText(userId).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
-  }
 
   const claseInfo = clase ? CLASES.find(c => c.id === clase) : null;
   const claseColor = claseInfo?.color ?? 'var(--blue-600)';
@@ -400,65 +385,15 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                     </div>
                   </div>
 
-                  {/* Install button */}
-                  <motion.a
-                    href={SHORTCUT_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    whileTap={{ scale: 0.97 }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      width: '100%', height: 52, background: claseColor, borderRadius: 14,
-                      textDecoration: 'none', color: '#fff',
-                      fontSize: 'var(--text-base)', fontWeight: 700, fontFamily: 'var(--font-body)',
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
-                  </motion.a>
-
-                  {/* Automation steps */}
-                  <div style={{ width: '100%', background: 'var(--card)', borderRadius: 14, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-                      Luego activa la automatización
-                    </div>
-                    <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {IOS_AUTOMATION_STEPS.map((paso, i) => (
-                        <li key={i} style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{paso}</li>
-                      ))}
-                    </ol>
-                  </div>
-
-                  {/* userId copy */}
-                  <div style={{ width: '100%', background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)', borderRadius: 12, padding: '12px 14px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue-700, #1d4ed8)', marginBottom: 8 }}>
-                      La primera vez te pide tu ID — aquí está:
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18, color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {userId}
-                      </span>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={copyUserId}
-                        style={{
-                          flexShrink: 0, background: copied ? '#10b981' : 'var(--blue-600)',
-                          border: 'none', borderRadius: 8, padding: '6px 12px',
-                          color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          fontFamily: 'var(--font-body)', transition: 'background 0.2s',
-                        }}
-                      >
-                        {copied ? '✓ Copiado' : 'Copiar'}
-                      </motion.button>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>
-                      Solo lo pregunta una vez — queda guardado para siempre.
-                    </div>
+                  {/* Asistente SMS interactivo (instalar → automatización → prueba en vivo) */}
+                  <div style={{ width: '100%' }}>
+                    <SmsSetupWizard userId={userId} accentColor={claseColor} />
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
                     <motion.button whileTap={{ scale: 0.97 }} onClick={next}
                       style={{ ...primaryBtn, background: claseColor }}>
-                      ¡Listo, ya lo instalé!
+                      Continuar
                     </motion.button>
                     <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
                       Lo configuro después

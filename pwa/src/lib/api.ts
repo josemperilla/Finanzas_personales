@@ -64,6 +64,15 @@ export interface Transaction {
   Fuente?: string; // "sms" | "notification" | "email" | "manual"
 }
 
+// Una transacción cuenta como capturada por SMS cuando su Fuente es 'sms' (o está
+// vacía, que es el caso por defecto de las capturas SMS antiguas). Debe coincidir
+// con la lógica de CoverturaMeter para que la prueba en vivo no derive del medidor.
+export const isSmsTx = (tx: Transaction): boolean => {
+  const f = (tx.Fuente || 'sms').toLowerCase();
+  return f === 'sms' || f.startsWith('sms');
+};
+export const countSmsTx = (txs: Transaction[]): number => txs.filter(isSmsTx).length;
+
 export const INCOME_CATEGORY = 'Ingreso';
 const INCOME_TIPOS = new Set(['Depósito', 'Abono', 'Consignación', 'Crédito', 'Ingreso', 'Nómina']);
 export const isIncomeTx = (tx: Transaction): boolean =>
@@ -141,6 +150,21 @@ export async function updateCategory(timestamp: string, categoria: string): Prom
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al actualizar categoría');
+}
+
+// Timestamp (ms) del último SMS que el servidor recibió desde el iPhone del usuario,
+// sin importar si se parseó o se vetó. Lo usa la prueba en vivo del onboarding para
+// confirmar que la Automatización de iOS está disparando. Devuelve 0 si nunca llegó.
+export async function getLastSmsSeen(): Promise<number> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'lastSmsSeen' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al consultar SMS');
+  return typeof json.at === 'number' ? json.at : 0;
 }
 
 export async function validatePin(pin: string, userId?: string): Promise<{ ok: boolean; error?: string }> {

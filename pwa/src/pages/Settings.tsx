@@ -33,9 +33,10 @@ interface Props {
   onClose: () => void;
   onProfilesChanged?: () => void;
   onCategoryChange?: (timestamp: string, categoria: string) => void;
+  onDataRefresh?: () => void;
 }
 
-export function Settings({ userId, transactions, onClose, onProfilesChanged, onCategoryChange }: Props) {
+export function Settings({ userId, transactions, onClose, onProfilesChanged, onCategoryChange, onDataRefresh }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   useOverlayA11y(true, onClose, overlayRef);
   const profile = getProfile(userId);
@@ -797,7 +798,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
           />
         )}
         {showTutorial && (
-          <TutorialCanales key="tutorial" userId={userId} initialCard={tutorialCard} onClose={() => setShowTutorial(false)} />
+          <TutorialCanales key="tutorial" userId={userId} initialCard={tutorialCard} onClose={() => setShowTutorial(false)} onVerified={onDataRefresh} />
         )}
       </AnimatePresence>
     </>

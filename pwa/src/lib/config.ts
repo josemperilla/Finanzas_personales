@@ -11,6 +11,10 @@ export const WEBHOOK_SECRET = import.meta.env.PROD
 
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
+// Link de iCloud al Shortcut "Finanzas SMS" de iOS. Actualizar SOLO aquí.
+// (Si se regenera el atajo, también hay que actualizar ios_shortcut/SETUP.md a mano.)
+export const IOS_SHORTCUT_URL = 'https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858';
+
 export const CATEGORIES = [
   { name: 'Restaurantes',   color: '#f59e0b' },
   { name: 'Domicilios',     color: '#fb923c' },

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Transaction } from '../lib/api';
+import { Transaction, isSmsTx } from '../lib/api';
 
 interface Props {
   transactions: Transaction[];
@@ -35,7 +35,9 @@ export function CoverturaMeter({ transactions, onChannelTutorial }: Props) {
       }).length;
     };
 
-    const smsTxns       = count('sms');
+    // El canal SMS usa el predicado compartido para coincidir exactamente con la
+    // prueba en vivo del asistente (isSmsTx en lib/api.ts).
+    const smsTxns       = recientes.filter(isSmsTx).length;
     const notifTxns     = count('notification');
     const emailTxns     = count('email');
     const importTxns    = count(['manual', 'pdf']);
@@ -48,7 +50,7 @@ export function CoverturaMeter({ transactions, onChannelTutorial }: Props) {
         count: smsTxns,
         active: smsTxns > 0,
         instruccion: smsTxns === 0
-          ? 'Configura el Shortcut de SMS en ios_shortcut/SETUP.md'
+          ? 'Toca ? para abrir el asistente de configuración del SMS'
           : undefined,
       },
       {
@@ -58,7 +60,7 @@ export function CoverturaMeter({ transactions, onChannelTutorial }: Props) {
         count: notifTxns,
         active: notifTxns > 0,
         instruccion: notifTxns === 0
-          ? 'Agrega los Shortcuts de notificación en ios_shortcut/SETUP.md'
+          ? 'Toca ? para ver cómo activar las notificaciones'
           : undefined,
       },
       {
