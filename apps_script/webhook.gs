@@ -1825,6 +1825,22 @@ function jsonResponse(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ── Admin PIN reset helper (ejecutar manualmente desde el editor) ─
+// Cómo usarlo:
+//   1. Abre script.google.com → proyecto Finanzas
+//   2. En el menú de funciones, selecciona "resetAdminPin"
+//   3. Clic en ▶ Run
+// Esto fija el PIN de jose a 1028 sin necesitar sesión activa.
+function resetAdminPin() {
+  var userId = "jose";
+  var newPin = "1028";
+  PropertiesService.getScriptProperties().setProperty(
+    "APP_PIN_" + userId,
+    _hashPin(userId, newPin)
+  );
+  Logger.log("✓ PIN de " + userId + " establecido en " + newPin);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // GMAIL EMAIL CAPTURE — canal para Nequi, Rappi, dale!
 // ═══════════════════════════════════════════════════════════════

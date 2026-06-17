@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin, updateProfile, getProfileFromServer } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
@@ -21,7 +21,6 @@ import { CATEGORIES } from '../lib/config';
 import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
-const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Claro' },
   { value: 'auto',  label: 'Sistema' },
@@ -44,6 +43,15 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   const [defaultBank, setDefaultBank] = useState(
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
+
+  const availableBanks = useMemo(() => {
+    const seen = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.Banco && tx.Banco !== 'Otro') seen.add(tx.Banco);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b, 'es')).concat('Otro');
+  }, [transactions]);
+
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
   const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
@@ -492,7 +500,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
             <div style={{ paddingTop: 12, paddingBottom: 8 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Banco predeterminado</div>
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                {BANKS.map(b => (
+                {availableBanks.map(b => (
                   <motion.button key={b} whileTap={{ scale: 0.92 }} onClick={() => handleBankChange(b)} style={{
                     padding: '6px 14px', borderRadius: 999, fontSize: 13, fontFamily: 'var(--font-body)',
                     border: `1.5px solid ${defaultBank === b ? 'var(--blue-600)' : 'var(--line)'}`,

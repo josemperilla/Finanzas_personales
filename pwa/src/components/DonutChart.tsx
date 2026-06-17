@@ -113,12 +113,12 @@ export const DonutChart = memo(function DonutChart({ slices, total, centerLabel,
               style={{ transformOrigin: `${CX}px ${CY}px` }}
             >
               <text x={CX} y={CY - 5} textAnchor="middle"
-                fill="var(--muted)" fontSize="9.5"
+                fill="#555555" fontSize="9.5"
                 fontFamily='var(--font-body)' letterSpacing="0.06em">
                 {topCat.category.toUpperCase()}
               </text>
               <text x={CX} y={CY + 13} textAnchor="middle"
-                fill="var(--ink)" fontSize="13"
+                fill="#111111" fontSize="13"
                 fontWeight="600" fontFamily='var(--font-mono)'>
                 {formatCOP(topCat.amount)}
               </text>
