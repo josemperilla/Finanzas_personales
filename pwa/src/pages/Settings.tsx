@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, changePin, updateProfile, getProfileFromServer } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
@@ -7,8 +7,7 @@ import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
 import { TIMEZONE_OPTIONS } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
-import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode, COLOR_PRESETS, getUserColorScheme, setUserColorScheme, applyColorScheme } from '../lib/theme';
-import { DARK_PALETTES, LIGHT_PALETTES, getDarkPalette, getLightPalette, saveDarkPalette, saveLightPalette, applyPalettes, type DarkPaletteName, type LightPaletteName } from '../lib/palette';
+import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
@@ -22,7 +21,6 @@ import { CATEGORIES } from '../lib/config';
 import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
-const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'];
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'auto',  label: 'Auto' },
   { value: 'light', label: 'Claro' },
@@ -45,20 +43,19 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   const [defaultBank, setDefaultBank] = useState(
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
+
+  const availableBanks = useMemo(() => {
+    const seen = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.Banco && tx.Banco !== 'Otro') seen.add(tx.Banco);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b, 'es')).concat('Otro');
+  }, [transactions]);
+
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
-  const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => getUserAvatar(userId));
   const [timezone, setTimezone] = useState(() => getUserTimezone(userId));
-  const [colorScheme, setColorScheme] = useState(() => getUserColorScheme(userId));
-  const [customHex, setCustomHex] = useState(() => {
-    const s = getUserColorScheme(userId);
-    return s.startsWith('#') ? s : '#1d4ed8';
-  });
-
-  const [darkPalette, setDarkPalette] = useState<DarkPaletteName | null>(getDarkPalette);
-  const [lightPalette, setLightPalette] = useState<LightPaletteName | null>(getLightPalette);
-
   const [tabOrder, setTabOrderState] = useState<ReorderableTab[]>(() => getUserTabOrder(userId));
   const [learnedMappings, setLearnedMappings] = useState<LearnedMapping[]>(() => getLearnedMappings(userId));
 
@@ -103,24 +100,6 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     setUserTabOrder(userId, next);
   }
 
-  function handleColorSchemeChange(scheme: string) {
-    setColorScheme(scheme);
-    setUserColorScheme(userId, scheme);
-    applyColorScheme(userId);
-  }
-
-  function handleDarkPaletteChange(id: DarkPaletteName | null) {
-    setDarkPalette(id);
-    saveDarkPalette(id);
-    applyPalettes();
-  }
-
-  function handleLightPaletteChange(id: LightPaletteName | null) {
-    setLightPalette(id);
-    saveLightPalette(id);
-    applyPalettes();
-  }
-
   // Sync server profile to localStorage on mount (handles new-device logins).
   useEffect(() => {
     getProfileFromServer().then(data => {
@@ -155,12 +134,6 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
     applyTheme(mode);
-  }
-
-  function handleAccessibleToggle() {
-    const next = !accessible;
-    setAccessible(next);
-    setAccessibleMode(userId, next);
   }
 
   // Admin: user management
@@ -473,186 +446,6 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
               <p style={{ margin: '8px 0 0', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
                 Auto sigue la preferencia del sistema.
               </p>
-
-              {/* Color del tema */}
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 12 }}>
-                  Color de la app
-                </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {COLOR_PRESETS.map(preset => (
-                    <motion.button
-                      key={preset.id}
-                      whileTap={{ scale: 0.88 }}
-                      onClick={() => handleColorSchemeChange(preset.id)}
-                      title={preset.name}
-                      style={{
-                        width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                        background: preset.swatch,
-                        boxShadow: colorScheme === preset.id
-                          ? `0 0 0 3px var(--card), 0 0 0 5px ${preset.swatch}`
-                          : '0 2px 6px rgba(0,0,0,0.15)',
-                        flexShrink: 0,
-                      }}
-                    />
-                  ))}
-                  {/* Custom hex picker */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <input
-                      type="color"
-                      value={customHex}
-                      aria-label="Color personalizado"
-                      onChange={e => setCustomHex(e.target.value)}
-                      onBlur={e => handleColorSchemeChange(e.target.value)}
-                      style={{
-                        width: 34, height: 34, borderRadius: '50%', border: 'none',
-                        padding: 2, cursor: 'pointer', background: 'none',
-                        boxShadow: colorScheme === customHex
-                          ? `0 0 0 3px var(--card), 0 0 0 5px ${customHex}`
-                          : '0 2px 6px rgba(0,0,0,0.15)',
-                      }}
-                    />
-                  </div>
-                </div>
-                <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
-                  Cambia el color principal de botones, íconos y acentos.
-                </p>
-              </div>
-
-              {/* Modo accesible */}
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink)', fontWeight: 500 }}>
-                      Modo accesible
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 3 }}>
-                      Texto e íconos más grandes para mayor comodidad
-                    </div>
-                  </div>
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    onClick={handleAccessibleToggle}
-                    style={{
-                      flexShrink: 0,
-                      width: 50, height: 28, borderRadius: 999,
-                      background: accessible ? 'var(--blue-600)' : 'var(--line)',
-                      border: 'none', cursor: 'pointer', position: 'relative',
-                      transition: 'background 0.2s ease',
-                    }}
-                    aria-label="Toggle modo accesible"
-                  >
-                    <motion.span
-                      animate={{ x: accessible ? 24 : 4 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                      style={{
-                        position: 'absolute', top: 4, left: 0,
-                        width: 20, height: 20, borderRadius: '50%',
-                        background: 'white',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                      }}
-                    />
-                  </motion.button>
-                </div>
-              </div>
-
-              {/* Paleta oscura */}
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Paleta oscura</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => handleDarkPaletteChange(null)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '6px 12px', borderRadius: 999, fontSize: 12,
-                      border: `1.5px solid ${darkPalette === null ? 'var(--blue-600)' : 'var(--line)'}`,
-                      background: darkPalette === null ? 'var(--blue-50)' : 'var(--card)',
-                      color: darkPalette === null ? 'var(--blue-700)' : 'var(--muted)',
-                      fontWeight: darkPalette === null ? 600 : 400,
-                      cursor: 'pointer', fontFamily: 'var(--font-body)',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                  >
-                    Predeterminado
-                  </motion.button>
-                  {DARK_PALETTES.map(p => (
-                    <motion.button
-                      key={p.id}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => handleDarkPaletteChange(p.id)}
-                      title={p.label}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 999, fontSize: 12,
-                        border: `1.5px solid ${darkPalette === p.id ? 'var(--blue-600)' : 'var(--line)'}`,
-                        background: darkPalette === p.id ? 'var(--blue-50)' : 'var(--card)',
-                        color: darkPalette === p.id ? 'var(--blue-700)' : 'var(--muted)',
-                        fontWeight: darkPalette === p.id ? 600 : 400,
-                        cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
-                      <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.bg, border: '1px solid rgba(255,255,255,0.2)', display: 'block' }} />
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.card, border: '1px solid rgba(0,0,0,0.08)', display: 'block' }} />
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.accent, display: 'block' }} />
-                      </span>
-                      {p.label}
-                    </motion.button>
-                  ))}
-                </div>
-                <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
-                  Solo cambia fondos y bordes. El color de acento se controla arriba.
-                </p>
-              </div>
-
-              {/* Paleta clara */}
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Paleta clara</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => handleLightPaletteChange(null)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '6px 12px', borderRadius: 999, fontSize: 12,
-                      border: `1.5px solid ${lightPalette === null ? 'var(--blue-600)' : 'var(--line)'}`,
-                      background: lightPalette === null ? 'var(--blue-50)' : 'var(--card)',
-                      color: lightPalette === null ? 'var(--blue-700)' : 'var(--muted)',
-                      fontWeight: lightPalette === null ? 600 : 400,
-                      cursor: 'pointer', fontFamily: 'var(--font-body)',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                  >
-                    Blanco (predeterminado)
-                  </motion.button>
-                  {LIGHT_PALETTES.map(p => (
-                    <motion.button
-                      key={p.id}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => handleLightPaletteChange(p.id)}
-                      title={p.label}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 999, fontSize: 12,
-                        border: `1.5px solid ${lightPalette === p.id ? 'var(--blue-600)' : 'var(--line)'}`,
-                        background: lightPalette === p.id ? 'var(--blue-50)' : 'var(--card)',
-                        color: lightPalette === p.id ? 'var(--blue-700)' : 'var(--muted)',
-                        fontWeight: lightPalette === p.id ? 600 : 400,
-                        cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
-                      <span style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.bg, border: '1px solid rgba(0,0,0,0.1)', display: 'block' }} />
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.preview.card, border: '1px solid rgba(0,0,0,0.08)', display: 'block' }} />
-                      </span>
-                      {p.label}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
             </div>
 
           </Section>
@@ -662,7 +455,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
             <div style={{ paddingTop: 12, paddingBottom: 8 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, marginBottom: 10 }}>Banco predeterminado</div>
               <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                {BANKS.map(b => (
+                {availableBanks.map(b => (
                   <motion.button key={b} whileTap={{ scale: 0.92 }} onClick={() => handleBankChange(b)} style={{
                     padding: '6px 14px', borderRadius: 999, fontSize: 13, fontFamily: 'var(--font-body)',
                     border: `1.5px solid ${defaultBank === b ? 'var(--blue-600)' : 'var(--line)'}`,
