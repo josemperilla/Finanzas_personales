@@ -4,9 +4,7 @@ Este tutorial te ayuda a configurar tu iPhone para que **cada vez que recibes un
 notificación de tu banco, la transacción se guarde automáticamente** en el Sheet de
 finanzas compartido.
 
-Necesitas pedirle a Jose:
-- El **link del webhook** (una URL larga de Google)
-- El **código secreto** (_secret)
+No necesitas pedirle nada a Jose — ya está todo aquí.
 
 ---
 
@@ -14,31 +12,32 @@ Necesitas pedirle a Jose:
 
 Configura un Shortcut por cada app bancaria que tengas instalada:
 
-| App en tu iPhone          | Nombre para el JSON  |
-|---------------------------|----------------------|
-| Bancolombia App           | `bancolombia`        |
-| Mi Davivienda             | `davivienda`         |
-| Banco de Bogotá           | `bogota`             |
-| Itaú Colombia             | `itau`               |
-| Nequi                     | `nequi`              |
-| Daviplata                 | `daviplata`          |
-| Banco de Occidente Móvil  | `occidente`          |
-| Banco Popular Colombia    | `popular`            |
-| AV Villas App             | `avvillas`           |
-| dale!                     | `dale`               |
-| Rappi                     | `rappi`              |
+| App en tu iPhone          | Nombre para el campo `bank` |
+|---------------------------|-----------------------------|
+| Bancolombia App           | `bancolombia`               |
+| Mi Davivienda             | `davivienda`                |
+| Banco de Bogotá           | `bogota`                    |
+| Itaú Colombia             | `itau`                      |
+| Nequi                     | `nequi`                     |
+| Daviplata                 | `daviplata`                 |
+| Banco de Occidente Móvil  | `occidente`                 |
+| Banco Popular Colombia    | `popular`                   |
+| AV Villas App             | `avvillas`                  |
+| dale!                     | `dale`                      |
+| Rappi                     | `rappi`                     |
 
 ---
 
 ## Paso a paso — un banco a la vez
 
-Sigue estos pasos para **cada** app bancaria que tengas. Ejemplo con Bancolombia.
+Sigue estos pasos para **cada** app bancaria que tengas. El ejemplo es con Bancolombia,
+pero el proceso es idéntico para todos.
 
 ---
 
 ### Paso 1 — Abre la app Atajos
 
-Busca la app **Atajos** en tu iPhone (viene instalada de fábrica, ícono de color naranja/azul).
+Busca la app **Atajos** en tu iPhone (viene instalada de fábrica, ícono naranja/azul).
 
 Si no la encuentras, desliza hacia abajo desde la pantalla de inicio y búscala.
 
@@ -46,19 +45,19 @@ Si no la encuentras, desliza hacia abajo desde la pantalla de inicio y búscala.
 
 ### Paso 2 — Crea una nueva automatización
 
-1. Toca la pestaña **Automatización** en la parte inferior de la pantalla
+1. Toca la pestaña **Automatización** en la parte inferior
 2. Toca el botón **+** arriba a la derecha
 3. Toca **Crear automatización personal**
 
 ---
 
-### Paso 3 — Elige el trigger (qué lo activa)
+### Paso 3 — Elige el trigger
 
 1. Baja en la lista y toca **App**
 2. Toca **Seleccionar** → busca la app de tu banco (ej: "Bancolombia App") → tócala
 3. Asegúrate de que esté marcada la opción **"Se recibe una notificación"**
 4. **Muy importante**: activa el toggle **"Ejecutar inmediatamente"**
-   - Si este toggle está desactivado, el Shortcut te pedirá permiso cada vez y no funcionará solo
+   - Si no activas esto, el Shortcut te pedirá permiso cada vez y no funcionará solo
 5. Toca **Siguiente**
 
 ---
@@ -71,51 +70,48 @@ Si no la encuentras, desliza hacia abajo desde la pantalla de inicio y búscala.
 
 ---
 
-### Paso 5 — Configura el envío
+### Paso 5 — Pega la URL
 
-Ahora configuras cómo se envía la información. Hazlo así:
+Toca el campo URL y pega exactamente esto:
 
-**URL:**
-Toca donde dice "URL" y pega esto (Jose te da los valores):
 ```
-URL_DEL_WEBHOOK?_secret=CODIGO_SECRETO
+https://script.google.com/macros/s/AKfycbwT16zm7B30gu2tbyPiw3KNORPl7rEdS1WuX_8kSH5Kwem8LSov30M7oeQohbjB9Xpd/exec?_secret=de1469b78f0a2020a68ac2316a7acfb81cce5e58eaaa5dd055821bbce0f85fd3
 ```
 
-**Método:**
-Toca **GET** y cámbialo a **POST**
+Luego:
 
-**Cuerpo de la solicitud:**
-Toca donde dice el tipo de cuerpo y selecciona **JSON**
+- Toca **GET** y cámbialo a **POST**
+- Toca el tipo de cuerpo y selecciona **JSON**
 
 ---
 
-### Paso 6 — Agrega los campos del JSON
+### Paso 6 — Agrega los 6 campos del JSON
 
-Ahora agregas los datos que se van a enviar. Toca **Agregar nuevo campo** para cada uno:
+Toca **Agregar nuevo campo** para cada uno (son 6 en total):
 
-**Campo 1:**
+**Campo 1**
 - Clave: `type`
-- Valor: escribe `notification` (texto fijo)
+- Valor: `notification` ← escríbelo como texto fijo
 
-**Campo 2:**
+**Campo 2**
 - Clave: `bank`
-- Valor: escribe el nombre del banco según la tabla de arriba, ej: `bancolombia` (texto fijo)
+- Valor: el nombre del banco según la tabla de arriba, ej: `bancolombia` ← texto fijo
 
-**Campo 3:**
+**Campo 3**
 - Clave: `userId`
-- Valor: escribe `dani` (texto fijo)
+- Valor: `dani` ← texto fijo
 
-**Campo 4:**
+**Campo 4**
 - Clave: `title`
-- Valor: toca el campo → toca la varita mágica **{x}** → selecciona **Título de notificación**
+- Valor: toca el campo → toca la varita **{x}** → selecciona **Título de notificación**
 
-**Campo 5:**
+**Campo 5**
 - Clave: `body`
 - Valor: toca el campo → toca **{x}** → selecciona **Cuerpo de notificación**
 
-**Campo 6:**
+**Campo 6**
 - Clave: `timestamp`
-- Valor: toca el campo → toca **{x}** → **Fecha actual** → selecciona el formato **ISO 8601**
+- Valor: toca el campo → toca **{x}** → **Fecha actual** → formato **ISO 8601**
 
 ---
 
@@ -125,54 +121,45 @@ Ahora agregas los datos que se van a enviar. Toca **Agregar nuevo campo** para c
 2. Cuando pregunte **"¿Pedir antes de ejecutar?"** → toca **No preguntar**
 3. Toca **Listo**
 
-¡Listo! Ya está configurado para ese banco.
+¡Listo para ese banco!
 
 ---
 
 ### Paso 8 — Repite para cada banco
 
-Vuelve al Paso 1 y repite el proceso para cada app bancaria que tengas instalada.
-En el Paso 5 cambia el nombre del banco en el campo `bank`.
+Vuelve al Paso 1 y repite todo para cada app bancaria que tengas.
+En el Paso 6, Campo 2, cambia el valor de `bank` por el nombre correspondiente.
 
 ---
 
 ## Cómo saber si está funcionando
 
 1. Haz una compra pequeña o pide que te transfieran algo
-2. Cuando llegue la notificación del banco a tu iPhone, el Shortcut corre solo en segundo plano
-3. Abre el Google Sheet que te compartió Jose → busca tu pestaña "Dani"
-4. Debe aparecer una fila nueva con tu compra, el banco y el monto
+2. Cuando llegue la notificación del banco, el Shortcut corre solo en segundo plano (no verás nada)
+3. Abre el Google Sheet que compartió Jose → busca tu pestaña "Dani"
+4. Debe aparecer una fila nueva con el banco, el monto y la descripción
 
 Si ves una fila con **"NO RECONOCIDO"** en la columna Tipo:
-- El Shortcut funcionó (la fila llegó bien)
+- El Shortcut funcionó bien (la fila llegó)
 - El sistema no pudo leer el texto de la notificación
-- Dile a Jose cuál banco fue y él lo arregla
+- Dile a Jose cuál banco fue y él lo ajusta
 
 ---
 
-## Si el Shortcut te pide permiso cada vez
+## Problemas frecuentes
 
-Significa que **"Ejecutar inmediatamente"** no quedó activado.
+**El Shortcut te pide permiso cada vez**
+El toggle "Ejecutar inmediatamente" no quedó activado.
+Ve a Atajos → Automatización → toca el Shortcut del banco → actívalo.
 
-1. Ve a **Atajos** → **Automatización**
-2. Toca el Shortcut del banco
-3. Activa el toggle **"Ejecutar inmediatamente"**
-
----
-
-## Preguntas frecuentes
+**No aparece nada en el Sheet**
+Verifica que el Shortcut tenga los 6 campos del JSON y que la URL esté completa (es larga, asegúrate de que no se cortó al pegar).
 
 **¿Se gasta batería?**
-Casi nada. El Shortcut solo corre cuando llega una notificación del banco, dura menos de 1 segundo.
-
-**¿Mis datos van a algún lado raro?**
-No. Todo va directo al Sheet de Google de Jose. Nadie más tiene acceso.
-
-**¿Qué pasa si desinstalo la app del banco?**
-El Shortcut deja de funcionar automáticamente (no hay notificaciones sin la app).
+Casi nada. El Shortcut solo corre cuando llega una notificación del banco y dura menos de 1 segundo.
 
 **¿Funciona con iOS 15?**
-Funciona, pero cada vez que llegue una notificación verás un banner en la pantalla preguntándote si quieres correr el Shortcut. Toca "Ejecutar" para que funcione. En iOS 16 en adelante esto es automático.
+Sí, pero en cada notificación verás un banner preguntando si quieres correr el Shortcut. En iOS 16 en adelante es automático.
 
-**¿Qué pasa si llega una notificación del banco que no es una compra (publicidad, alertas)?**
-Se guarda en el Sheet con tipo "NO RECONOCIDO" y monto 0. Puedes borrarla manualmente desde la app.
+**¿Qué pasa si llega una notificación que no es una compra (publicidad, alertas)?**
+Se guarda con tipo "NO RECONOCIDO" y monto 0. La puedes borrar manualmente desde la app.
