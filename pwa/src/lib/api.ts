@@ -65,7 +65,10 @@ export interface Transaction {
 }
 
 export const INCOME_CATEGORY = 'Ingreso';
-export const isGasto = (tx: Transaction): boolean => tx.Categoría !== INCOME_CATEGORY;
+const INCOME_TIPOS = new Set(['Depósito', 'Abono', 'Consignación', 'Crédito', 'Ingreso', 'Nómina']);
+export const isIncomeTx = (tx: Transaction): boolean =>
+  tx.Categoría === INCOME_CATEGORY || INCOME_TIPOS.has(tx.Tipo || '');
+export const isGasto = (tx: Transaction): boolean => !isIncomeTx(tx);
 
 export interface ManualTransaction {
   banco: string;

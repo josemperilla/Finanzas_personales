@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction, INCOME_CATEGORY } from '../lib/api';
+import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction, isIncomeTx } from '../lib/api';
 import { addLearnedMapping, getLearnedMappings, removeLearnedMapping, clearLearnedMappings, LearnedMapping } from '../lib/merchantLearning';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -524,7 +524,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
 }
 
 function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void; onDelete: (ts: string) => void }) {
-  const isIncome = tx.Categoría === INCOME_CATEGORY;
+  const isIncome = isIncomeTx(tx);
   const color    = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const name     = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain   = getMerchantDomain(name);
