@@ -131,7 +131,7 @@ def main():
     ap.add_argument("--bank",    required=True, choices=list(PARSERS.keys()),
                     help="Banco del extracto: bogota | itau | bancolombia")
     ap.add_argument("--file",    required=True, help="Ruta al archivo (PDF o CSV)")
-    ap.add_argument("--userId",  required=True, help="Usuario destino: jose | dani")
+    ap.add_argument("--userId",  required=True, help="Usuario destino (ej: jose | new_user)")
     ap.add_argument("--month",   default=None,  help="Filtrar por mes, ej: 2026-05 (opcional)")
     ap.add_argument("--dry-run", action="store_true", help="Solo muestra las transacciones, no envía nada")
     ap.add_argument("--delay",   type=int, default=300,

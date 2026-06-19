@@ -65,7 +65,7 @@ if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;  // ✓
 
 ### 2.2 ¿Las variables de entorno están en el proyecto correcto?
 Hay dos proyectos de Cloudflare Pages (uno por rama):
-- **`finanzas-personales`** → rama `main` → versión de Dani (estable)
+- **`finanzas-personales`** → rama `main` → versión estable
 - **`finanzas-abiertas`** → rama `feat/multi-user` → versión familia/amigos
 
 Las variables `WEBHOOK_URL` y `WEBHOOK_SECRET` deben configurarse en **cada proyecto** por separado en Settings → Variables and Secrets.

@@ -1,10 +1,8 @@
-# Tutorial para Dani — Captura automática de gastos en iPhone
+# Tutorial — Captura automática de gastos en iPhone
 
 Este tutorial te ayuda a configurar tu iPhone para que **cada vez que recibes una
 notificación de tu banco, la transacción se guarde automáticamente** en el Sheet de
 finanzas compartido.
-
-No necesitas pedirle nada a Jose — ya está todo aquí.
 
 ---
 
@@ -99,7 +97,7 @@ Toca **Agregar nuevo campo** para cada uno (son 6 en total):
 
 **Campo 3**
 - Clave: `userId`
-- Valor: `dani` ← texto fijo
+- Valor: tu ID de usuario (ej: `new_user`) ← texto fijo, pregúntale al admin cuál es el tuyo
 
 **Campo 4**
 - Clave: `title`
@@ -136,7 +134,7 @@ En el Paso 6, Campo 2, cambia el valor de `bank` por el nombre correspondiente.
 
 1. Haz una compra pequeña o pide que te transfieran algo
 2. Cuando llegue la notificación del banco, el Shortcut corre solo en segundo plano (no verás nada)
-3. Abre el Google Sheet que compartió Jose → busca tu pestaña "Dani"
+3. Abre el Google Sheet → busca tu pestaña (tiene el nombre de tu usuario)
 4. Debe aparecer una fila nueva con el banco, el monto y la descripción
 
 Si ves una fila con **"NO RECONOCIDO"** en la columna Tipo:
