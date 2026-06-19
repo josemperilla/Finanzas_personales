@@ -61,7 +61,7 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
         {onDelete && !compact && (
           <button
             onClick={onDelete}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: '4px 2px' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             aria-label="Eliminar Sueño"
           >
             ×

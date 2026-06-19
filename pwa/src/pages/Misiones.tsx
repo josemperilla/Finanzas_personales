@@ -100,7 +100,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
   }, [userId, reload]);
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 100 }}>
+    <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
       {/* Header */}
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 16px 0', marginBottom: 16 }}>
         <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -140,7 +140,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
               whileTap={{ scale: 0.93 }}
               onClick={() => setShowSuenoForm(true)}
               style={{
-                height: 34, padding: '0 14px',
+                height: 44, padding: '0 14px',
                 background: 'var(--blue-700)', border: 'none',
                 borderRadius: 'var(--r-xl)', color: '#fff',
                 fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -249,7 +249,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
                       value={form.nombre}
                       onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                       placeholder="Ej: Viaje a Europa"
-                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
 
@@ -260,7 +260,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
                       value={form.monto}
                       onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
                       placeholder="Ej: 5000000"
-                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
                     />
                     {form.monto && parseInt(form.monto) > 0 && (
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
@@ -275,7 +275,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
                       type="date"
                       value={form.fechaObjetivo}
                       onChange={e => setForm(f => ({ ...f, fechaObjetivo: e.target.value }))}
-                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: 44, padding: '0 14px', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--card)', color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
 

@@ -229,7 +229,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
                   placeholder="Ej: Viaje a San Andrés"
                   autoFocus
                   style={{
-                    width: '100%', padding: '12px 14px', fontSize: 15, boxSizing: 'border-box',
+                    width: '100%', padding: '12px 14px', fontSize: 16, boxSizing: 'border-box',
                     background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12,
                     color: 'var(--ink)', outline: 'none',
                   }}
@@ -248,7 +248,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
                   onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
                   placeholder="3000000"
                   style={{
-                    width: '100%', padding: '12px 14px', fontSize: 15, boxSizing: 'border-box',
+                    width: '100%', padding: '12px 14px', fontSize: 16, boxSizing: 'border-box',
                     background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12,
                     color: 'var(--ink)', outline: 'none',
                   }}
@@ -271,7 +271,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
                   onChange={e => setForm(f => ({ ...f, fechaObjetivo: e.target.value }))}
                   min={new Date().toISOString().split('T')[0]}
                   style={{
-                    width: '100%', padding: '12px 14px', fontSize: 15, boxSizing: 'border-box',
+                    width: '100%', padding: '12px 14px', fontSize: 16, boxSizing: 'border-box',
                     background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 12,
                     color: 'var(--ink)', outline: 'none',
                   }}

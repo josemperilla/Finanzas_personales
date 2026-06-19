@@ -27,7 +27,7 @@ export function Progreso({ userId, transactions }: Props) {
   });
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 100 }}>
+    <div style={{ fontFamily: 'var(--font-body)', paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
       {/* Header */}
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 0', marginBottom: 20 }}>
         <div style={{

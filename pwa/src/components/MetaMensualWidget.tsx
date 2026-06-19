@@ -151,10 +151,10 @@ export function MetaMensualWidget({ monthTx, userId }: Props) {
                   }}
                   onBlur={saveDraft}
                   style={{
-                    width: 110, fontSize: 12, padding: '3px 8px',
+                    width: 120, height: 40, fontSize: 16, padding: '0 8px',
                     border: '1.5px solid var(--blue-600)', borderRadius: 8,
                     background: 'var(--surface)', color: 'var(--ink)',
-                    fontFamily: 'var(--font-mono)', outline: 'none',
+                    fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box',
                   }}
                 />
               </motion.div>

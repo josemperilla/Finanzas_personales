@@ -442,8 +442,9 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                         onClick={copyUserId}
                         style={{
                           flexShrink: 0, background: copied ? '#10b981' : 'var(--blue-600)',
-                          border: 'none', borderRadius: 8, padding: '6px 12px',
-                          color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          border: 'none', borderRadius: 8, padding: '0 14px',
+                          minHeight: 44, display: 'flex', alignItems: 'center',
+                          color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                           fontFamily: 'var(--font-body)', transition: 'background 0.2s',
                         }}
                       >

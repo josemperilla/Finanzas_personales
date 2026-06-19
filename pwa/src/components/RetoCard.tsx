@@ -140,7 +140,7 @@ export const RetoCard = memo(function RetoCard({ progress, onDelete }: Props) {
             </span>
             <button
               onClick={onDelete}
-              style={{ background: 'rgba(255,255,255,.18)', border: 'none', cursor: 'pointer', fontSize: 14, color: '#fff', width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+              style={{ background: 'rgba(255,255,255,.18)', border: 'none', cursor: 'pointer', fontSize: 14, color: '#fff', width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
             >
               ×
             </button>

@@ -26,7 +26,7 @@ const inputStyle: React.CSSProperties = {
   width: '100%', height: 44, padding: '0 14px',
   border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)',
   background: 'var(--card)', color: 'var(--ink)',
-  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+  fontSize: 16, fontFamily: 'var(--font-body)', outline: 'none',
   boxSizing: 'border-box',
 };
 
@@ -67,15 +67,20 @@ export function RetosPanel({ userId, transactions }: Props) {
     return knownMerchants.filter(m => m.toLowerCase().includes(q)).slice(0, 8);
   }, [mercQuery, knownMerchants]);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click/touch
   useEffect(() => {
-    function onOutside(e: MouseEvent) {
-      if (mercRef.current && !mercRef.current.contains(e.target as Node)) {
+    function onOutside(e: MouseEvent | TouchEvent) {
+      const target = 'touches' in e ? (e as TouchEvent).touches[0]?.target : (e as MouseEvent).target;
+      if (mercRef.current && target && !mercRef.current.contains(target as Node)) {
         setShowMercDrop(false);
       }
     }
-    document.addEventListener('mousedown', onOutside);
-    return () => document.removeEventListener('mousedown', onOutside);
+    document.addEventListener('mousedown', onOutside as EventListener);
+    document.addEventListener('touchstart', onOutside as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', onOutside as EventListener);
+      document.removeEventListener('touchstart', onOutside as EventListener);
+    };
   }, []);
 
   const progresses = useMemo(
@@ -181,7 +186,7 @@ export function RetosPanel({ userId, transactions }: Props) {
           whileTap={{ scale: 0.93 }}
           onClick={() => setShowForm(true)}
           style={{
-            height: 32, padding: '0 14px',
+            height: 44, padding: '0 14px',
             background: 'var(--blue-700)', border: 'none',
             borderRadius: 'var(--r-xl)', color: '#fff',
             fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -454,12 +459,12 @@ export function RetosPanel({ userId, transactions }: Props) {
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Inicio</label>
                         <input type="date" title="Fecha de inicio" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
-                          style={{ ...inputStyle, height: 40, fontSize: 13 }} />
+                          style={{ ...inputStyle, height: 44, fontSize: 16 }} />
                       </div>
                       <div>
                         <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Fin</label>
                         <input type="date" title="Fecha de fin" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
-                          style={{ ...inputStyle, height: 40, fontSize: 13 }} />
+                          style={{ ...inputStyle, height: 44, fontSize: 16 }} />
                       </div>
                     </div>
                   )}
