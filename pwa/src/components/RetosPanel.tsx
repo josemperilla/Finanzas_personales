@@ -1,13 +1,15 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Reto, RetoTipo, getRetos, addReto, deleteReto, computeProgress, periodDates } from '../lib/retos';
+import { Reto, RetoTipo, RetoSugerido, getRetos, addReto, deleteReto, computeProgress, periodDates, getRetoSemanalSugerido, aceptarRetoSemanal } from '../lib/retos';
 import { Transaction } from '../lib/api';
 import { CATEGORIES, getCategoryColor } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { RetoCard } from './RetoCard';
 import { softSpring, quickEase } from '../lib/motion';
 import { addXP, updateRacha } from '../lib/gamification';
+import { getMeta } from '../lib/meta';
+import { formatCOP } from '../lib/utils';
 
 interface Props {
   userId: string;
@@ -33,6 +35,7 @@ const inputStyle: React.CSSProperties = {
 export function RetosPanel({ userId, transactions }: Props) {
   const [retos, setRetos] = useState<Reto[]>(() => getRetos(userId));
   const [showForm, setShowForm] = useState(false);
+  const [retoSugerido, setRetoSugerido] = useState<RetoSugerido | null>(null);
 
   // Form state
   const [titulo,       setTitulo]      = useState('');
@@ -77,6 +80,29 @@ export function RetosPanel({ userId, transactions }: Props) {
     document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
   }, []);
+
+  // Reto sugerido por semana
+  useEffect(() => {
+    setRetoSugerido(getRetoSemanalSugerido(userId, transactions));
+  }, [userId, transactions]);
+
+  // Meta semanal y gasto de la semana actual
+  const { metaSemanal, gastoSemana, pctSemana } = useMemo(() => {
+    const meta = getMeta(userId);
+    const metaSemanal = meta.activo && meta.monto > 0 ? Math.round(meta.monto / 4.33) : 0;
+    const now = new Date();
+    const daysFromMonday = (now.getDay() + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - daysFromMonday);
+    const mondayStr = monday.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0];
+    const gastoSemana = transactions
+      .filter(tx => tx.Tipo === 'Gasto' || (tx.Tipo !== 'Ingreso' && Number(tx['Monto (COP)'] || 0) > 0))
+      .filter(tx => { const f = tx.Fecha || (tx.Timestamp || '').split(' ')[0]; return f >= mondayStr && f <= todayStr; })
+      .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
+    const pctSemana = metaSemanal > 0 ? Math.min(gastoSemana / metaSemanal, 1.5) : 0;
+    return { metaSemanal, gastoSemana, pctSemana };
+  }, [userId, transactions]);
 
   const progresses = useMemo(
     () => retos.map(r => computeProgress(r, transactions)),
@@ -159,12 +185,82 @@ export function RetosPanel({ userId, transactions }: Props) {
     setRetos(getRetos(userId));
   }
 
+  function handleAceptarRetoSemanal() {
+    if (!retoSugerido) return;
+    aceptarRetoSemanal(userId, retoSugerido);
+    setRetos(getRetos(userId));
+    setRetoSugerido(null);
+  }
+
   const canSubmit = titulo.trim()
     && (tipo === 'no_spend' || !!objetivo)
     && (periodoTipo !== 'personalizado' || (!!fechaInicio && !!fechaFin));
 
   return (
     <div style={{ padding: '0 16px 0' }}>
+
+      {/* Banner: Meta semanal */}
+      {metaSemanal > 0 && (
+        <div style={{
+          background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '12px 16px', marginBottom: 12,
+          border: `1.5px solid ${pctSemana > 1 ? '#fca5a5' : pctSemana > 0.7 ? '#fed7aa' : 'var(--line)'}`,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>💡 Meta semanal</span>
+            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: pctSemana > 1 ? '#dc2626' : pctSemana > 0.7 ? 'var(--orange)' : 'var(--muted)' }}>
+              {formatCOP(gastoSemana)} / {formatCOP(metaSemanal)}
+            </span>
+          </div>
+          <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 999,
+              width: `${Math.min(pctSemana * 100, 100)}%`,
+              background: pctSemana > 1 ? '#dc2626' : pctSemana > 0.7 ? 'var(--orange)' : 'var(--blue)',
+              transition: 'width 0.4s ease',
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Card: Reto de la semana */}
+      <AnimatePresence>
+        {retoSugerido && (
+          <motion.div
+            key="reto-semana" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={quickEase}
+            style={{
+              background: 'var(--card)',
+              border: '1.5px solid var(--blue)',
+              borderRadius: 'var(--r-xl)', padding: '14px 16px', marginBottom: 12,
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 8 }}>
+              🗓️ Reto de la semana
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 30, lineHeight: 1, flexShrink: 0 }}>{retoSugerido.emoji}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 2 }}>{retoSugerido.titulo}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{retoSugerido.descripcion}</div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.94 }}
+                onClick={handleAceptarRetoSemanal}
+                style={{
+                  flexShrink: 0, height: 32, padding: '0 14px',
+                  background: 'var(--blue)', border: 'none',
+                  borderRadius: 'var(--r-xl)', color: '#fff',
+                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                ¡Acepto!
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
