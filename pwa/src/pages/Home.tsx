@@ -688,7 +688,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
               exit={{ opacity: 0, scale: 0.92, y: -6 }}
               transition={quickEase}
               style={{
-                position: 'absolute', top: 50, left: 0, zIndex: 51,
+                position: 'absolute', top: 50, right: 0, zIndex: 51,
                 background: 'var(--card)', borderRadius: 14, overflow: 'hidden',
                 boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
                 border: '1px solid var(--line)', minWidth: 160,
