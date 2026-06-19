@@ -168,11 +168,14 @@ export default function App() {
         registrarVisita(userId);
         const meta = getMeta(userId);
         const now = new Date();
-        const gastoMes = processed
-          .filter(tx => { const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T')); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+        const today = now.toISOString().split('T')[0];
+        const diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const gastoHoy = processed
           .filter(isGasto)
+          .filter(tx => (tx.Fecha || (tx.Timestamp || '').split(' ')[0]) === today)
           .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
-        const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
+        const presupuestoDiario = meta.activo && meta.monto > 0 ? meta.monto / diasMes : 0;
+        const isWithinBudget = presupuestoDiario > 0 ? gastoHoy <= presupuestoDiario : true;
         updateRacha(userId, isWithinBudget);
         setGamificationKey(k => k + 1);
         const subs = detectSubscriptions(processed);

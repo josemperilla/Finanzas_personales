@@ -6,14 +6,59 @@ import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { addSueno } from '../lib/suenos';
 import { setMeta } from '../lib/meta';
 import { awardBadge } from '../lib/gamification';
+import { setBudget } from '../lib/budgets';
 
 type Clase = 'hormiga' | 'administrador' | 'sonador';
 
-const CLASES: { id: Clase; emoji: string; nombre: string; desc: string; color: string }[] = [
-  { id: 'hormiga',       emoji: '🐜', nombre: 'La Hormiga Sabia',  desc: 'Ahorra poco a poco, cada grano cuenta', color: '#3b82f6' },
-  { id: 'administrador', emoji: '📊', nombre: 'El Administrador',  desc: 'Control total, presupuesto exacto',      color: '#8b5cf6' },
-  { id: 'sonador',       emoji: '✨', nombre: 'El Soñador',        desc: 'Metas grandes, sueños por cumplir',      color: '#f59e0b' },
+const PREGUNTAS_PERFIL = [
+  {
+    titulo: 'Control de gasto',
+    pregunta: '¿Qué haces cuando ves algo que quieres pero no planeabas comprar?',
+    opciones: [
+      { label: 'Lo compro si me alcanza', emoji: '💳', score: 0 },
+      { label: 'Lo pienso unos días antes', emoji: '⏳', score: 1 },
+      { label: 'Solo si cabe en mi presupuesto', emoji: '📊', score: 2 },
+      { label: 'Casi nunca compro no planeado', emoji: '🛡️', score: 3 },
+    ],
+  },
+  {
+    titulo: 'Manejo de excedentes',
+    pregunta: 'Si te dan $500.000 extra este mes, ¿qué haces?',
+    opciones: [
+      { label: 'Me doy un gusto pendiente', emoji: '🎉', score: 0 },
+      { label: 'Lo guardo por si acaso', emoji: '🐷', score: 1 },
+      { label: 'Lo pongo en una meta específica', emoji: '🎯', score: 2 },
+      { label: 'Lo invierto o en un CDT', emoji: '📈', score: 3 },
+    ],
+  },
+  {
+    titulo: 'Puntualidad de pagos',
+    pregunta: '¿Cómo manejas tus pagos fijos (arriendo, servicios, cuotas)?',
+    opciones: [
+      { label: 'A veces se me pasan', emoji: '😅', score: 0 },
+      { label: 'Los pago cuando recuerdo', emoji: '📱', score: 1 },
+      { label: 'Casi siempre a tiempo', emoji: '✅', score: 2 },
+      { label: 'Todo automatizado, nunca fallo', emoji: '🤖', score: 3 },
+    ],
+  },
 ];
+
+const CATEGORIAS_PROBLEMA = [
+  { id: 'Domicilios', emoji: '🍕' },
+  { id: 'Restaurantes', emoji: '🍽️' },
+  { id: 'Compras', emoji: '🛍️' },
+  { id: 'Entretenimiento', emoji: '🎮' },
+  { id: 'Café', emoji: '☕' },
+  { id: 'Transporte', emoji: '🚕' },
+  { id: 'Ropa', emoji: '👔' },
+  { id: 'Suscripciones', emoji: '📱' },
+];
+
+const PRESUPUESTOS_SUGERIDOS: Record<Clase, Record<string, number>> = {
+  hormiga:       { Domicilios: 260_000, Restaurantes: 300_000, Compras: 200_000, Entretenimiento: 100_000, Café: 80_000, Transporte: 200_000, Ropa: 150_000, Suscripciones: 100_000 },
+  administrador: { Domicilios: 400_000, Restaurantes: 500_000, Compras: 350_000, Entretenimiento: 200_000, Café: 130_000, Transporte: 320_000, Ropa: 250_000, Suscripciones: 150_000 },
+  sonador:       { Domicilios: 180_000, Restaurantes: 220_000, Compras: 150_000, Entretenimiento: 80_000,  Café: 60_000,  Transporte: 160_000, Ropa: 100_000, Suscripciones: 80_000 },
+};
 
 const SUENOS_SUGERIDOS: Record<Clase, { emoji: string; nombre: string; monto: number }[]> = {
   hormiga: [
@@ -42,8 +87,8 @@ interface Props {
   onFinish: () => void;
 }
 
-type Step = 'clase' | 'profile' | 'sueno' | 'meta' | 'shortcut';
-const STEPS: Step[] = ['clase', 'profile', 'sueno', 'meta', 'shortcut'];
+type Step = 'perfil' | 'profile' | 'sueno' | 'meta' | 'shortcut';
+const STEPS: Step[] = ['perfil', 'profile', 'sueno', 'meta', 'shortcut'];
 
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -69,8 +114,11 @@ const ghostBtn: React.CSSProperties = {
 
 export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState<Step>('clase');
+  const [step, setStep] = useState<Step>('perfil');
   const [clase, setClase] = useState<Clase | null>(null);
+  const [perfilSubStep, setPerfilSubStep] = useState(0); // 0-2: preguntas, 3: categorías
+  const [perfilRespuestas, setPerfilRespuestas] = useState<number[]>([]);
+  const [categoriasProblema, setCategoriasProblema] = useState<string[]>([]);
   const [name, setName] = useState(initialDisplayName || '');
   const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(userId));
   const [selectedSueno, setSelectedSueno] = useState<number | null>(null);
@@ -85,8 +133,9 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
     });
   }
 
-  const claseInfo = clase ? CLASES.find(c => c.id === clase) : null;
-  const claseColor = claseInfo?.color ?? 'var(--blue-600)';
+  const CLASE_COLORS: Record<Clase, string> = { hormiga: '#3b82f6', administrador: '#8b5cf6', sonador: '#f59e0b' };
+  const CLASE_EMOJIS: Record<Clase, string> = { hormiga: '🐜', administrador: '📊', sonador: '✨' };
+  const claseColor = clase ? CLASE_COLORS[clase] : '#3b82f6';
 
   function next() {
     const i = STEPS.indexOf(step);
@@ -97,9 +146,33 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
     }
   }
 
-  function saveClaseAndNext(c: Clase) {
-    setClase(c);
-    localStorage.setItem(`fm_clase_${userId}`, c);
+  function handlePerfilRespuesta(score: number) {
+    const newRespuestas = [...perfilRespuestas, score];
+    setPerfilRespuestas(newRespuestas);
+    if (perfilSubStep < 2) {
+      setPerfilSubStep(perfilSubStep + 1);
+    } else {
+      setPerfilSubStep(3); // → categorías problema
+    }
+  }
+
+  function toggleCategoriaProblema(cat: string) {
+    setCategoriasProblema(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  }
+
+  function savePerfilAndNext() {
+    const score = perfilRespuestas.reduce((a, b) => a + b, 0);
+    const claseAsignada: Clase = score <= 3 ? 'hormiga' : score <= 6 ? 'administrador' : 'sonador';
+    setClase(claseAsignada);
+    localStorage.setItem(`fm_clase_${userId}`, claseAsignada);
+    localStorage.setItem(`fm_perfil_score_${userId}`, JSON.stringify({ score, respuestas: perfilRespuestas }));
+    localStorage.setItem(`fm_categorias_problema_${userId}`, JSON.stringify(categoriasProblema));
+    const presupuestos = PRESUPUESTOS_SUGERIDOS[claseAsignada];
+    for (const cat of categoriasProblema) {
+      if (presupuestos[cat]) setBudget(userId, cat, presupuestos[cat]);
+    }
     next();
   }
 
@@ -188,37 +261,86 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
 
         <AnimatePresence mode="wait">
 
-          {/* ── Paso 1: Elige tu clase ── */}
-          {step === 'clase' && (
-            <motion.div key="clase" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+          {/* ── Paso 1: Cuestionario de perfil financiero ── */}
+          {step === 'perfil' && (
+            <motion.div key={`perfil-${perfilSubStep}`} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
               style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 44, marginBottom: 10 }}>⚔️</div>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  Elige tu clase
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  Define cómo vas a jugar con tu dinero
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                {CLASES.map(c => (
-                  <motion.button key={c.id} whileTap={{ scale: 0.98 }} onClick={() => saveClaseAndNext(c.id)} style={{
-                    border: `2px solid ${c.color}33`,
-                    background: `${c.color}0e`,
-                    borderRadius: 16, padding: '16px 18px',
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    cursor: 'pointer', textAlign: 'left',
-                  }}>
-                    <div style={{ fontSize: 32, lineHeight: 1 }}>{c.emoji}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2 }}>{c.nombre}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.desc}</div>
+
+              {perfilSubStep < 3 ? (
+                // Preguntas de escenario (1-3)
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+                      {perfilSubStep + 1} / 3 · {PREGUNTAS_PERFIL[perfilSubStep].titulo}
                     </div>
-                    <div style={{ color: c.color, fontSize: 20, fontWeight: 700 }}>›</div>
-                  </motion.button>
-                ))}
-              </div>
+                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--ink)', lineHeight: 1.3 }}>
+                      {PREGUNTAS_PERFIL[perfilSubStep].pregunta}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                    {PREGUNTAS_PERFIL[perfilSubStep].opciones.map(op => (
+                      <motion.button
+                        key={op.score}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => handlePerfilRespuesta(op.score)}
+                        style={{
+                          border: '1.5px solid var(--line)', background: 'var(--card)',
+                          borderRadius: 14, padding: '14px 16px',
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          cursor: 'pointer', textAlign: 'left',
+                        }}
+                      >
+                        <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>{op.emoji}</div>
+                        <div style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>{op.label}</div>
+                      </motion.button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                // Categorías problema (multi-select)
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 44, marginBottom: 10 }}>🎯</div>
+                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--ink)', marginBottom: 8 }}>
+                      ¿En qué áreas quieres mejorar?
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
+                      Selecciona las categorías donde más gastas (opcional)
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
+                    {CATEGORIAS_PROBLEMA.map(c => {
+                      const selected = categoriasProblema.includes(c.id);
+                      return (
+                        <motion.button
+                          key={c.id}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => toggleCategoriaProblema(c.id)}
+                          style={{
+                            border: `2px solid ${selected ? 'var(--blue)' : 'var(--line)'}`,
+                            background: selected ? 'var(--blue-50, #eff6ff)' : 'var(--card)',
+                            borderRadius: 14, padding: '12px 14px',
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                          }}
+                        >
+                          <span style={{ fontSize: 22 }}>{c.emoji}</span>
+                          <span style={{ fontSize: 13, fontWeight: selected ? 700 : 400, color: selected ? 'var(--blue)' : 'var(--ink)', fontFamily: 'var(--font-body)' }}>
+                            {c.id}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={savePerfilAndNext} style={primaryBtn}>
+                      {categoriasProblema.length > 0
+                        ? `Continuar con ${categoriasProblema.length} área${categoriasProblema.length !== 1 ? 's' : ''} →`
+                        : 'Continuar →'}
+                    </motion.button>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -231,7 +353,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                   ¿Cómo te llamas?
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  {claseInfo ? `${claseInfo.nombre}, bienvenido` : 'Así te mostraremos en la app'}
+                  {'Así te mostraremos en la app'}
                 </div>
               </div>
               <label style={{ cursor: 'pointer' }}>
@@ -246,7 +368,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                 }}>
                   {avatar
                     ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : (name.trim().charAt(0).toUpperCase() || claseInfo?.emoji || '+')}
+                    : (name.trim().charAt(0).toUpperCase() || (clase ? CLASE_EMOJIS[clase] : '+'))}
                 </motion.div>
               </label>
               <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>

@@ -34,7 +34,7 @@ export function RachaDisplay({ userId, onPress, gamificationKey }: Props) {
         display: 'flex', alignItems: 'center', gap: 5,
         WebkitTapHighlightColor: 'transparent',
       }}
-      aria-label={`Racha: ${racha} días consecutivos`}
+      aria-label={`Días bajo presupuesto diario: ${racha} días`}
     >
       <motion.span
         animate={{ scale, rotate: racha >= 7 ? [0, -5, 5, -3, 3, 0] : 0 }}

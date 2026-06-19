@@ -10,27 +10,27 @@ export interface GamificationState {
 }
 
 export const BADGES: Record<string, { emoji: string; nombre: string; hint: string }> = {
-  'primer-reto':           { emoji: '💪', nombre: 'Primer reto',          hint: 'Completa un reto' },
-  'primer-pdf':            { emoji: '🔍', nombre: 'Detective',             hint: 'Importa un extracto PDF' },
-  'primera-meta':          { emoji: '🎯', nombre: 'Con propósito',         hint: 'Crea tu primera meta mensual' },
-  'primer-sueno':          { emoji: '✈️', nombre: 'El viaje empieza',      hint: 'Crea un Sueño' },
-  'racha-7':               { emoji: '🔥', nombre: 'Semana perfecta',       hint: 'Mantén tu racha 7 días' },
-  'racha-30':              { emoji: '🌋', nombre: 'Mes de fuego',          hint: '30 días consecutivos de racha' },
-  'reto-5':                { emoji: '🎖️', nombre: 'Reto maestro',          hint: 'Completa 5 retos en total' },
-  'sueno-50':              { emoji: '🌊', nombre: 'A mitad del camino',    hint: 'Llega al 50% de un Sueño' },
-  'sueno-completo':        { emoji: '🏆', nombre: '¡Lo lograste!',         hint: 'Alcanza un Sueño' },
-  'cazador-suscripciones': { emoji: '🕵️', nombre: 'Cazador',               hint: 'Detecta 3+ suscripciones en la app' },
-  'presupuesto-perfecto':  { emoji: '💎', nombre: 'Presupuesto perfecto',  hint: 'Un mes entero sin superar tu meta' },
-  'nivel-2':               { emoji: '🌱', nombre: 'Ahorrador',             hint: 'Alcanza el nivel 2' },
-  'nivel-3':               { emoji: '📊', nombre: 'Administrador',         hint: 'Alcanza el nivel 3' },
-  'nivel-4':               { emoji: '💹', nombre: 'Financiero',            hint: 'Alcanza el nivel 4' },
-  'nivel-5':               { emoji: '👑', nombre: 'Maestro',               hint: 'Alcanza el nivel máximo' },
-  'desafio-2026-01':       { emoji: '🌟', nombre: 'Enero sin excesos',     hint: 'Desafío de enero 2026' },
-  'desafio-2026-06':       { emoji: '🍳', nombre: 'Chef en casa',          hint: 'Desafío de junio 2026' },
-  'desafio-2026-07':       { emoji: '💰', nombre: 'Julio de contado',      hint: 'Desafío de julio 2026' },
-  'desafio-2026-08':       { emoji: '📚', nombre: 'Agosto inteligente',    hint: 'Desafío de agosto 2026' },
-  'desafio-2026-11':       { emoji: '🛍️', nombre: 'Black Friday zen',      hint: 'Desafío de noviembre 2026' },
-  'desafio-2026-12':       { emoji: '🎄', nombre: 'Navidad sin deudas',    hint: 'Desafío de diciembre 2026' },
+  'primer-reto':           { emoji: '💪', nombre: 'Primer reto',          hint: 'Ve a Misiones, crea un reto y complétalo antes de la fecha límite' },
+  'primer-pdf':            { emoji: '🔍', nombre: 'Detective',             hint: 'Importa tu primer extracto bancario desde Agregar → Importar PDF' },
+  'primera-meta':          { emoji: '🎯', nombre: 'Con propósito',         hint: 'Activa tu presupuesto mensual desde Ajustes o el onboarding' },
+  'primer-sueno':          { emoji: '✈️', nombre: 'El viaje empieza',      hint: 'Crea tu primer Sueño en la sección Misiones' },
+  'racha-7':               { emoji: '🔥', nombre: 'Semana perfecta',       hint: 'Gasta por debajo de tu presupuesto diario 7 días seguidos' },
+  'racha-30':              { emoji: '🌋', nombre: 'Mes de fuego',          hint: 'Mantén el presupuesto diario 30 días sin interrupciones' },
+  'reto-5':                { emoji: '🎖️', nombre: 'Reto maestro',          hint: 'Completa 5 retos en total (pueden ser de distintas semanas)' },
+  'sueno-50':              { emoji: '🌊', nombre: 'A mitad del camino',    hint: 'Lleva cualquier Sueño al 50% de su meta de ahorro' },
+  'sueno-completo':        { emoji: '🏆', nombre: '¡Lo lograste!',         hint: 'Alcanza el 100% de ahorro de cualquier Sueño' },
+  'cazador-suscripciones': { emoji: '🕵️', nombre: 'Cazador',               hint: 'La app detecta 3 o más suscripciones en tus movimientos bancarios' },
+  'presupuesto-perfecto':  { emoji: '💎', nombre: 'Presupuesto perfecto',  hint: 'Cierra un mes completo sin exceder tu meta mensual de gasto' },
+  'nivel-2':               { emoji: '🌱', nombre: 'Ahorrador',             hint: 'Acumula 200 XP completando retos, importando extractos y más' },
+  'nivel-3':               { emoji: '📊', nombre: 'Administrador',         hint: 'Acumula 600 XP — completa retos y mantén tu presupuesto mensual' },
+  'nivel-4':               { emoji: '💹', nombre: 'Financiero',            hint: 'Acumula 1500 XP alcanzando metas de ahorro y retos avanzados' },
+  'nivel-5':               { emoji: '👑', nombre: 'Maestro',               hint: 'Acumula 3000 XP — el nivel más alto de disciplina financiera' },
+  'desafio-2026-01':       { emoji: '🌟', nombre: 'Enero sin excesos',     hint: 'Completa el desafío mensual "Enero sin excesos" en enero 2026' },
+  'desafio-2026-06':       { emoji: '🍳', nombre: 'Chef en casa',          hint: 'Completa 15+ días sin domicilios en el desafío de junio 2026' },
+  'desafio-2026-07':       { emoji: '💰', nombre: 'Julio de contado',      hint: 'Cierra julio 2026 dentro de tu meta mensual de gasto' },
+  'desafio-2026-08':       { emoji: '📚', nombre: 'Agosto inteligente',    hint: 'Cierra agosto 2026 dentro de tu meta mensual de gasto' },
+  'desafio-2026-11':       { emoji: '🛍️', nombre: 'Black Friday zen',      hint: 'Cierra noviembre 2026 dentro de tu meta pese al Black Friday' },
+  'desafio-2026-12':       { emoji: '🎄', nombre: 'Navidad sin deudas',    hint: 'Cierra diciembre 2026 dentro de tu meta mensual de gasto' },
 };
 
 export const NIVELES = [
@@ -166,7 +166,7 @@ export function getVisitasSemana(userId: string): number {
   return Number(localStorage.getItem(weekKey) || '0');
 }
 
-function getWeekId(): string {
+export function getWeekId(): string {
   const d = new Date();
   const dayOfWeek = d.getDay();
   const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
