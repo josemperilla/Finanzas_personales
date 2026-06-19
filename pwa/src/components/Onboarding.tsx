@@ -49,10 +49,12 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
 const SHORTCUT_URL = 'https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858';
 const IOS_AUTOMATION_STEPS = [
-  'Abre Atajos → Automatización → + → Nueva Automatización → Mensaje',
-  'En "contiene" escribe: $  —  deja "De" en "Cualquiera"',
-  'Activa "Ejecutar inmediatamente" → desactiva "Preguntar antes de ejecutar"',
-  'Toca Siguiente → selecciona el Shortcut recién instalado → Listo',
+  'Toca "Instalar Shortcut en iOS" (arriba) y confirma con "Agregar atajo"',
+  'Abre Atajos → Automatización → + → Crear automatización personal → Mensaje',
+  'En "Mensaje contiene" escribe el signo $ y deja el remitente en "Cualquiera"',
+  'Activa "Ejecutar inmediatamente" y desactiva "Preguntar antes de ejecutar"',
+  'Toca Siguiente, elige el atajo "Finanzas SMS" y toca Listo',
+  'Con tu primer SMS bancario, pega tu ID en la ventanita que aparece (lo copias abajo)',
 ];
 
 const primaryBtn: React.CSSProperties = {
@@ -396,7 +398,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                       Activa el Shortcut
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
-                      Cada SMS bancario llegará solo a la app — sin tocar nada.
+                      Cada SMS bancario llegará solo a la app, sin tocar nada. Funciona con cualquier banco.
                     </div>
                   </div>
 
@@ -415,6 +417,9 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                   >
                     <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
                   </motion.a>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: -8 }}>
+                    Ya viene configurado: no pegas ninguna URL ni contraseña.
+                  </div>
 
                   {/* Automation steps */}
                   <div style={{ width: '100%', background: 'var(--card)', borderRadius: 14, padding: '14px 16px' }}>
@@ -431,7 +436,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
                   {/* userId copy */}
                   <div style={{ width: '100%', background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)', borderRadius: 12, padding: '12px 14px' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue-700, #1d4ed8)', marginBottom: 8 }}>
-                      La primera vez te pide tu ID — aquí está:
+                      Pega este ID en la ventanita la primera vez:
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18, color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
