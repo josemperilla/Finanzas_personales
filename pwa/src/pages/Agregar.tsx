@@ -5,7 +5,7 @@ import { CATEGORIES } from '../lib/config';
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
-import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
+import { quickEase, softSpring } from '../lib/motion';
 import { getUserTimezone } from '../lib/profiles';
 import { todayInTZ } from '../lib/utils';
 import { detectUnusualCategories } from '../lib/analytics';
@@ -17,7 +17,6 @@ interface Props {
   userId: string;
 }
 
-type Mode       = 'form' | 'voice';
 type VoiceState = 'idle' | 'recording' | 'processing' | 'prefilled';
 type SaveState  = 'idle' | 'saving' | 'success';
 
@@ -31,6 +30,9 @@ interface FormData {
   nota:      string;
 }
 
+const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'] as const;
+const NUMPAD_ROWS = [['1','2','3'],['4','5','6'],['7','8','9'],['000','0','⌫']] as const;
+
 function makeDefaultForm(userId: string): FormData {
   return {
     monto: '', comercio: '', nota: '',
@@ -40,20 +42,8 @@ function makeDefaultForm(userId: string): FormData {
   };
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', height: 54, padding: '0 16px',
-  background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-md)',
-  color: 'var(--ink)', fontSize: 16, fontFamily: 'var(--font-body)',
-  outline: 'none', appearance: 'none' as const, transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-};
-
-const labelStyle: React.CSSProperties = {
-  display: 'block', marginBottom: 8, color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em',
-};
-
 export function Agregar({ onSaved, transactions, userId }: Props) {
-  const [mode, setMode]         = useState<Mode>('form');
-  const [form, setForm]         = useState<FormData>(() => makeDefaultForm(userId));
+  const [form, setForm]             = useState<FormData>(() => makeDefaultForm(userId));
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [saveState, setSaveState]   = useState<SaveState>('idle');
@@ -65,6 +55,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const [dupePending, setDupePending] = useState<ManualTransaction | null>(null);
   const [unusualAlert, setUnusualAlert] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -77,7 +68,6 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const [prefillGlow, setPrefillGlow] = useState(false);
 
-  // Build known merchants map from transaction history
   const knownMerchants = useMemo(() => {
     const map: Record<string, { banco: string; categoria: string; count: number }> = {};
     for (const tx of transactions) {
@@ -88,30 +78,26 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         map[name] = { banco: tx.Banco || '', categoria: tx.Categoría || '', count: 1 };
       } else {
         prev.count++;
-        // keep most recent banco/categoria (transactions are sorted newest-first)
       }
     }
     return map;
   }, [transactions]);
-
-  function focusStyle(el: HTMLInputElement | HTMLSelectElement) {
-    el.style.borderColor = 'var(--blue-600)';
-    el.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)';
-  }
-  function blurStyle(el: HTMLInputElement | HTMLSelectElement) {
-    el.style.borderColor = 'var(--line)';
-    el.style.boxShadow = 'none';
-  }
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleMontoInput(raw: string) {
-    const digits = raw.replace(/\D/g, '');
-    if (digits && Number(digits) > 100_000_000) return;
-    setForm(f => ({ ...f, monto: digits }));
+  function handleKey(key: string) {
+    if (key === '⌫') {
+      setForm(f => ({ ...f, monto: f.monto.slice(0, -1) }));
+      return;
+    }
+    setForm(f => {
+      const next = f.monto + key;
+      if (Number(next) > 100_000_000) return f;
+      return { ...f, monto: next };
+    });
   }
 
   function handleComercioChange(value: string) {
@@ -248,8 +234,9 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           setVoiceState('idle');
         } else {
           setForm(newForm);
-          setMode('form'); setVoiceState('prefilled');
-          setPrefillGlow(true); setTimeout(() => setPrefillGlow(false), 1500);
+          setVoiceState('prefilled');
+          setPrefillGlow(true);
+          setTimeout(() => { setPrefillGlow(false); setVoiceState('idle'); }, 1800);
         }
       } catch {
         showToast('Error al analizar la voz. Intenta de nuevo.', false);
@@ -257,7 +244,8 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       }
     };
     rec.onerror = () => setVoiceState('idle');
-    setTranscript(''); rec.start();
+    setTranscript('');
+    rec.start();
   }
 
   function stopVoice() { recognitionRef.current?.stop(); }
@@ -270,276 +258,403 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
       fecha:    result.date ?? f.fecha,
       comercio: result.merchant ?? f.comercio,
     }));
-    setMode('form');
     setPrefillGlow(true);
     setTimeout(() => setPrefillGlow(false), 1500);
   }
 
+  const displayAmount = form.monto ? Number(form.monto).toLocaleString('es-CO') : '0';
+  const isVoiceActive = voiceState === 'recording' || voiceState === 'processing';
+
   return (
-    <div style={{ padding: '0 20px 100px', fontFamily: 'var(--font-body)' }}>
+    <div style={{ paddingBottom: 110, fontFamily: 'var(--font-body)' }}>
+
       {/* Header */}
-      <div style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', marginBottom: 22, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Nueva entrada</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>Agregar</h1>
+      <div style={{
+        paddingTop: 'max(20px, env(safe-area-inset-top))',
+        padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
+        marginBottom: 6,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: 0, letterSpacing: '-0.02em' }}>
+          Nuevo gasto
+        </h1>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 2 }}>
+          {/* QR */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowQr(true)}
+            title="Escanear QR DIAN"
+            style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: 'var(--card)', border: '1.5px solid var(--line)',
+              boxShadow: 'var(--shadow-card)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" strokeWidth="0" aria-hidden="true">
+              <rect x="1" y="1" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
+              <rect x="3" y="3" width="3" height="3" rx="0.4" fill="currentColor"/>
+              <rect x="11" y="1" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
+              <rect x="13" y="3" width="3" height="3" rx="0.4" fill="currentColor"/>
+              <rect x="1" y="11" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
+              <rect x="3" y="13" width="3" height="3" rx="0.4" fill="currentColor"/>
+              <rect x="11" y="11" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
+              <rect x="15.5" y="11" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
+              <rect x="11" y="15.5" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
+              <rect x="15.5" y="15.5" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
+            </svg>
+          </motion.button>
+          {/* Mic */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onMouseDown={startVoice}
+            onTouchStart={e => { e.preventDefault(); startVoice(); }}
+            onMouseUp={stopVoice}
+            onTouchEnd={e => { e.preventDefault(); stopVoice(); }}
+            title="Entrada de voz"
+            style={{
+              width: 40, height: 40, borderRadius: 999,
+              background: isVoiceActive ? '#fee2e2' : 'var(--blue)',
+              border: isVoiceActive ? '1.5px solid #fca5a5' : 'none',
+              boxShadow: isVoiceActive ? 'none' : 'var(--shadow-blue)',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+              animation: voiceState === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <MicIcon recording={voiceState === 'recording'} />
+          </motion.button>
         </div>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowQr(true)}
-          title="Escanear QR DIAN"
+      </div>
+
+      {/* Voice processing overlay */}
+      <AnimatePresence>
+        {voiceState === 'processing' && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={quickEase}
+            style={{
+              margin: '8px 20px', padding: '12px 16px',
+              background: 'var(--blue-soft)', borderRadius: 14,
+              border: '1.5px solid var(--blue-2)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}
+          >
+            <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--line)', borderTopColor: 'var(--blue)', animation: 'spin 0.9s linear infinite', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: 'var(--blue)', fontWeight: 600 }}>Analizando con IA...</span>
+          </motion.div>
+        )}
+        {transcript && voiceState === 'recording' && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            transition={quickEase}
+            style={{
+              margin: '4px 20px', padding: '8px 12px',
+              background: 'var(--card)', borderRadius: 10,
+              border: '1px solid var(--line)',
+              fontSize: 12, color: 'var(--ink-2)', fontStyle: 'italic',
+            }}
+          >
+            "{transcript}"
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Amount display */}
+      <div style={{ textAlign: 'center', padding: '10px 20px 8px' }}>
+        <motion.div
+          animate={{ scale: prefillGlow ? 1.04 : 1, color: prefillGlow ? 'var(--blue)' : 'var(--ink)' }}
+          transition={softSpring}
           style={{
-            width: 40, height: 40, borderRadius: 12, marginBottom: 2,
+            fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 46,
+            letterSpacing: '-0.03em', lineHeight: 1,
+            color: form.monto ? 'var(--ink)' : 'var(--muted)',
+          }}
+        >
+          ${displayAmount}
+        </motion.div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          COP · PESOS
+        </div>
+      </div>
+
+      {/* Merchant input */}
+      <div style={{ padding: '8px 16px 0', position: 'relative' }}>
+        <input
+          type="text"
+          placeholder="¿Dónde o en qué gastaste?"
+          value={form.comercio}
+          onChange={e => handleComercioChange(e.target.value)}
+          onFocus={e => {
+            e.target.style.borderColor = 'var(--blue)';
+            e.target.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)';
+            if (suggestions.length > 0) setShowSugg(true);
+          }}
+          onBlur={e => {
+            e.target.style.borderColor = 'var(--line)';
+            e.target.style.boxShadow = 'none';
+            if (!suggRef.current) setShowSugg(false);
+          }}
+          style={{
+            width: '100%', boxSizing: 'border-box', height: 50,
+            padding: '0 16px',
             background: 'var(--card)', border: '1.5px solid var(--line)',
-            boxShadow: 'var(--shadow-card)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+            borderRadius: 'var(--r-md)', color: 'var(--ink)',
+            fontSize: 15, fontFamily: 'var(--font-body)',
+            outline: 'none', appearance: 'none',
+            transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+            borderColor: prefillGlow && form.comercio ? 'var(--blue)' : undefined,
+          }}
+        />
+        <AnimatePresence>
+          {showSugg && suggestions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={quickEase}
+              onMouseDown={() => { suggRef.current = true; }}
+              onMouseUp={() => { suggRef.current = false; }}
+              onTouchStart={() => { suggRef.current = true; }}
+              onTouchEnd={() => { suggRef.current = false; }}
+              style={{
+                position: 'absolute', top: '100%', left: 16, right: 16, zIndex: 200,
+                background: 'var(--card)', border: '1.5px solid var(--line)',
+                borderRadius: 'var(--r-md)', boxShadow: 'var(--shadow-float)',
+                overflow: 'hidden', marginTop: 4,
+              }}
+            >
+              {suggestions.map((s, i) => (
+                <div key={s}
+                  onMouseDown={() => selectSuggestion(s)}
+                  onTouchEnd={() => selectSuggestion(s)}
+                  style={{
+                    padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer',
+                    borderTop: i > 0 ? '1px solid var(--line)' : 'none',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}
+                >
+                  <span>{s}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{knownMerchants[s]?.categoria}</span>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Category chips */}
+      <div style={{ padding: '10px 0 0' }}>
+        <div style={{ paddingLeft: 16, marginBottom: 6, fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Categoría
+        </div>
+        <div className="ui-scroll-row" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 4, gap: 7 }}>
+          {CATEGORIES.map(cat => {
+            const active = form.categoria === cat.name;
+            return (
+              <motion.button
+                key={cat.name}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => setForm(f => ({ ...f, categoria: f.categoria === cat.name ? '' : cat.name }))}
+                style={{
+                  flexShrink: 0, padding: '7px 14px', borderRadius: 999,
+                  background: active ? cat.color : 'var(--card)',
+                  color: active ? '#fff' : 'var(--ink-2)',
+                  border: `1.5px solid ${active ? cat.color : 'var(--line)'}`,
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  WebkitTapHighlightColor: 'transparent',
+                  transition: 'background 0.14s ease, color 0.14s ease, border-color 0.14s ease',
+                }}
+              >
+                {cat.name}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bank chips */}
+      <div style={{ padding: '8px 0 0' }}>
+        <div style={{ paddingLeft: 16, marginBottom: 6, fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Banco
+        </div>
+        <div className="ui-scroll-row" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 4, gap: 6 }}>
+          {BANKS.map(b => {
+            const active = form.banco === b;
+            return (
+              <motion.button
+                key={b}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  setForm(f => ({ ...f, banco: b }));
+                  localStorage.setItem('fm_default_bank', b);
+                }}
+                style={{
+                  flexShrink: 0, padding: '6px 13px', borderRadius: 999,
+                  background: active ? 'var(--blue-soft)' : 'var(--card)',
+                  color: active ? 'var(--blue)' : 'var(--ink-2)',
+                  border: `1.5px solid ${active ? 'var(--blue)' : 'var(--line)'}`,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  WebkitTapHighlightColor: 'transparent',
+                  transition: 'background 0.14s ease, color 0.14s ease, border-color 0.14s ease',
+                }}
+              >
+                {b}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Detalles adicionales (fecha, nota) */}
+      <div style={{ padding: '8px 16px 0' }}>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowDetails(v => !v)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+            fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-body)',
+            display: 'flex', alignItems: 'center', gap: 4,
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <svg width="19" height="19" viewBox="0 0 19 19" fill="none" aria-hidden="true">
-            {/* Top-left finder */}
-            <rect x="1" y="1" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
-            <rect x="3" y="3" width="3" height="3" rx="0.4" fill="currentColor"/>
-            {/* Top-right finder */}
-            <rect x="11" y="1" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
-            <rect x="13" y="3" width="3" height="3" rx="0.4" fill="currentColor"/>
-            {/* Bottom-left finder */}
-            <rect x="1" y="11" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5"/>
-            <rect x="3" y="13" width="3" height="3" rx="0.4" fill="currentColor"/>
-            {/* Data modules */}
-            <rect x="11" y="11" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
-            <rect x="15.5" y="11" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
-            <rect x="11" y="15.5" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
-            <rect x="15.5" y="15.5" width="2.5" height="2.5" rx="0.4" fill="currentColor"/>
-          </svg>
+          <motion.span animate={{ rotate: showDetails ? 90 : 0 }} transition={{ duration: 0.18 }} style={{ display: 'inline-block' }}>›</motion.span>
+          {showDetails ? 'Ocultar detalles' : 'Fecha y nota (opcional)'}
+        </motion.button>
+
+        <AnimatePresence>
+          {showDetails && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
+                <input
+                  type="date"
+                  value={form.fecha}
+                  onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
+                  style={{
+                    flex: 1, height: 46, padding: '0 12px',
+                    background: 'var(--card)', border: '1.5px solid var(--line)',
+                    borderRadius: 'var(--r-md)', color: 'var(--ink)',
+                    fontSize: 14, fontFamily: 'var(--font-body)',
+                    outline: 'none', appearance: 'none', colorScheme: 'light',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Nota (opcional)"
+                  value={form.nota}
+                  onChange={e => setForm(f => ({ ...f, nota: e.target.value }))}
+                  style={{
+                    flex: 2, height: 46, padding: '0 12px',
+                    background: 'var(--card)', border: '1.5px solid var(--line)',
+                    borderRadius: 'var(--r-md)', color: 'var(--ink)',
+                    fontSize: 14, fontFamily: 'var(--font-body)',
+                    outline: 'none', appearance: 'none',
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Numpad */}
+      <div style={{ padding: '12px 16px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {NUMPAD_ROWS.flat().map((key, idx) => (
+            <motion.button
+              key={idx}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => handleKey(key)}
+              style={{
+                height: 64, borderRadius: 16,
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                color: key === '⌫' ? 'var(--muted)' : 'var(--ink)',
+                fontFamily: key === '⌫' || key === '000' ? 'var(--font-body)' : 'var(--font-display)',
+                fontSize: key === '⌫' ? 22 : key === '000' ? 20 : 28,
+                fontWeight: 700,
+                cursor: 'pointer',
+                letterSpacing: '-0.02em',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+              }}
+            >
+              {key}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Save button */}
+      <div style={{ padding: '12px 16px 0' }}>
+        <motion.button
+          whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }}
+          aria-live="polite"
+          aria-busy={saveState === 'saving'}
+          onClick={handleSubmit}
+          disabled={saveState !== 'idle'}
+          style={{
+            width: '100%', height: 58,
+            background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'rgba(234,88,12,0.5)' : 'var(--orange)',
+            border: 'none', borderRadius: 'var(--r-pill)', color: '#fff',
+            fontSize: 16, fontWeight: 700,
+            cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer',
+            fontFamily: 'var(--font-body)',
+            boxShadow: saveState === 'idle' ? 'var(--shadow-orange)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
+            transition: 'background 0.15s ease, box-shadow 0.15s ease',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+          }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {saveState === 'success'
+              ? <motion.span key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <SuccessCheck size={20} /> Guardada
+                </motion.span>
+              : saveState === 'saving'
+                ? <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardando...</motion.span>
+                : <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardar gasto</motion.span>
+            }
+          </AnimatePresence>
         </motion.button>
       </div>
 
-      {/* Mode toggle */}
-      <motion.div style={{ display: 'flex', background: 'var(--card)', border: '1.5px solid var(--line)', borderRadius: 'var(--r-lg)', padding: 3, marginBottom: 20 }}>
-        {(['form', 'voice'] as Mode[]).map(m => (
-          <motion.button key={m} whileTap={{ scale: 0.96 }} onClick={() => setMode(m)} style={{
-            flex: 1, padding: '9px 6px', borderRadius: 13, border: 'none', cursor: 'pointer',
-            fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-body)',
-            background: mode === m ? 'var(--blue-700)' : 'transparent',
-            color: mode === m ? '#fff' : 'var(--muted)',
-            transition: 'all 0.15s ease',
-          }}>
-            {m === 'form' ? 'Manual' : 'Voz'}
-          </motion.button>
-        ))}
-      </motion.div>
-
-      {/* FORM */}
-      <AnimatePresence mode="wait">
-      {mode === 'form' && (
-        <motion.div key="form" variants={staggerContainer} initial="initial" animate="animate"
-          exit={{ opacity: 0, y: -8 }} transition={quickEase}
-          style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: 20, boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Monto */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label htmlFor="transaction-amount" style={labelStyle}>Monto (COP) <span aria-hidden="true">*</span></label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: form.monto ? 'var(--blue-600)' : 'var(--muted-2)', fontSize: 14, fontWeight: 600, pointerEvents: 'none' }}>$</span>
-              <input id="transaction-amount" type="text" inputMode="numeric" placeholder="0"
-                required aria-required="true"
-                value={form.monto ? Number(form.monto).toLocaleString('es-CO') : ''}
-                onChange={e => handleMontoInput(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: 30, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                  boxShadow: prefillGlow && form.monto ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                  borderColor: prefillGlow && form.monto ? 'var(--blue-600)' : undefined }}
-                onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)} />
-            </div>
-          </motion.div>
-
-          {/* Comercio with autocomplete */}
-          <motion.div variants={riseItem} transition={quickEase} style={{ position: 'relative' }}>
-            <label htmlFor="transaction-merchant" style={labelStyle}>Comercio <span aria-hidden="true">*</span></label>
-            <input id="transaction-merchant" type="text" placeholder="Nombre del lugar" value={form.comercio}
-              required aria-required="true"
-              onChange={e => handleComercioChange(e.target.value)}
-              onFocus={e => { focusStyle(e.target); if (suggestions.length > 0) setShowSugg(true); }}
-              onBlur={e => { blurStyle(e.target); if (!suggRef.current) setShowSugg(false); }}
-              style={{ ...inputStyle,
-                boxShadow: prefillGlow && form.comercio ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                borderColor: prefillGlow && form.comercio ? 'var(--blue-600)' : undefined }} />
-            <AnimatePresence>
-              {showSugg && suggestions.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                  transition={quickEase}
-                  onMouseDown={() => { suggRef.current = true; }}
-                  onMouseUp={() => { suggRef.current = false; }}
-                  onTouchStart={() => { suggRef.current = true; }}
-                  onTouchEnd={() => { suggRef.current = false; }}
-                  style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                    background: 'var(--card)', border: '1.5px solid var(--line)',
-                    borderRadius: 'var(--r-md)', boxShadow: 'var(--shadow-float)',
-                    overflow: 'hidden', marginTop: 4,
-                  }}>
-                  {suggestions.map((s, i) => (
-                    <div key={s} onMouseDown={() => selectSuggestion(s)} onTouchEnd={() => selectSuggestion(s)}
-                      style={{
-                        padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer',
-                        borderTop: i > 0 ? '1px solid var(--line)' : 'none',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      }}>
-                      <span>{s}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{knownMerchants[s]?.categoria}</span>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Banco */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Banco</label>
-            <select value={form.banco} onChange={e => setForm(f => ({ ...f, banco: e.target.value }))}
-              style={inputStyle} onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}>
-              {['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'].map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </motion.div>
-
-          {/* Categoría */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Categoría</label>
-            <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}
-              style={{ ...inputStyle,
-                boxShadow: prefillGlow && form.categoria ? '0 0 0 4px rgba(37,99,235,0.12)' : undefined,
-                borderColor: prefillGlow && form.categoria ? 'var(--blue-600)' : undefined }}
-              onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}>
-              <option value="">Seleccionar...</option>
-              {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </select>
-          </motion.div>
-
-          {/* Tipo */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Tipo</label>
-            <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
-              style={inputStyle} onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)}>
-              {['Compra', 'Débito', 'Transferencia', 'Otro'].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </motion.div>
-
-          {/* Fecha */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Fecha</label>
-            <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
-              style={{ ...inputStyle, colorScheme: 'light' }}
-              onFocus={e => focusStyle(e.target)} onBlur={e => blurStyle(e.target)} />
-          </motion.div>
-
-          {/* Nota */}
-          <motion.div variants={riseItem} transition={quickEase}>
-            <label style={labelStyle}>Nota <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(opcional)</span></label>
-            <textarea
-              value={form.nota}
-              onChange={e => setForm(f => ({ ...f, nota: e.target.value }))}
-              placeholder="Ej: almuerzo con familia, regalo cumpleaños…"
-              aria-label="Nota"
-              rows={2}
-              style={{
-                ...inputStyle, height: 'auto', padding: '12px 16px',
-                resize: 'none', lineHeight: 1.5,
-              }}
-              onFocus={e => focusStyle(e.target as unknown as HTMLInputElement)}
-              onBlur={e => blurStyle(e.target as unknown as HTMLInputElement)}
-            />
-          </motion.div>
-
-          <motion.button variants={riseItem} transition={quickEase} whileTap={{ scale: saveState === 'idle' ? 0.98 : 1 }}
-            aria-live="polite" aria-busy={saveState === 'saving'}
-            onClick={handleSubmit} disabled={saveState !== 'idle'} style={{
-              width: '100%', height: 54,
-              background: saveState === 'success' ? '#16a34a' : saveState === 'saving' ? 'var(--blue-300)' : 'var(--blue-700)',
-              border: 'none', borderRadius: 'var(--r-lg)', color: '#fff', fontSize: 16, fontWeight: 600,
-              cursor: saveState !== 'idle' ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)',
-              boxShadow: saveState === 'idle' ? 'var(--shadow-blue)' : saveState === 'success' ? '0 8px 20px rgba(22,163,74,0.24)' : 'none',
-              transition: 'all 0.15s ease', marginTop: 2,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-            }}>
-            <AnimatePresence mode="wait" initial={false}>
-              {saveState === 'success'
-                ? <motion.span key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} style={{ display: 'flex', alignItems: 'center', gap: 8 }}><SuccessCheck size={20} /> Guardada</motion.span>
-                : saveState === 'saving'
-                  ? <motion.span key="saving" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardando...</motion.span>
-                  : <motion.span key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>Guardar transacción</motion.span>
-              }
-            </AnimatePresence>
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* VOICE */}
-      {mode === 'voice' && (
-        <motion.div key="voice" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8 }} transition={quickEase}
-          style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '44px 20px', boxShadow: 'var(--shadow-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
-          {voiceState === 'processing' ? (
-            <>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }} />
-              <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Analizando con IA...</p>
-            </>
-          ) : (
-            <>
-              <div style={{ position: 'relative' }}>
-                {voiceState === 'recording' && [0,1,2].map(i => (
-                  <motion.span key={i} initial={{ scale: 0.85, opacity: 0.34 }} animate={{ scale: 1.75, opacity: 0 }}
-                    transition={{ duration: 1.25, repeat: Infinity, delay: i * 0.28, ease: 'easeOut' }}
-                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid #fca5a5', pointerEvents: 'none' }} />
-                ))}
-                <motion.button whileTap={{ scale: 0.92 }}
-                  onMouseDown={startVoice} onTouchStart={e => { e.preventDefault(); startVoice(); }}
-                  onMouseUp={stopVoice} onTouchEnd={e => { e.preventDefault(); stopVoice(); }}
-                  style={{
-                    width: 80, height: 80, borderRadius: '50%',
-                    background: voiceState === 'recording' ? '#fee2e2' : 'var(--blue-50)',
-                    border: `1.5px solid ${voiceState === 'recording' ? '#fca5a5' : 'var(--blue-300)'}`,
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    animation: voiceState === 'recording' ? 'pulse 1.2s ease-in-out infinite' : 'none',
-                    transition: 'all 0.2s ease',
-                  }}>
-                  <MicIcon recording={voiceState === 'recording'} />
-                </motion.button>
-              </div>
-              <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: 0 }}>
-                {voiceState === 'recording' ? 'Escuchando...' : 'Mantén presionado para hablar'}
-              </p>
-              <AnimatePresence>
-                {transcript && (
-                  <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={quickEase}
-                    style={{ color: 'var(--ink-2)', fontSize: 13, fontStyle: 'italic', textAlign: 'center', margin: 0, background: 'var(--surface)', borderRadius: 12, padding: '10px 14px', maxWidth: 280, lineHeight: 1.5, border: '1px solid var(--line)' }}>
-                    "{transcript}"
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </>
-          )}
-        </motion.div>
-      )}
+      {/* QR Scanner overlay */}
+      <AnimatePresence>
+        {showQr && (
+          <QrScanner onScanned={prefillFromQr} onClose={() => setShowQr(false)} />
+        )}
       </AnimatePresence>
 
-      {/* Regular toast */}
+      {/* Toast */}
       <AnimatePresence>
         {toast && (
-          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={softSpring}
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }}
+            transition={softSpring}
             style={{
               position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}`,
               color: toast.ok ? '#15803d' : '#b91c1c',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 300, boxShadow: 'var(--shadow-float)',
-            }}>
+            }}
+          >
             {toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Duplicate warning modal */}
+      {/* Duplicate warning */}
       <AnimatePresence>
         {dupePending && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -558,7 +673,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
                 }}>Cancelar</button>
                 <button type="button" onClick={() => { const d = dupePending; setDupePending(null); saveData(d); }} style={{
                   flex: 1, height: 48, borderRadius: 12, border: 'none',
-                  background: 'var(--blue-700)', color: '#fff', fontSize: 14, fontWeight: 600,
+                  background: 'var(--blue)', color: '#fff', fontSize: 14, fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'var(--font-body)',
                 }}>Guardar igual</button>
               </div>
@@ -567,55 +682,43 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Unusual spend toast */}
+      {/* Unusual spend alert */}
       <AnimatePresence>
         {unusualAlert && (
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 14, scale: 0.98 }}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }}
             transition={{ ...softSpring, delay: 1.0 }}
             onClick={() => setUnusualAlert(null)}
             style={{
               position: 'fixed', bottom: 'calc(160px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
-              border: '1px solid #fde68a',
-              color: '#92400e',
+              border: '1px solid #fde68a', color: '#92400e',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
             }}
           >
-            ⚠️ Gasto inusual en {unusualAlert}: supera el doble del promedio mensual
+            Gasto inusual en {unusualAlert}: supera el doble del promedio mensual
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Budget alert toast */}
+      {/* Budget alert */}
       <AnimatePresence>
         {budgetAlert && (
-          <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }} transition={{ ...softSpring, delay: 0.8 }}
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }}
+            transition={{ ...softSpring, delay: 0.8 }}
             onClick={() => setBudgetAlert(null)}
             style={{
               position: 'fixed', bottom: 'calc(120px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
-              border: '1px solid #fde68a',
-              color: budgetAlert.pct >= 1 ? '#b91c1c' : '#92400e',
+              border: '1px solid #fde68a', color: '#92400e',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
-            }}>
+            }}
+          >
             {budgetAlert.pct >= 1
-              ? `🚨 Presupuesto de ${budgetAlert.cat} superado`
-              : `⚠️ ${budgetAlert.cat} al ${Math.round(budgetAlert.pct * 100)}% del presupuesto mensual`
-            }
+              ? `Superaste el presupuesto de ${budgetAlert.cat}`
+              : `Vas al ${Math.round(budgetAlert.pct * 100)}% del presupuesto de ${budgetAlert.cat}`}
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showQr && (
-          <QrScanner
-            key="qr"
-            onScanned={prefillFromQr}
-            onClose={() => setShowQr(false)}
-          />
         )}
       </AnimatePresence>
     </div>
@@ -623,14 +726,13 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
 }
 
 function MicIcon({ recording }: { recording: boolean }) {
+  const c = recording ? '#ef4444' : '#fff';
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-      stroke={recording ? '#b91c1c' : 'var(--blue-700)'}
-      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" y1="19" x2="12" y2="23" />
-      <line x1="8" y1="23" x2="16" y2="23" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M19 10a7 7 0 0 1-14 0" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="9" y1="22" x2="15" y2="22" />
     </svg>
   );
 }

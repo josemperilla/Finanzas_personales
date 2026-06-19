@@ -195,8 +195,11 @@ function LightningIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="4" />
+      <line x1="21.17" y1="8" x2="12" y2="8" />
+      <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+      <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
     </svg>
   );
 }
@@ -205,8 +208,7 @@ function CompassIcon({ active, size }: { active: boolean; size: number }) {
   const c = active ? 'var(--blue-600)' : 'var(--muted)';
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="11" rx="2" />
-      <path d="M3 10h18" />
+      <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
     </svg>
   );
 }

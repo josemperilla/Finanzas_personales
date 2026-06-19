@@ -67,7 +67,7 @@ export function RachaCalendarCard({ userId }: Props) {
           </svg>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Racha actual</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Días bajo presupuesto</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, color: 'var(--ink)', lineHeight: 1.1 }}>
             <span style={{ fontFamily: 'var(--font-mono)' }}>{racha}</span> días
           </div>

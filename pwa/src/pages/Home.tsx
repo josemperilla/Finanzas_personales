@@ -240,6 +240,14 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     if (Math.abs(dx) > dy && Math.abs(dx) > 44) navigate(dx < 0 ? 1 : -1);
   };
 
+  const firstName = (getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0];
+  const timeGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 18) return 'Buenas tardes';
+    return 'Buenas noches';
+  };
+
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: '100px', position: 'relative', overflow: 'hidden' }}>
       <Blobs variant="a" />
@@ -250,21 +258,23 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         animate={{ opacity: 1, y: 0 }}
         transition={quickEase}
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
           marginBottom: 18, position: 'relative',
         }}
       >
-        <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)', lineHeight: 1.2 }}>
+            {timeGreeting()},
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
-            Hola, {(getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0]} 👋
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            {firstName}
           </div>
         </div>
-        <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
+          <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
+        </div>
       </motion.div>
 
       <AnimatePresence>
@@ -386,8 +396,10 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 ‹
               </motion.button>
               <motion.span key={selectedOffset} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={quickEase}
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)', minWidth: 86, textAlign: 'center' }}>
-                {selectedOffset === 0 ? 'Gastos de ' + new Date().toLocaleString('es-CO', { month: 'long' }) : selMonthStr}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--ink)', minWidth: 86, textAlign: 'center' }}>
+                {selectedOffset === 0
+                  ? 'Gastos de ' + new Date().toLocaleString('es-CO', { month: 'long' })
+                  : selMonthStr}
               </motion.span>
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0}
                 style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
@@ -395,15 +407,16 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               </motion.button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
-                {loading ? '—' : formatCOP(animatedTotal)}
-              </span>
               {!loading && totalPrev > 0 && selectedOffset === 0 && (
                 <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={softSpring}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: diff <= 0 ? 'var(--good-soft)' : '#fee2e2', color: diff <= 0 ? 'var(--good)' : '#b91c1c', fontSize: 11, fontWeight: 600 }}>
                   {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
                 </motion.span>
               )}
+              <motion.button whileTap={{ scale: 0.93 }} onClick={onViewAll}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--blue-700)', fontFamily: 'var(--font-body)', padding: '4px 0' }}>
+                Ver todo
+              </motion.button>
             </div>
           </div>
 
@@ -422,7 +435,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 exit="exit"
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
-                <DonutChart slices={byCategory} total={totalMonth} onSliceClick={setDrillCategory} />
+                <DonutChart slices={byCategory} total={totalMonth} centerLabel="Gastado este mes" onSliceClick={setDrillCategory} />
                 {showSpendLine && (
                   <DailySpendLine current={selCumulative} previous={compCumulative} daysInMonth={daysInSelMonth} />
                 )}
@@ -445,7 +458,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                   <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
+                  <div style={{ fontSize: 10, color: 'var(--orange-2)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700 }}>Reto activo</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
@@ -688,7 +701,7 @@ function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLog
               exit={{ opacity: 0, scale: 0.92, y: -6 }}
               transition={quickEase}
               style={{
-                position: 'absolute', top: 50, left: 0, zIndex: 51,
+                position: 'absolute', top: 50, right: 0, zIndex: 51,
                 background: 'var(--card)', borderRadius: 14, overflow: 'hidden',
                 boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
                 border: '1px solid var(--line)', minWidth: 160,

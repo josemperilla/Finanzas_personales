@@ -1,6 +1,7 @@
 import { Transaction } from './api';
 import { cleanMerchant } from './merchantCleaner';
 import { normalizeCategory } from './config';
+import { getWeekId } from './gamification';
 
 export type RetoTipo = 'budget_limit' | 'frequency_limit' | 'no_spend';
 
@@ -60,6 +61,86 @@ export function periodDates(tipo: 'mes' | 'semana'): { fechaInicio: string; fech
   const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   return { fechaInicio: fmt(mon), fechaFin: fmt(sun) };
 }
+
+// ── Retos semanales sugeridos ────────────────────────────────────────────────
+
+export interface RetoSugerido {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  tipo: RetoTipo;
+  categorias: string[];
+  objetivoCOP?: number;
+  objetivoN?: number;
+  emoji: string;
+}
+
+export const CATALOGO_RETOS_SEMANA: RetoSugerido[] = [
+  { id: 'sr-domicilios',      titulo: 'Semana sin domicilios',       descripcion: 'Cocina en casa los 7 días y ahorra en delivery',     tipo: 'no_spend',        categorias: ['Domicilios'],       emoji: '🍳' },
+  { id: 'sr-restaurantes',    titulo: 'Restaurantes bajo $150k',     descripcion: 'Disfruta salidas pero con un límite claro',          tipo: 'budget_limit',    categorias: ['Restaurantes'],     objetivoCOP: 150_000, emoji: '🥗' },
+  { id: 'sr-compras',         titulo: 'Compras mínimas esta semana', descripcion: 'Solo lo esencial, cero compras impulsivas',          tipo: 'budget_limit',    categorias: ['Compras'],          objetivoCOP: 100_000, emoji: '🛍️' },
+  { id: 'sr-entretenimiento', titulo: 'Semana sin entretenimiento',  descripcion: 'Encuentra diversión sin gastar ni un peso',          tipo: 'no_spend',        categorias: ['Entretenimiento'],  emoji: '📴' },
+  { id: 'sr-cafes',           titulo: 'Sin cafés esta semana',       descripcion: 'Prepara tu café en casa y nota la diferencia',       tipo: 'no_spend',        categorias: ['Café', 'Cafés'],    emoji: '☕' },
+  { id: 'sr-transporte',      titulo: 'Transporte bajo $80k',        descripcion: 'Usa transporte público o camina más esta semana',    tipo: 'budget_limit',    categorias: ['Transporte'],       objetivoCOP: 80_000,  emoji: '🚶' },
+  { id: 'sr-frecuencia',      titulo: 'Máximo 5 compras',            descripcion: 'Menos transacciones, más intención en cada una',    tipo: 'frequency_limit', categorias: [],                   objetivoN: 5,         emoji: '✋' },
+  { id: 'sr-deporte',         titulo: 'Sin gastos en deporte',       descripcion: 'Ejercítate al aire libre o en casa esta semana',     tipo: 'no_spend',        categorias: ['Deporte'],          emoji: '🏃' },
+  { id: 'sr-mercado',         titulo: 'Mercado bajo $200k',          descripcion: 'Planea tu lista y evita compras extra en el súper',  tipo: 'budget_limit',    categorias: ['Mercado'],          objetivoCOP: 200_000, emoji: '🛒' },
+  { id: 'sr-general',         titulo: 'Semana bajo $400k total',     descripcion: 'Pon a prueba tu disciplina financiera esta semana',  tipo: 'budget_limit',    categorias: [],                   objetivoCOP: 400_000, emoji: '💪' },
+];
+
+function weekSugeridoKey(userId: string) {
+  return `fm_reto_semana_${userId}_${getWeekId()}`;
+}
+
+export function getRetoSemanalSugerido(userId: string, txs: Transaction[]): RetoSugerido | null {
+  if (localStorage.getItem(weekSugeridoKey(userId)) === 'aceptado') return null;
+
+  // Calcular categoría con mayor gasto en los últimos 7 días
+  const hace7 = new Date();
+  hace7.setDate(hace7.getDate() - 7);
+  const gastoPorCat: Record<string, number> = {};
+  for (const tx of txs) {
+    const raw = (tx.Fecha || tx.Timestamp || '').replace(' ', 'T');
+    const d = new Date(raw);
+    if (isNaN(d.getTime()) || d < hace7) continue;
+    const cat = normalizeCategory(tx.Categoría || '');
+    if (!cat) continue;
+    gastoPorCat[cat] = (gastoPorCat[cat] ?? 0) + Number(tx['Monto (COP)'] || 0);
+  }
+
+  // Categoría top del usuario esta semana
+  const topCat = Object.entries(gastoPorCat).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+
+  // Buscar reto del catálogo que coincida con esa categoría
+  const match = CATALOGO_RETOS_SEMANA.find(r =>
+    r.categorias.some(c => normalizeCategory(c) === normalizeCategory(topCat))
+  );
+  if (match) return match;
+
+  // Fallback: rotar por semana del año
+  const weekNum = Math.ceil(new Date().getDate() / 7);
+  return CATALOGO_RETOS_SEMANA[weekNum % CATALOGO_RETOS_SEMANA.length];
+}
+
+export function aceptarRetoSemanal(userId: string, sugerido: RetoSugerido): void {
+  const { fechaInicio, fechaFin } = periodDates('semana');
+  const reto: Reto = {
+    id: `semanal-${Date.now().toString(36)}`,
+    titulo: sugerido.titulo,
+    tipo: sugerido.tipo,
+    categorias: sugerido.categorias,
+    comercios: [],
+    objetivo: sugerido.tipo === 'frequency_limit'
+      ? (sugerido.objetivoN ?? 5)
+      : (sugerido.objetivoCOP ?? 0),
+    fechaInicio,
+    fechaFin,
+  };
+  addReto(userId, reto);
+  localStorage.setItem(weekSugeridoKey(userId), 'aceptado');
+}
+
+// ── Progreso de retos ────────────────────────────────────────────────────────
 
 export function computeProgress(reto: Reto, txs: Transaction[]): RetoProgress {
   const start = new Date(reto.fechaInicio + 'T00:00:00');

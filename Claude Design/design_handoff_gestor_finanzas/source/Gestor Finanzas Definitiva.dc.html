@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#0a0d13">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0a0d13"/>
+    <circle cx="545" cy="360" r="150" fill="#2563eb"/>
+    <circle cx="655" cy="360" r="150" fill="#f97316" fill-opacity="0.9"/>
+    <text x="600" y="600" font-family="'Space Grotesk',sans-serif" font-size="90" font-weight="700" fill="#f2f4f8" text-anchor="middle">Gestor</text>
+  </svg>
+</template>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#ececea;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#16171c;-webkit-font-smoothing:antialiased;}
+  ::-webkit-scrollbar{width:0;height:0}
+  @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+  @keyframes pinpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+</style>
+</helmet>
+
+<div style="max-width:920px;margin:0 auto;padding:56px 48px 28px;">
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#8d909a;margin-bottom:10px;">Versión definitiva · es-CO</div>
+  <h1 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:46px;line-height:1.0;letter-spacing:-.02em;margin:0 0 14px;">Gestor de Finanzas</h1>
+  <p style="font-size:16px;line-height:1.5;color:#4a4d56;max-width:62ch;margin:0;">Marca <span style="color:#2563eb;font-weight:600;">azul</span> + <span style="color:#ea580c;font-weight:600;">naranja</span>, tipografía Space Grotesk · Plus Jakarta · IBM Plex Mono. Home con el donut como protagonista, Progreso rehecho, racha con llama e insignias temáticas. Navegación elevada.</p>
+</div>
+
+
+<section style="max-width:1480px;margin:0 auto;padding:24px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">01</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Home</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:62ch;">Reordenado: el <b style="color:#16171c;">donut manda</b>, luego el reto activo, después el balance en un rol secundario y por último los movimientos.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== HOME · LIGHT ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;--good:#15a34a;--good-soft:#e4f6ea;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <!-- greeting -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;">
+            <div><div style="font-size:13px;color:var(--muted);">Buenos días,</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:22px;color:var(--ink);line-height:1.1;">Mateo</div></div>
+            <div style="display:flex;align-items:center;gap:10px;"><div style="display:flex;align-items:center;gap:5px;background:var(--orange-soft);border-radius:999px;padding:6px 12px 6px 9px;"><svg width="15" height="16" viewBox="0 0 24 24" fill="var(--orange)"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--orange);">12</span></div><div style="width:42px;height:42px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:16px;color:var(--blue);">MR</div></div>
+          </div>
+
+          <!-- 1 · DONUT HERO -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:22px 20px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 10px 26px rgba(16,18,28,.07);margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:17px;color:var(--ink);">Gastos de junio</span><span style="font-size:12px;color:var(--blue);font-weight:600;">Ver todo</span></div>
+            <div style="display:flex;justify-content:center;margin-bottom:18px;">
+              <div style="position:relative;width:172px;height:172px;">
+                <svg viewBox="0 0 36 36" style="width:172px;height:172px;">
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.2"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.6" stroke-dasharray="37 63" transform="rotate(-90 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange)" stroke-width="3.6" stroke-dasharray="23 77" transform="rotate(48.6 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue-2)" stroke-width="3.6" stroke-dasharray="16.5 83.5" transform="rotate(137.2 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange-2)" stroke-width="3.6" stroke-dasharray="9.5 90.5" transform="rotate(201.6 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--muted)" stroke-width="3.6" stroke-dasharray="7 93" transform="rotate(240.8 18 18)" stroke-linecap="round"></circle>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:11px;color:var(--muted);">Gastado este mes</span><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:26px;color:var(--ink);letter-spacing:-.02em;">$1,67M</span><span style="font-size:11px;color:var(--good);font-weight:600;">68% del presupuesto</span></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--blue);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Mercado</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">642k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--orange);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Restaurantes</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">410k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--blue-2);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Transporte</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">298k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--orange-2);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Suscrip.</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">182k</span></div>
+            </div>
+          </div>
+
+          <!-- 2 · RETO -->
+          <div style="background:linear-gradient(100deg,var(--blue) 0%,#1d4fd0 100%);border-radius:20px;padding:16px 18px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:9px;"><div style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;"><div style="width:11px;height:11px;border:2px solid #fff;border-radius:50%;"></div></div><div><div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:600;">Reto activo</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:#fff;">Sin domicilios</div></div></div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:#fff;">5/7</span></div>
+            <div style="height:7px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;"><div style="width:71%;height:100%;border-radius:999px;background:var(--orange-2);"></div></div>
+          </div>
+
+          <!-- 3 · BALANCE compact -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(16,18,28,.04);">
+            <div><div style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Balance del mes</div><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:24px;color:var(--ink);letter-spacing:-.01em;line-height:1;">$1.842.500</div></div>
+            <div style="text-align:right;"><span style="display:inline-flex;align-items:center;gap:3px;background:var(--good-soft);color:var(--good);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;"><span style="font-size:9px;">▲</span> 8,2%</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">vs. mayo</div></div>
+          </div>
+
+          <!-- 4 · MOVIMIENTOS -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:16px;color:var(--ink);">Movimientos</span><span style="font-size:12px;color:var(--blue);font-weight:600;">Historial</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--blue);">É</div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Éxito</div><div style="font-size:12px;color:var(--muted);">Mercado · hoy 10:24</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--ink);">−$89.400</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--orange);">R</div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Rappi</div><div style="font-size:12px;color:var(--muted);">Domicilio · hoy 13:10</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--ink);">−$32.900</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--good-soft);display:flex;align-items:center;justify-content:center;"><div style="width:13px;height:13px;border-radius:4px;border:2px solid var(--good);transform:rotate(45deg);"></div></div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Nómina</div><div style="font-size:12px;color:var(--muted);">Ingreso · 30 may</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--good);">+$3.200.000</div></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:600;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:500;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:500;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(234,88,12,.4);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Home · claro</div>
+    </div>
+
+    <!-- ===== HOME · DARK ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;--orange-2:#fb923c;--orange-soft:#2e1c10;--good:#22c55e;--good-soft:#13301f;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;">
+            <div><div style="font-size:13px;color:var(--muted);">Buenos días,</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:22px;color:var(--ink);line-height:1.1;">Mateo</div></div>
+            <div style="display:flex;align-items:center;gap:10px;"><div style="display:flex;align-items:center;gap:5px;background:var(--orange-soft);border-radius:999px;padding:6px 12px 6px 9px;"><svg width="15" height="16" viewBox="0 0 24 24" fill="var(--orange)"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--orange-2);">12</span></div><div style="width:42px;height:42px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:16px;color:var(--blue-2);">MR</div></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:22px 20px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 26px rgba(0,0,0,.35);margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:17px;color:var(--ink);">Gastos de junio</span><span style="font-size:12px;color:var(--blue-2);font-weight:600;">Ver todo</span></div>
+            <div style="display:flex;justify-content:center;margin-bottom:18px;">
+              <div style="position:relative;width:172px;height:172px;">
+                <svg viewBox="0 0 36 36" style="width:172px;height:172px;">
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.2"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.6" stroke-dasharray="37 63" transform="rotate(-90 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange)" stroke-width="3.6" stroke-dasharray="23 77" transform="rotate(48.6 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue-2)" stroke-width="3.6" stroke-dasharray="16.5 83.5" transform="rotate(137.2 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange-2)" stroke-width="3.6" stroke-dasharray="9.5 90.5" transform="rotate(201.6 18 18)" stroke-linecap="round"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--muted)" stroke-width="3.6" stroke-dasharray="7 93" transform="rotate(240.8 18 18)" stroke-linecap="round"></circle>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:11px;color:var(--muted);">Gastado este mes</span><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:26px;color:var(--ink);letter-spacing:-.02em;">$1,67M</span><span style="font-size:11px;color:var(--good);font-weight:600;">68% del presupuesto</span></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--blue);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Mercado</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">642k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--orange);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Restaurantes</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">410k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--blue-2);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Transporte</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">298k</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--orange-2);"></div><span style="font-size:12.5px;color:var(--ink-2);flex:1;">Suscrip.</span><span style="font-family:'IBM Plex Mono';font-size:11.5px;color:var(--ink);font-weight:600;">182k</span></div>
+            </div>
+          </div>
+          <div style="background:linear-gradient(100deg,var(--blue) 0%,#1e40af 100%);border-radius:20px;padding:16px 18px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:9px;"><div style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;"><div style="width:11px;height:11px;border:2px solid #fff;border-radius:50%;"></div></div><div><div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:600;">Reto activo</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:#fff;">Sin domicilios</div></div></div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:#fff;">5/7</span></div>
+            <div style="height:7px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;"><div style="width:71%;height:100%;border-radius:999px;background:var(--orange-2);"></div></div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,.3);">
+            <div><div style="font-size:11.5px;color:var(--muted);margin-bottom:2px;">Balance del mes</div><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:24px;color:var(--ink);letter-spacing:-.01em;line-height:1;">$1.842.500</div></div>
+            <div style="text-align:right;"><span style="display:inline-flex;align-items:center;gap:3px;background:var(--good-soft);color:var(--good);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:999px;"><span style="font-size:9px;">▲</span> 8,2%</span><div style="font-size:11px;color:var(--muted);margin-top:4px;">vs. mayo</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:16px;color:var(--ink);">Movimientos</span><span style="font-size:12px;color:var(--blue-2);font-weight:600;">Historial</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--blue-2);">É</div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Éxito</div><div style="font-size:12px;color:var(--muted);">Mercado · hoy 10:24</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--ink);">−$89.400</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--orange-2);">R</div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Rappi</div><div style="font-size:12px;color:var(--muted);">Domicilio · hoy 13:10</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--ink);">−$32.900</div></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 6px;"><div style="width:40px;height:40px;border-radius:13px;background:var(--good-soft);display:flex;align-items:center;justify-content:center;"><div style="width:13px;height:13px;border-radius:4px;border:2px solid var(--good);transform:rotate(45deg);"></div></div><div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;color:var(--ink);">Nómina</div><div style="font-size:12px;color:var(--muted);">Ingreso · 30 may</div></div><div style="font-family:'IBM Plex Mono';font-weight:600;font-size:14.5px;color:var(--good);">+$3.200.000</div></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue-2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:600;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:500;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:500;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(249,115,22,.45);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Home · oscuro</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">02</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Progreso · rehecho</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Nuevo enfoque: el <b style="color:#16171c;">anillo de nivel</b> es el héroe (XP + nivel en un solo gesto), racha con llama, los Círculos de Bienestar y una galería de <b style="color:#16171c;">Logros</b> que premia el avance.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== PROGRESO · LIGHT ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;--good:#15a34a;--good-soft:#e4f6ea;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:26px;color:var(--ink);letter-spacing:-.01em;">Progreso</div><div style="width:38px;height:38px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:14px;color:var(--blue);">MR</div></div>
+
+          <!-- RING HERO -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:24px 20px 22px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 10px 26px rgba(16,18,28,.07);margin-bottom:14px;">
+            <div style="display:flex;justify-content:center;margin-bottom:18px;">
+              <div style="position:relative;width:176px;height:176px;">
+                <svg viewBox="0 0 36 36" style="width:176px;height:176px;">
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.6" stroke-dasharray="82 18" transform="rotate(-90 18 18)" stroke-linecap="round"></circle>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;">
+                  <div style="width:50px;height:50px;border-radius:16px;background:linear-gradient(145deg,var(--blue-2),var(--blue));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(37,99,235,.3);"><div style="width:18px;height:18px;border:2.5px solid #fff;border-radius:5px;transform:rotate(45deg);"></div></div>
+                  <div style="font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;">Nivel 3</div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Space Grotesk';font-weight:700;font-size:26px;color:var(--ink);line-height:1;margin-bottom:8px;">Castor</div>
+              <div style="font-family:'IBM Plex Mono';font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:4px;">2.450 / 3.000 XP</div>
+              <div style="font-size:12.5px;color:var(--muted);">faltan <b style="color:var(--blue);">550 XP</b> para subir a Búho</div>
+            </div>
+          </div>
+
+          <!-- STREAK -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:18px 20px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 8px 22px rgba(16,18,28,.06);margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+              <div style="width:48px;height:48px;border-radius:15px;background:linear-gradient(150deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(234,88,12,.3);"><svg width="22" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div>
+              <div style="flex:1;"><div style="font-size:12px;color:var(--muted);">Racha actual</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px;color:var(--ink);line-height:1.1;"><span style="font-family:'IBM Plex Mono';">12</span> días</div></div>
+              <div style="text-align:right;"><div style="font-size:11px;color:var(--muted);">Récord</div><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--ink-2);">28</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">L</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">M</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">X</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">J</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--orange);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--orange-soft);"><svg width="15" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div><span style="font-size:10px;color:var(--orange);font-weight:700;">V</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--surface-2);"></div><span style="font-size:10px;color:var(--muted);">S</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--surface-2);"></div><span style="font-size:10px;color:var(--muted);">D</span></div>
+            </div>
+          </div>
+
+          <!-- BIENESTAR -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 8px 22px rgba(16,18,28,.06);margin-bottom:14px;">
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);margin-bottom:16px;">Círculos de Bienestar</div>
+            <div style="display:flex;justify-content:space-around;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.4" stroke-dasharray="78 22" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">78%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Ahorro</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange)" stroke-width="3.4" stroke-dasharray="92 8" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">92%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Constancia</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue-2)" stroke-width="3.4" stroke-dasharray="64 36" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">64%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Control</span></div>
+            </div>
+          </div>
+
+          <!-- LOGROS -->
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 8px 22px rgba(16,18,28,.06);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);">Logros</span><span style="font-family:'IBM Plex Mono';font-size:12px;color:var(--muted);">8 / 24</span></div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,var(--blue-2),var(--blue));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(37,99,235,.25);"><div style="width:16px;height:16px;border:2.4px solid #fff;border-radius:4px;transform:rotate(45deg);"></div></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Primer<br>ahorro</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(234,88,12,.25);"><svg width="20" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Racha<br>de 7</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,#4f9df6,var(--blue-2));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(59,130,246,.22);"><div style="width:17px;height:17px;border:2.6px solid #fff;border-radius:50%;"></div></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Mes en<br>meta</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:11px;border:2.2px solid var(--muted);border-radius:3px;border-top-left-radius:7px;border-top-right-radius:7px;"></div></div><span style="font-size:9.5px;color:var(--muted);text-align:center;line-height:1.1;">Sin<br>deudas</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:11px;border:2.2px solid var(--muted);border-radius:3px;border-top-left-radius:7px;border-top-right-radius:7px;"></div></div><span style="font-size:9.5px;color:var(--muted);text-align:center;line-height:1.1;">Maestro<br>ahorro</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:500;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:600;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:500;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(234,88,12,.4);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Progreso · claro</div>
+    </div>
+
+    <!-- ===== PROGRESO · DARK ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;--orange-2:#fb923c;--orange-soft:#2e1c10;--good:#22c55e;--good-soft:#13301f;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 18px;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:26px;color:var(--ink);letter-spacing:-.01em;">Progreso</div><div style="width:38px;height:38px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:14px;color:var(--blue-2);">MR</div></div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:24px 20px 22px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 26px rgba(0,0,0,.35);margin-bottom:14px;">
+            <div style="display:flex;justify-content:center;margin-bottom:18px;">
+              <div style="position:relative;width:176px;height:176px;">
+                <svg viewBox="0 0 36 36" style="width:176px;height:176px;">
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3"></circle>
+                  <circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.6" stroke-dasharray="82 18" transform="rotate(-90 18 18)" stroke-linecap="round"></circle>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;">
+                  <div style="width:50px;height:50px;border-radius:16px;background:linear-gradient(145deg,var(--blue-2),var(--blue));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(59,130,246,.3);"><div style="width:18px;height:18px;border:2.5px solid #fff;border-radius:5px;transform:rotate(45deg);"></div></div>
+                  <div style="font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;">Nivel 3</div>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-family:'Space Grotesk';font-weight:700;font-size:26px;color:var(--ink);line-height:1;margin-bottom:8px;">Castor</div>
+              <div style="font-family:'IBM Plex Mono';font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:4px;">2.450 / 3.000 XP</div>
+              <div style="font-size:12.5px;color:var(--muted);">faltan <b style="color:var(--blue-2);">550 XP</b> para subir a Búho</div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:18px 20px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:13px;margin-bottom:16px;">
+              <div style="width:48px;height:48px;border-radius:15px;background:linear-gradient(150deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(249,115,22,.3);"><svg width="22" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div>
+              <div style="flex:1;"><div style="font-size:12px;color:var(--muted);">Racha actual</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:20px;color:var(--ink);line-height:1.1;"><span style="font-family:'IBM Plex Mono';">12</span> días</div></div>
+              <div style="text-align:right;"><div style="font-size:11px;color:var(--muted);">Récord</div><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--ink-2);">28</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">L</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">M</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">X</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--blue);"></div><span style="font-size:10px;color:var(--muted);">J</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--orange);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--orange-soft);"><svg width="15" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div><span style="font-size:10px;color:var(--orange-2);font-weight:700;">V</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--surface-2);"></div><span style="font-size:10px;color:var(--muted);">S</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:30px;height:30px;border-radius:10px;background:var(--surface-2);"></div><span style="font-size:10px;color:var(--muted);">D</span></div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);margin-bottom:14px;">
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);margin-bottom:16px;">Círculos de Bienestar</div>
+            <div style="display:flex;justify-content:space-around;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue)" stroke-width="3.4" stroke-dasharray="78 22" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">78%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Ahorro</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--orange)" stroke-width="3.4" stroke-dasharray="92 8" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">92%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Constancia</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:9px;"><div style="position:relative;width:74px;height:74px;"><svg viewBox="0 0 36 36" style="width:74px;height:74px;"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--surface-2)" stroke-width="3.4"></circle><circle cx="18" cy="18" r="15.9155" fill="none" stroke="var(--blue-2)" stroke-width="3.4" stroke-dasharray="64 36" transform="rotate(-90 18 18)" stroke-linecap="round"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">64%</div></div><span style="font-size:12px;color:var(--ink-2);font-weight:500;">Control</span></div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);">Logros</span><span style="font-family:'IBM Plex Mono';font-size:12px;color:var(--muted);">8 / 24</span></div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,var(--blue-2),var(--blue));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(59,130,246,.25);"><div style="width:16px;height:16px;border:2.4px solid #fff;border-radius:4px;transform:rotate(45deg);"></div></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Primer<br>ahorro</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(249,115,22,.25);"><svg width="20" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Racha<br>de 7</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(145deg,#4f9df6,var(--blue-2));display:flex;align-items:center;justify-content:center;box-shadow:0 5px 12px rgba(59,130,246,.22);"><div style="width:17px;height:17px;border:2.6px solid #fff;border-radius:50%;"></div></div><span style="font-size:9.5px;color:var(--ink-2);text-align:center;line-height:1.1;">Mes en<br>meta</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:11px;border:2.2px solid var(--muted);border-radius:3px;border-top-left-radius:7px;border-top-right-radius:7px;"></div></div><span style="font-size:9.5px;color:var(--muted);text-align:center;line-height:1.1;">Sin<br>deudas</span></div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:52px;height:52px;border-radius:16px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:11px;border:2.2px solid var(--muted);border-radius:3px;border-top-left-radius:7px;border-top-right-radius:7px;"></div></div><span style="font-size:9.5px;color:var(--muted);text-align:center;line-height:1.1;">Maestro<br>ahorro</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:500;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue-2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:600;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:500;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(249,115,22,.45);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Progreso · oscuro</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">03</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Agregar gasto · interactivo</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">QR y voz ahora viven arriba a la derecha, siempre a mano. <b style="color:#16171c;">Probá el teclado del teléfono claro</b> — el monto se escribe en vivo. Categorías con íconos temáticos.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== AGREGAR · LIGHT (interactive) ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 24px;">
+          <!-- header with QR + mic top-right -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+              <span style="font-family:'Space Grotesk';font-weight:700;font-size:17px;color:var(--ink);">Nuevo gasto</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button style="width:40px;height:40px;border:1px solid var(--line);background:var(--surface);border-radius:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 6px rgba(16,18,28,.05);" style-active="background:var(--surface-2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17v.01"/></svg></button>
+              <button style="width:40px;height:40px;border:none;background:var(--blue);border-radius:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,.32);" style-active="transform:scale(.95)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3"/></svg></button>
+            </div>
+          </div>
+
+          <!-- amount -->
+          <div style="text-align:center;padding:16px 0 14px;">
+            <div style="font-family:'IBM Plex Mono';font-weight:700;font-size:46px;letter-spacing:-.02em;color:var(--ink);line-height:1;">{{ amountDisplay }}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono';letter-spacing:.1em;">COP · PESOS</div>
+          </div>
+
+          <!-- category chips (thematic icons) -->
+          <div style="display:flex;gap:8px;overflow:hidden;margin-bottom:14px;padding:2px;">
+            <div style="display:flex;align-items:center;gap:7px;background:var(--orange);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a2 2 0 0 0 4 0V3M9 9v12"/><path d="M16 3c-1.3 0-2.2 2.2-2.2 5.2 0 2.3 1 3.3 2.2 3.6V21"/></svg><span style="font-size:13px;color:#fff;font-weight:600;">Restaurante</span></div>
+            <div style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h2.2l2 11.2a1.6 1.6 0 0 0 1.6 1.3h8.8a1.6 1.6 0 0 0 1.6-1.3L20 7H5"/></svg><span style="font-size:13px;color:var(--ink-2);font-weight:500;">Mercado</span></div>
+            <div style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18"/><circle cx="7.5" cy="18.5" r="1.2"/><circle cx="16.5" cy="18.5" r="1.2"/></svg><span style="font-size:13px;color:var(--ink-2);font-weight:500;">Transporte</span></div>
+          </div>
+
+          <!-- comercio + banco -->
+          <div style="display:flex;gap:10px;margin-bottom:18px;">
+            <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 13px;"><div style="width:30px;height:30px;border-radius:9px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:13px;color:var(--orange);">R</div><div style="flex:1;min-width:0;"><div style="font-size:10px;color:var(--muted);">Comercio</div><div style="font-size:13.5px;color:var(--ink);font-weight:600;">Rappi</div></div></div>
+            <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 13px;"><div style="width:30px;height:30px;border-radius:9px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;"><div style="width:11px;height:11px;border-radius:999px;background:var(--blue);"></div></div><div style="flex:1;min-width:0;"><div style="font-size:10px;color:var(--muted);">Banco</div><div style="font-size:13.5px;color:var(--ink);font-weight:600;">Bancolombia</div></div></div>
+          </div>
+
+          <!-- keypad -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px;">
+            <button data-k="1" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">1</button>
+            <button data-k="2" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">2</button>
+            <button data-k="3" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">3</button>
+            <button data-k="4" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">4</button>
+            <button data-k="5" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">5</button>
+            <button data-k="6" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">6</button>
+            <button data-k="7" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">7</button>
+            <button data-k="8" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">8</button>
+            <button data-k="9" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">9</button>
+            <button data-k="000" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:19px;color:var(--ink-2);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">000</button>
+            <button data-k="0" onClick="{{ onKey }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;border-radius:14px;cursor:pointer;" style-active="background:var(--surface-2)">0</button>
+            <button data-k="back" onClick="{{ onKey }}" style="border:none;background:transparent;padding:15px 0;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="background:var(--surface-2)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></button>
+          </div>
+
+          <button style="width:100%;border:none;border-radius:16px;background:linear-gradient(135deg,var(--orange-2),var(--orange));color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:16px;padding:16px;cursor:pointer;box-shadow:0 8px 20px rgba(234,88,12,.32);" style-active="transform:scale(.98)">Guardar gasto</button>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Agregar · claro · interactivo</div>
+    </div>
+
+    <!-- ===== AGREGAR · DARK (static) ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;--orange-2:#fb923c;--orange-soft:#2e1c10;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <div style="width:36px;height:36px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></div>
+              <span style="font-family:'Space Grotesk';font-weight:700;font-size:17px;color:var(--ink);">Nuevo gasto</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <div style="width:40px;height:40px;border:1px solid var(--line);background:var(--surface);border-radius:13px;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 21v.01M17 21h.01M21 17v.01"/></svg></div>
+              <div style="width:40px;height:40px;border:none;background:var(--blue);border-radius:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(59,130,246,.32);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3"/></svg></div>
+            </div>
+          </div>
+          <div style="text-align:center;padding:16px 0 14px;">
+            <div style="font-family:'IBM Plex Mono';font-weight:700;font-size:46px;letter-spacing:-.02em;color:var(--ink);line-height:1;">$32.900</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px;font-family:'IBM Plex Mono';letter-spacing:.1em;">COP · PESOS</div>
+          </div>
+          <div style="display:flex;gap:8px;overflow:hidden;margin-bottom:14px;padding:2px;">
+            <div style="display:flex;align-items:center;gap:7px;background:var(--orange);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a2 2 0 0 0 4 0V3M9 9v12"/><path d="M16 3c-1.3 0-2.2 2.2-2.2 5.2 0 2.3 1 3.3 2.2 3.6V21"/></svg><span style="font-size:13px;color:#fff;font-weight:600;">Restaurante</span></div>
+            <div style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h2.2l2 11.2a1.6 1.6 0 0 0 1.6 1.3h8.8a1.6 1.6 0 0 0 1.6-1.3L20 7H5"/></svg><span style="font-size:13px;color:var(--ink-2);font-weight:500;">Mercado</span></div>
+            <div style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 14px;flex:0 0 auto;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18"/><circle cx="7.5" cy="18.5" r="1.2"/><circle cx="16.5" cy="18.5" r="1.2"/></svg><span style="font-size:13px;color:var(--ink-2);font-weight:500;">Transporte</span></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:18px;">
+            <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 13px;"><div style="width:30px;height:30px;border-radius:9px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:13px;color:var(--orange-2);">R</div><div style="flex:1;min-width:0;"><div style="font-size:10px;color:var(--muted);">Comercio</div><div style="font-size:13.5px;color:var(--ink);font-weight:600;">Rappi</div></div></div>
+            <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 13px;"><div style="width:30px;height:30px;border-radius:9px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;"><div style="width:11px;height:11px;border-radius:999px;background:var(--blue);"></div></div><div style="flex:1;min-width:0;"><div style="font-size:10px;color:var(--muted);">Banco</div><div style="font-size:13.5px;color:var(--ink);font-weight:600;">Bancolombia</div></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px;">
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">1</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">2</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">3</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">4</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">5</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">6</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">7</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">8</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">9</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:19px;color:var(--ink-2);padding:15px 0;">000</div>
+            <div style="text-align:center;font-family:'IBM Plex Mono';font-weight:600;font-size:23px;color:var(--ink);padding:15px 0;">0</div>
+            <div style="display:flex;align-items:center;justify-content:center;padding:15px 0;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></div>
+          </div>
+          <div style="width:100%;border-radius:16px;background:linear-gradient(135deg,var(--orange-2),var(--orange));color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:16px;padding:16px;text-align:center;box-shadow:0 8px 20px rgba(249,115,22,.32);">Guardar gasto</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Agregar · oscuro</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">04</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Componentes</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Insignias <b style="color:#16171c;">temáticas</b> (carrito, cubiertos, bus…), racha con llama y los bloques clave — sobre los mismos tokens azul/naranja.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;--surface:#fff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;--good:#15a34a;--good-soft:#e4f6ea;font-family:'Plus Jakarta Sans',sans-serif;">
+
+    <!-- category badges thematic -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;grid-column:span 2;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Insignias temáticas de categoría</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--blue);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.2l2 11.2a1.6 1.6 0 0 0 1.6 1.3h8.8a1.6 1.6 0 0 0 1.6-1.3L20 7H5"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Mercado</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--orange);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a2 2 0 0 0 4 0V3M9 9v12"/><path d="M16 3c-1.3 0-2.2 2.2-2.2 5.2 0 2.3 1 3.3 2.2 3.6V21"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Restaurante</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--blue-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="11" rx="2"/><path d="M3 11h18"/><circle cx="7.5" cy="18.5" r="1.3"/><circle cx="16.5" cy="18.5" r="1.3"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Transporte</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--orange-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Suscripción</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--blue);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Hogar</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--orange);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Salud</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--blue-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Compras</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:50px;height:50px;border-radius:15px;background:var(--orange-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M2 10h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/><path d="M12 10v10"/></svg></div><span style="font-size:11px;color:var(--ink-2);">Ocio</span></div>
+      </div>
+    </div>
+
+    <!-- racha con llama -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Racha (llama)</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(150deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(234,88,12,.3);"><svg width="26" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg></div>
+        <div><div style="font-family:'Space Grotesk';font-weight:700;font-size:30px;color:var(--ink);line-height:1;"><span style="font-family:'IBM Plex Mono';">12</span></div><div style="font-size:12px;color:var(--muted);margin-top:2px;">días seguidos · récord 28</div></div>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <div style="flex:1;height:10px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--orange);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--surface-2);"></div><div style="flex:1;height:10px;border-radius:999px;background:var(--surface-2);"></div>
+      </div>
+    </div>
+
+    <!-- xp bar -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Barra de XP</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;"><span style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);">Nivel 3 · Castor</span><span style="font-family:'IBM Plex Mono';font-size:13px;font-weight:600;color:var(--ink);">2.450 / 3.000</span></div>
+      <div style="height:12px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-bottom:10px;"><div style="width:82%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--blue-2));"></div></div>
+      <div style="font-size:12px;color:var(--muted);">Faltan <b style="color:var(--blue);">550 XP</b> para subir a Búho</div>
+    </div>
+
+    <!-- transaction card -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Tarjeta de movimiento</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;background:var(--surface-2);margin-bottom:10px;">
+        <div style="width:42px;height:42px;border-radius:13px;background:var(--blue);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.2l2 11.2a1.6 1.6 0 0 0 1.6 1.3h8.8a1.6 1.6 0 0 0 1.6-1.3L20 7H5"/></svg></div>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:600;color:var(--ink);">Éxito Wajiira</div><div style="font-size:12px;color:var(--muted);">Mercado · hoy 10:24</div></div>
+        <div style="text-align:right;"><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--ink);">−$89.400</div><div style="font-size:11px;color:var(--muted);">Bancolombia</div></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600;"><span style="width:8px;height:8px;border-radius:3px;background:#fff;"></span>Mercado</span><span style="background:var(--surface-2);color:var(--ink-2);border-radius:999px;padding:6px 11px;font-size:12px;">Hogar</span><span style="background:var(--surface-2);color:var(--ink-2);border-radius:999px;padding:6px 11px;font-size:12px;">Salud</span></div>
+    </div>
+
+    <!-- reto card -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Reto (desafío)</div>
+      <div style="border-radius:18px;border:1px solid var(--line);overflow:hidden;">
+        <div style="background:linear-gradient(110deg,var(--blue),#1d4fd0);padding:16px 18px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="display:flex;align-items:center;gap:10px;"><div style="width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;"><div style="width:13px;height:13px;border:2px solid #fff;border-radius:50%;"></div></div><div><div style="font-family:'Space Grotesk';font-weight:700;font-size:16px;color:#fff;line-height:1.1;">Sin domicilios</div><div style="font-size:11px;color:rgba(255,255,255,.75);">Reto de 7 días</div></div></div><span style="background:var(--orange);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;font-family:'IBM Plex Mono';">+150 XP</span></div></div>
+        <div style="padding:14px 18px 16px;background:var(--surface);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;color:var(--muted);">Progreso</span><span style="font-family:'IBM Plex Mono';font-size:13px;font-weight:700;color:var(--ink);">5 / 7 días</span></div><div style="height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;"><div style="width:71%;height:100%;border-radius:999px;background:var(--orange);"></div></div></div>
+      </div>
+    </div>
+
+    <!-- sueño card -->
+    <div style="background:#fff;border:1px solid #e8e8e3;border-radius:20px;padding:22px;">
+      <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a7aab2;margin-bottom:16px;">Sueño (meta de ahorro)</div>
+      <div style="border-radius:18px;border:1px solid var(--line);padding:18px;background:var(--surface);">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;"><div style="width:46px;height:46px;border-radius:14px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 9 9l4 5 3-4 5 8"/><path d="M3 18h18"/></svg></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:16px;color:var(--ink);">Viaje a Cartagena</div><div style="font-size:12px;color:var(--muted);">Meta · diciembre 2026</div></div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:15px;color:var(--orange);">65%</span></div>
+        <div style="height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-bottom:12px;"><div style="width:65%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--orange),var(--orange-2));"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:18px;color:var(--ink);">$1.560.000</span><span style="font-size:12px;color:var(--muted);"> / $2.400.000</span></div><span style="font-size:12px;color:var(--muted);">faltan $840.000</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:56px;padding-top:24px;border-top:1px solid #dcdcd7;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div style="font-size:13px;color:#9a9da5;max-width:64ch;">Versión definitiva: Home (donut protagonista), Progreso rehecho, Agregar (QR/voz arriba), nav elevada, racha con llama e insignias temáticas — en claro y oscuro. ¿Extendemos a Misiones, Explorar e Historial con este sistema?</div>
+    <div style="font-family:'IBM Plex Mono';font-size:11px;color:#c0c2c8;letter-spacing:.08em;">final · es-CO</div>
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">05</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Acceso · PIN Lock</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Se muestra en cada apertura. Calma y claridad: marca, saludo, 6 puntos, teclado nativo y biometría. <b style="color:#16171c;">Probá el teclado del primero</b> — los puntos se llenan. Luego el estado de error y el de límite de intentos.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== PIN LOCK · NORMAL (interactive, dark) ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;--orange-2:#fb923c;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:0 26px 34px;min-height:716px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:22px;">
+            <div style="position:relative;width:30px;height:22px;"><div style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:999px;background:var(--blue);"></div><div style="position:absolute;right:0;top:0;width:22px;height:22px;border-radius:999px;background:var(--orange);opacity:.9;"></div></div>
+            <span style="font-family:'Space Grotesk';font-weight:700;font-size:18px;color:var(--ink);letter-spacing:-.01em;">Gestor</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;">
+            <div style="width:66px;height:66px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:24px;color:var(--blue-2);margin-bottom:16px;">MR</div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:22px;color:var(--ink);margin-bottom:5px;">Hola, Mateo</div>
+            <div style="font-size:13.5px;color:var(--muted);margin-bottom:30px;">Ingresá tu PIN para continuar</div>
+            <div style="display:flex;gap:16px;justify-content:center;">
+              <sc-for list="{{ pinDots }}" as="dot" hint-placeholder-count="6">
+                <div style="width:15px;height:15px;border-radius:999px;background:#39414f;display:flex;align-items:center;justify-content:center;">
+                  <sc-if value="{{ dot.filled }}" hint-placeholder-val="{{ false }}">
+                    <div style="width:15px;height:15px;border-radius:999px;background:var(--blue-2);"></div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;justify-items:center;">
+            <button data-p="1" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">1</button>
+            <button data-p="2" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">2</button>
+            <button data-p="3" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">3</button>
+            <button data-p="4" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">4</button>
+            <button data-p="5" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">5</button>
+            <button data-p="6" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">6</button>
+            <button data-p="7" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">7</button>
+            <button data-p="8" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">8</button>
+            <button data-p="9" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">9</button>
+            <button style="border:none;background:transparent;width:72px;height:64px;border-radius:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--blue-2);" style-active="background:var(--surface-2)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 10v1M15 10v1M12 11v2.5l-1 .5M9.5 16a3.5 3.5 0 0 0 5 0"/></svg></button>
+            <button data-p="0" onClick="{{ onPin }}" style="border:none;background:transparent;font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;border-radius:18px;cursor:pointer;" style-active="background:var(--surface-2)">0</button>
+            <button data-p="back" onClick="{{ onPin }}" style="border:none;background:transparent;width:72px;height:64px;border-radius:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-active="background:var(--surface-2)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">PIN · normal · interactivo</div>
+    </div>
+
+    <!-- ===== PIN LOCK · ERROR (dark) ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--neg:#f87171;--neg-soft:#3a1a1c;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:0 26px 34px;min-height:716px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:22px;">
+            <div style="position:relative;width:30px;height:22px;"><div style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:999px;background:var(--blue);"></div><div style="position:absolute;right:0;top:0;width:22px;height:22px;border-radius:999px;background:#f97316;opacity:.9;"></div></div>
+            <span style="font-family:'Space Grotesk';font-weight:700;font-size:18px;color:var(--ink);letter-spacing:-.01em;">Gestor</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="width:66px;height:66px;border-radius:999px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:24px;color:var(--blue-2);margin-bottom:16px;">MR</div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:22px;color:var(--ink);margin-bottom:5px;">Hola, Mateo</div>
+            <div style="font-size:13.5px;color:var(--neg);margin-bottom:30px;font-weight:500;">PIN incorrecto · te quedan 3 intentos</div>
+            <div style="display:flex;gap:16px;justify-content:center;animation:shake .7s ease-in-out infinite;">
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;justify-items:center;">
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">1</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">2</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">3</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">4</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">5</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">6</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">7</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">8</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">9</div>
+            <div style="width:72px;height:64px;display:flex;align-items:center;justify-content:center;color:var(--blue-2);"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 10v1M15 10v1M12 11v2.5l-1 .5M9.5 16a3.5 3.5 0 0 0 5 0"/></svg></div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">0</div>
+            <div style="width:72px;height:64px;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">PIN · error (vibra + rojo)</div>
+    </div>
+
+    <!-- ===== PIN LOCK · RATE LIMIT (dark) ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:0 26px 34px;min-height:716px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:22px;">
+            <div style="position:relative;width:30px;height:22px;"><div style="position:absolute;left:0;top:0;width:22px;height:22px;border-radius:999px;background:var(--blue);"></div><div style="position:absolute;right:0;top:0;width:22px;height:22px;border-radius:999px;background:var(--orange);opacity:.9;"></div></div>
+            <span style="font-family:'Space Grotesk';font-weight:700;font-size:18px;color:var(--ink);letter-spacing:-.01em;">Gestor</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="width:72px;height:72px;border-radius:22px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:20px;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg></div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:20px;color:var(--ink);margin-bottom:7px;">Demasiados intentos</div>
+            <div style="font-size:13.5px;color:var(--muted);text-align:center;max-width:24ch;margin-bottom:20px;line-height:1.45;">Por tu seguridad bloqueamos el ingreso. Probá de nuevo en un momento.</div>
+            <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:10px 18px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--ink);">0:29</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;justify-items:center;opacity:.32;pointer-events:none;">
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">1</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">2</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">3</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">4</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">5</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">6</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">7</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">8</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">9</div>
+            <div style="width:72px;height:64px;"></div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">0</div>
+            <div style="width:72px;height:64px;"></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">PIN · límite de intentos</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">06</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Crear PIN · 2 pasos</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Primera vez: crear y confirmar. Indicador de paso, navegación atrás y validación de coincidencia con estado de error.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== SETUP STEP 1 (light) ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 34px;min-height:708px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:14px;margin:6px 0 0;">
+            <div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div style="flex:1;display:flex;gap:6px;"><div style="flex:1;height:5px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:5px;border-radius:999px;background:var(--surface-2);"></div></div>
+            <span style="font-family:'IBM Plex Mono';font-size:11px;color:var(--muted);">1/2</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="width:60px;height:60px;border-radius:18px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:23px;color:var(--ink);margin-bottom:6px;">Creá tu PIN</div>
+            <div style="font-size:13.5px;color:var(--muted);text-align:center;max-width:26ch;margin-bottom:30px;line-height:1.45;">Elegí 6 dígitos que recuerdes. Lo usarás para entrar a la app.</div>
+            <div style="display:flex;gap:16px;justify-content:center;">
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--blue);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--blue);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--blue);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--surface-2);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--surface-2);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--surface-2);"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;justify-items:center;">
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">1</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">2</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">3</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">4</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">5</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">6</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">7</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">8</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">9</div>
+            <div style="width:72px;height:64px;"></div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">0</div>
+            <div style="width:72px;height:64px;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Paso 1 · crear</div>
+    </div>
+
+    <!-- ===== SETUP STEP 2 · ERROR (light) ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--neg:#dc2626;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 34px;min-height:708px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:14px;margin:6px 0 0;">
+            <div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+            <div style="flex:1;display:flex;gap:6px;"><div style="flex:1;height:5px;border-radius:999px;background:var(--blue);"></div><div style="flex:1;height:5px;border-radius:999px;background:var(--blue);"></div></div>
+            <span style="font-family:'IBM Plex Mono';font-size:11px;color:var(--muted);">2/2</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="width:60px;height:60px;border-radius:18px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="m9 15 2 2 4-4"/></svg></div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:23px;color:var(--ink);margin-bottom:6px;">Confirmá tu PIN</div>
+            <div style="font-size:13.5px;color:var(--neg);text-align:center;margin-bottom:30px;font-weight:500;">Los PIN no coinciden, intentá de nuevo</div>
+            <div style="display:flex;gap:16px;justify-content:center;animation:shake .7s ease-in-out infinite;">
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+              <div style="width:15px;height:15px;border-radius:999px;background:var(--neg);"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;justify-items:center;">
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">1</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">2</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">3</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">4</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">5</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">6</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">7</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">8</div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">9</div>
+            <div style="width:72px;height:64px;"></div>
+            <div style="font-family:'IBM Plex Mono';font-weight:500;font-size:27px;color:var(--ink);width:72px;height:64px;display:flex;align-items:center;justify-content:center;">0</div>
+            <div style="width:72px;height:64px;display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-5 7 5 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m15 9-4 6M11 9l4 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Paso 2 · confirmar (error)</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">07</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Onboarding · 4 pasos</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Cálido y motivador — aquí empieza el "viaje". Bienvenida, perfil, meta de gasto y código. Puntos de progreso y opción de saltar.</p>
+
+  <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== ONB 1 · WELCOME ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:360px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 30px;min-height:700px;display:flex;flex-direction:column;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="position:relative;width:148px;height:120px;margin-bottom:34px;">
+              <div style="position:absolute;left:8px;top:6px;width:92px;height:92px;border-radius:999px;background:var(--blue);"></div>
+              <div style="position:absolute;right:8px;top:6px;width:92px;height:92px;border-radius:999px;background:var(--orange);opacity:.9;"></div>
+              <div style="position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:52px;height:52px;border-radius:999px;background:var(--bg);border:5px solid var(--blue-2);"></div>
+            </div>
+            <div style="font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Bienvenido a Gestor</div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:30px;color:var(--ink);text-align:center;line-height:1.1;letter-spacing:-.01em;margin-bottom:14px;">Tu plata, bajo<br>control y en juego</div>
+            <div style="font-size:14.5px;color:var(--ink-2);text-align:center;max-width:28ch;line-height:1.5;">Registrá gastos en segundos, subí de nivel y cumplí tus sueños de ahorro. Un día a la vez.</div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:7px;margin-bottom:18px;"><div style="width:22px;height:7px;border-radius:999px;background:var(--blue);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div></div>
+          <button style="width:100%;border:none;border-radius:16px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:16px;padding:16px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);margin-bottom:12px;" style-active="transform:scale(.98)">Comenzar</button>
+          <div style="text-align:center;font-size:13px;color:var(--muted);">¿Ya tenés cuenta? <span style="color:var(--blue);font-weight:600;">Iniciá sesión</span></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">1 · Bienvenida</div>
+    </div>
+
+    <!-- ===== ONB 2 · NAME + AVATAR ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:360px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 30px;min-height:700px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 0;"><div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span style="font-size:13px;color:var(--muted);font-weight:500;">Saltar</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:24px;color:var(--ink);margin-bottom:6px;">¿Cómo te llamás?</div>
+            <div style="font-size:13.5px;color:var(--muted);margin-bottom:24px;">Así te saludaremos cada mañana.</div>
+            <div style="background:var(--surface);border:2px solid var(--blue);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:4px;margin-bottom:30px;box-shadow:0 4px 14px rgba(37,99,235,.1);"><span style="font-family:'Space Grotesk';font-weight:600;font-size:18px;color:var(--ink);">Mateo</span><div style="width:2px;height:22px;background:var(--blue);border-radius:1px;"></div></div>
+            <div style="font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:14px;">Elegí tu avatar</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div style="width:54px;height:54px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--blue-soft);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div>
+              <div style="width:54px;height:54px;border-radius:999px;background:var(--orange);display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div>
+              <div style="width:54px;height:54px;border-radius:999px;background:var(--blue-2);display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div>
+              <div style="width:54px;height:54px;border-radius:999px;background:var(--orange-2);display:flex;align-items:center;justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div>
+              <div style="width:54px;height:54px;border-radius:999px;background:var(--surface);border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L8 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-1.5-2Z"/><circle cx="12" cy="13" r="3"/></svg></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:7px;margin-bottom:18px;"><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:22px;height:7px;border-radius:999px;background:var(--blue);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div></div>
+          <button style="width:100%;border:none;border-radius:16px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:16px;padding:16px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);" style-active="transform:scale(.98)">Continuar</button>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">2 · Perfil</div>
+    </div>
+
+    <!-- ===== ONB 3 · BUDGET ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:360px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 30px;min-height:700px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 0;"><div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div><span style="font-size:13px;color:var(--muted);font-weight:500;">Saltar</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:24px;color:var(--ink);margin-bottom:6px;line-height:1.15;">¿Cuánto querés<br>gastar al mes?</div>
+            <div style="font-size:13.5px;color:var(--muted);margin-bottom:32px;">Te avisamos cuando te acerques al límite.</div>
+            <div style="text-align:center;margin-bottom:10px;"><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:44px;color:var(--ink);letter-spacing:-.02em;line-height:1;">$2.000.000</div><div style="font-family:'IBM Plex Mono';font-size:11px;color:var(--muted);letter-spacing:.1em;margin-top:8px;">COP / MES</div></div>
+            <div style="height:6px;border-radius:999px;background:var(--surface-2);margin:26px 0 30px;position:relative;"><div style="width:55%;height:100%;border-radius:999px;background:var(--blue);"></div><div style="position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;background:#fff;border:3px solid var(--blue);box-shadow:0 2px 8px rgba(16,18,28,.2);"></div></div>
+            <div style="display:flex;gap:9px;justify-content:center;"><div style="background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-family:'IBM Plex Mono';font-size:13px;color:var(--ink-2);font-weight:600;">$1,5M</div><div style="background:var(--blue);border-radius:999px;padding:9px 16px;font-family:'IBM Plex Mono';font-size:13px;color:#fff;font-weight:600;">$2M</div><div style="background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:9px 16px;font-family:'IBM Plex Mono';font-size:13px;color:var(--ink-2);font-weight:600;">$3M</div></div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:7px;margin-bottom:18px;"><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:22px;height:7px;border-radius:999px;background:var(--blue);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div></div>
+          <button style="width:100%;border:none;border-radius:16px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:16px;padding:16px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);" style-active="transform:scale(.98)">Continuar</button>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">3 · Meta de gasto</div>
+    </div>
+
+    <!-- ===== ONB 4 · INVITE ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:360px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 26px 30px;min-height:700px;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 0;"><div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+            <div style="width:60px;height:60px;border-radius:18px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div>
+            <div style="font-family:'Space Grotesk';font-weight:700;font-size:24px;color:var(--ink);margin-bottom:6px;">¿Tenés un código?</div>
+            <div style="font-size:13.5px;color:var(--muted);margin-bottom:26px;line-height:1.45;">Gestor es por invitación. Ingresá tu código para empezar tu viaje.</div>
+            <div style="background:var(--surface);border:2px solid var(--blue);border-radius:16px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;box-shadow:0 4px 14px rgba(37,99,235,.1);"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:19px;color:var(--ink);letter-spacing:.14em;">FINZ-2026</span><div style="width:2px;height:22px;background:var(--blue);border-radius:1px;"></div></div>
+            <button style="width:100%;border:none;border-radius:16px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:15.5px;padding:15px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);margin-bottom:14px;" style-active="transform:scale(.98)">Validar código</button>
+            <div style="text-align:center;font-size:13px;color:var(--muted);">¿No tenés? <span style="color:var(--blue);font-weight:600;">Pedí acceso</span></div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:7px;"><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:7px;height:7px;border-radius:999px;background:var(--surface-2);"></div><div style="width:22px;height:7px;border-radius:999px;background:var(--blue);"></div></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">4 · Código (opcional)</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">08</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Código de invitación · estados</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">App por invitación. Un solo input (alfanumérico, mayúsculas) y CTA, con sus cuatro estados: inactivo, validando, éxito y error.</p>
+
+  <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- IDLE -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:348px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:38px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 24px 60px rgba(16,18,28,.14);border:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;"><span style="font-weight:600;font-size:13px;color:var(--ink);">9:41</span><div style="width:20px;height:10px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div>
+        <div style="padding:14px 24px 28px;">
+          <div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:22px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+          <div style="width:56px;height:56px;border-radius:17px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.5a2 2 0 0 0 0 4V16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5a2 2 0 0 0 0-4Z"/><path d="M15 7v10"/></svg></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:21px;color:var(--ink);margin-bottom:6px;">Código de invitación</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.45;">Gestor es por invitación. Ingresá el código que te compartieron.</div>
+          <div style="background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:16px;"><span style="font-family:'IBM Plex Mono';font-size:16px;color:var(--muted);letter-spacing:.18em;">FINZ-••••</span></div>
+          <button style="width:100%;border:none;border-radius:15px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:15.5px;padding:15px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);margin-bottom:16px;" style-active="transform:scale(.98)">Canjear código</button>
+          <div style="text-align:center;font-size:12.5px;color:var(--muted);">¿No tenés código? <span style="color:var(--blue);font-weight:600;">Contactá al admin</span></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Inactivo</div>
+    </div>
+
+    <!-- LOADING -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-soft:#e9f0fe;font-family:'Plus Jakarta Sans',sans-serif;width:348px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:38px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 24px 60px rgba(16,18,28,.14);border:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;"><span style="font-weight:600;font-size:13px;color:var(--ink);">9:41</span><div style="width:20px;height:10px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div>
+        <div style="padding:14px 24px 28px;">
+          <div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:22px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+          <div style="width:56px;height:56px;border-radius:17px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.5a2 2 0 0 0 0 4V16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5a2 2 0 0 0 0-4Z"/><path d="M15 7v10"/></svg></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:21px;color:var(--ink);margin-bottom:6px;">Código de invitación</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.45;">Gestor es por invitación. Ingresá el código que te compartieron.</div>
+          <div style="background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:16px;"><span style="font-family:'IBM Plex Mono';font-size:16px;color:var(--ink);letter-spacing:.14em;font-weight:600;">FINZ-2026</span></div>
+          <button style="width:100%;border:none;border-radius:15px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:15.5px;padding:15px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 20px rgba(37,99,235,.3);margin-bottom:16px;"><div style="width:18px;height:18px;border-radius:999px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .8s linear infinite;"></div>Validando…</button>
+          <div style="text-align:center;font-size:12.5px;color:var(--muted);">¿No tenés código? <span style="color:var(--blue);font-weight:600;">Contactá al admin</span></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Validando</div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--good:#15a34a;--good-soft:#e4f6ea;font-family:'Plus Jakarta Sans',sans-serif;width:348px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:38px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 24px 60px rgba(16,18,28,.14);border:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;"><span style="font-weight:600;font-size:13px;color:var(--ink);">9:41</span><div style="width:20px;height:10px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div>
+        <div style="padding:14px 24px 28px;min-height:484px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+          <div style="width:84px;height:84px;border-radius:999px;background:var(--good-soft);display:flex;align-items:center;justify-content:center;margin-bottom:22px;animation:pop .5s ease-out;"><div style="width:60px;height:60px;border-radius:999px;background:var(--good);display:flex;align-items:center;justify-content:center;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:23px;color:var(--ink);margin-bottom:8px;">¡Código válido!</div>
+          <div style="font-size:14px;color:var(--ink-2);max-width:26ch;line-height:1.5;margin-bottom:8px;">Bienvenido a Gestor, Mateo. Tu viaje financiero empieza ahora.</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:var(--good-soft);color:var(--good);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600;margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="var(--good)"><path d="M12 2.5c.4 2.7 2.2 4.3 3.7 5.8 1.6 1.6 2.8 3.4 2.8 5.6a6.5 6.5 0 0 1-13 0c0-1.1.3-2.1.9-3 .3 1.1 1.2 1.9 2.4 1.9 1.4 0 2.3-1 2.3-2.4 0-1-.5-1.8-1-2.7C11.2 6.1 11.1 4.2 12 2.5Z"/></svg>Nivel 1 · Hormiga desbloqueado</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Éxito (animación)</div>
+    </div>
+
+    <!-- ERROR -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--neg:#dc2626;--neg-soft:#fdecec;font-family:'Plus Jakarta Sans',sans-serif;width:348px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:38px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 24px 60px rgba(16,18,28,.14);border:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;"><span style="font-weight:600;font-size:13px;color:var(--ink);">9:41</span><div style="width:20px;height:10px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div>
+        <div style="padding:14px 24px 28px;">
+          <div style="width:36px;height:36px;border-radius:11px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:22px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></div>
+          <div style="width:56px;height:56px;border-radius:17px;background:var(--neg-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--neg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:21px;color:var(--ink);margin-bottom:6px;">Código de invitación</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.45;">Gestor es por invitación. Ingresá el código que te compartieron.</div>
+          <div style="background:var(--neg-soft);border:1.5px solid var(--neg);border-radius:14px;padding:15px 16px;margin-bottom:8px;animation:shake .7s ease-in-out infinite;"><span style="font-family:'IBM Plex Mono';font-size:16px;color:var(--neg);letter-spacing:.14em;font-weight:600;">FINZ-0000</span></div>
+          <div style="font-size:12.5px;color:var(--neg);font-weight:500;margin-bottom:16px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neg)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Código inválido o expirado</div>
+          <button style="width:100%;border:none;border-radius:15px;background:var(--blue);color:#fff;font-family:'Space Grotesk';font-weight:700;font-size:15.5px;padding:15px;cursor:pointer;box-shadow:0 8px 20px rgba(37,99,235,.3);margin-bottom:16px;" style-active="transform:scale(.98)">Reintentar</button>
+          <div style="text-align:center;font-size:12.5px;color:var(--muted);">¿Problemas? <span style="color:var(--blue);font-weight:600;">Contactá al admin</span></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Error</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">09</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Selector de perfil</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Hasta 5 perfiles por dispositivo. Hoja inferior con el perfil activo resaltado. Al tocar otro, se bloquea la sesión y se pide el PIN del nuevo perfil. Mostrado en claro y oscuro.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== PROFILE SELECTOR · LIGHT ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-soft:#fdeadd;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="position:relative;border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);background:#11151d;">
+        <!-- dimmed app behind -->
+        <div style="opacity:.32;filter:saturate(.7);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:#fff;">9:41</span><div style="width:22px;height:11px;border:1.5px solid #fff;border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:#fff;border-radius:1px;"></div></div></div>
+          <div style="padding:20px;"><div style="height:22px;width:50%;background:rgba(255,255,255,.5);border-radius:6px;margin-bottom:18px;"></div><div style="height:150px;background:rgba(255,255,255,.4);border-radius:24px;margin-bottom:14px;"></div><div style="height:90px;background:rgba(255,255,255,.3);border-radius:20px;"></div></div>
+        </div>
+        <!-- scrim -->
+        <div style="position:absolute;inset:0;background:rgba(8,11,16,.5);"></div>
+        <!-- sheet -->
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:28px 28px 0 0;padding:12px 22px 30px;box-shadow:0 -10px 40px rgba(0,0,0,.3);">
+          <div style="width:40px;height:5px;border-radius:999px;background:var(--surface-2);margin:0 auto 18px;"></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:19px;color:var(--ink);margin-bottom:3px;">Cambiar de perfil</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">Se bloqueará la sesión y pediremos el PIN.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--blue-soft);border:1.5px solid var(--blue);"><div style="width:46px;height:46px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:16px;color:#fff;">MR</div><div style="flex:1;"><div style="font-size:15px;font-weight:700;color:var(--ink);">Mateo R.</div><div style="font-size:12px;color:var(--blue);font-weight:500;">Activo ahora</div></div><div style="width:24px;height:24px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--orange);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div><div style="flex:1;"><div style="font-size:15px;font-weight:600;color:var(--ink);">Valentina</div><div style="font-size:12px;color:var(--muted);">Activa hace 2 días</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--blue-2);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg></div><div style="flex:1;"><div style="font-size:15px;font-weight:600;color:var(--ink);">Hogar</div><div style="font-size:12px;color:var(--muted);">Activa hace 1 semana</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;border:1.5px dashed var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div style="font-size:15px;font-weight:600;color:var(--ink-2);">Agregar perfil</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Selector · claro</div>
+    </div>
+
+    <!-- ===== PROFILE SELECTOR · DARK ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="position:relative;border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);background:#05070b;">
+        <div style="opacity:.3;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:#fff;">9:41</span><div style="width:22px;height:11px;border:1.5px solid #fff;border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:#fff;border-radius:1px;"></div></div></div>
+          <div style="padding:20px;"><div style="height:22px;width:50%;background:rgba(255,255,255,.25);border-radius:6px;margin-bottom:18px;"></div><div style="height:150px;background:rgba(255,255,255,.16);border-radius:24px;margin-bottom:14px;"></div><div style="height:90px;background:rgba(255,255,255,.12);border-radius:20px;"></div></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(2,4,8,.62);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:28px 28px 0 0;padding:12px 22px 30px;box-shadow:0 -10px 40px rgba(0,0,0,.5);">
+          <div style="width:40px;height:5px;border-radius:999px;background:var(--surface-2);margin:0 auto 18px;"></div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:19px;color:var(--ink);margin-bottom:3px;">Cambiar de perfil</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:18px;">Se bloqueará la sesión y pediremos el PIN.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--blue-soft);border:1.5px solid var(--blue);"><div style="width:46px;height:46px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:16px;color:#fff;">MR</div><div style="flex:1;"><div style="font-size:15px;font-weight:700;color:var(--ink);">Mateo R.</div><div style="font-size:12px;color:var(--blue-2);font-weight:500;">Activo ahora</div></div><div style="width:24px;height:24px;border-radius:999px;background:var(--blue);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg></div></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--surface-2);border:1px solid var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--orange);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="3.2"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg></div><div style="flex:1;"><div style="font-size:15px;font-weight:600;color:var(--ink);">Valentina</div><div style="font-size:12px;color:var(--muted);">Activa hace 2 días</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;background:var(--surface-2);border:1px solid var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--blue-2);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg></div><div style="flex:1;"><div style="font-size:15px;font-weight:600;color:var(--ink);">Hogar</div><div style="font-size:12px;color:var(--muted);">Activa hace 1 semana</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:12px;border-radius:16px;border:1.5px dashed var(--line);"><div style="width:46px;height:46px;border-radius:999px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div style="font-size:15px;font-weight:600;color:var(--ink-2);">Agregar perfil</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Selector · oscuro</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="max-width:1480px;margin:0 auto;padding:72px 48px 0;">
+  <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#b0b3bb;">10</div>
+    <h2 style="font-family:'Space Grotesk';font-weight:700;font-size:30px;letter-spacing:-.01em;margin:0;">Misiones · Sueños &amp; Retos</h2>
+  </div>
+  <p style="font-size:15px;color:#6b6e78;margin:0 0 32px;max-width:64ch;">Metas de ahorro (Sueños) y desafíos (Retos 7/14/30 días) en una pestaña con conmutador. Claro muestra Sueños; oscuro, Retos.</p>
+
+  <div style="display:flex;gap:48px;flex-wrap:wrap;align-items:flex-start;">
+
+    <!-- ===== MISIONES · SUEÑOS (light) ===== -->
+    <div style="--bg:#f5f5f2;--surface:#ffffff;--surface-2:#f0f0ec;--ink:#16171c;--ink-2:#4a4d56;--muted:#8d909a;--line:#ececE6;--blue:#2563eb;--blue-2:#3b82f6;--blue-soft:#e9f0fe;--orange:#ea580c;--orange-2:#f97316;--orange-soft:#fdeadd;--good:#15a34a;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(16,18,28,.06),0 30px 70px rgba(16,18,28,.16);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;"><div style="font-family:'Space Grotesk';font-weight:800;font-size:26px;color:var(--ink);letter-spacing:-.01em;">Misiones</div><div style="width:38px;height:38px;border-radius:12px;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(37,99,235,.3);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+          <div style="display:flex;background:var(--surface-2);border-radius:14px;padding:4px;margin-bottom:18px;"><div style="flex:1;text-align:center;padding:9px;border-radius:10px;background:var(--surface);font-weight:700;font-size:13.5px;color:var(--ink);box-shadow:0 1px 3px rgba(16,18,28,.1);">Sueños</div><div style="flex:1;text-align:center;padding:9px;font-weight:500;font-size:13.5px;color:var(--muted);">Retos</div></div>
+          <div style="display:flex;gap:10px;margin-bottom:16px;"><div style="flex:1;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:13px 15px;"><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:18px;color:var(--ink);">3</div><div style="font-size:11.5px;color:var(--muted);">sueños activos</div></div><div style="flex:1.4;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:13px 15px;"><div style="font-family:'IBM Plex Mono';font-weight:700;font-size:18px;color:var(--ink);">$3,1M</div><div style="font-size:11.5px;color:var(--muted);">ahorrados en total</div></div></div>
+
+          <!-- dream cards -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 6px 16px rgba(16,18,28,.05);">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;"><div style="width:44px;height:44px;border-radius:13px;background:var(--orange-soft);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V5h6v3"/><path d="M9 12v4M15 12v4"/></svg></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:15.5px;color:var(--ink);">Viaje a Cartagena</div><div style="font-size:11.5px;color:var(--muted);">Meta · diciembre 2026</div></div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:15px;color:var(--orange);">65%</span></div>
+              <div style="height:9px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-bottom:10px;"><div style="width:65%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--orange),var(--orange-2));"></div></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">$1.560.000 <span style="font-size:11px;color:var(--muted);font-weight:400;">/ $2.400.000</span></span><span style="font-size:11.5px;color:var(--muted);">faltan $840k</span></div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 1px 2px rgba(16,18,28,.04),0 6px 16px rgba(16,18,28,.05);">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;"><div style="width:44px;height:44px;border-radius:13px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v6c0 4 3 6.5 7 8 4-1.5 7-4 7-8V6Z"/></svg></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:15.5px;color:var(--ink);">Fondo de emergencia</div><div style="font-size:11.5px;color:var(--muted);">Meta · sin fecha</div></div><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:15px;color:var(--blue);">40%</span></div>
+              <div style="height:9px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-bottom:10px;"><div style="width:40%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--blue-2));"></div></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:var(--ink);">$1.200.000 <span style="font-size:11px;color:var(--muted);font-weight:400;">/ $3.000.000</span></span><span style="font-size:11.5px;color:var(--muted);">faltan $1,8M</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--line);border-radius:18px;padding:16px;color:var(--blue);font-weight:600;font-size:14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nuevo sueño</div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:500;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:500;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:600;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(234,88,12,.4);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Misiones · Sueños · claro</div>
+    </div>
+
+    <!-- ===== MISIONES · RETOS (dark) ===== -->
+    <div style="--bg:#0a0d13;--surface:#141923;--surface-2:#1b212c;--ink:#f2f4f8;--ink-2:#a7adba;--muted:#697084;--line:#222a36;--blue:#3b82f6;--blue-2:#60a5fa;--blue-soft:#16243f;--orange:#f97316;--orange-2:#fb923c;--orange-soft:#2e1c10;font-family:'Plus Jakarta Sans',sans-serif;width:384px;flex:0 0 auto;">
+      <div style="background:var(--bg);border-radius:40px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.3),0 30px 70px rgba(0,0,0,.5);border:1px solid var(--line);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 26px 6px;"><span style="font-weight:600;font-size:14px;color:var(--ink);">9:41</span><div style="display:flex;gap:6px;align-items:center;"><div style="display:flex;gap:2px;align-items:flex-end;height:11px;"><div style="width:3px;height:5px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:7px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:9px;background:var(--ink);border-radius:1px;"></div><div style="width:3px;height:11px;background:var(--ink);border-radius:1px;"></div></div><div style="width:22px;height:11px;border:1.5px solid var(--ink);border-radius:3px;padding:1.5px;"><div style="width:70%;height:100%;background:var(--ink);border-radius:1px;"></div></div></div></div>
+        <div style="padding:8px 18px 96px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;"><div style="font-family:'Space Grotesk';font-weight:800;font-size:26px;color:var(--ink);letter-spacing:-.01em;">Misiones</div><div style="width:38px;height:38px;border-radius:12px;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(59,130,246,.3);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+          <div style="display:flex;background:var(--surface-2);border-radius:14px;padding:4px;margin-bottom:18px;"><div style="flex:1;text-align:center;padding:9px;font-weight:500;font-size:13.5px;color:var(--muted);">Sueños</div><div style="flex:1;text-align:center;padding:9px;border-radius:10px;background:var(--surface);font-weight:700;font-size:13.5px;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.3);">Retos</div></div>
+
+          <!-- active reto -->
+          <div style="background:linear-gradient(120deg,var(--blue),#1e40af);border-radius:20px;padding:18px;margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:11px;"><div style="width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;"><div style="width:14px;height:14px;border:2px solid #fff;border-radius:50%;"></div></div><div><div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:600;">Reto activo</div><div style="font-family:'Space Grotesk';font-weight:700;font-size:17px;color:#fff;">Sin domicilios</div></div></div><span style="background:var(--orange);color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;font-family:'IBM Plex Mono';">+150 XP</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;color:rgba(255,255,255,.8);">Progreso</span><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:14px;color:#fff;">5 / 7 días</span></div>
+            <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;"><div style="width:71%;height:100%;border-radius:999px;background:var(--orange-2);"></div></div>
+          </div>
+
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:15px;color:var(--ink);margin-bottom:12px;">Disponibles</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;"><div style="width:46px;height:46px;border-radius:13px;background:var(--blue-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--blue-2);line-height:1;">7</span><span style="font-size:8px;color:var(--blue-2);text-transform:uppercase;">días</span></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:14.5px;color:var(--ink);">Café en casa</div><div style="font-size:11.5px;color:var(--muted);">Cero café de calle · +120 XP</div></div><div style="background:var(--blue);color:#fff;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;">Empezar</div></div>
+            <div style="display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;"><div style="width:46px;height:46px;border-radius:13px;background:var(--orange-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--orange-2);line-height:1;">14</span><span style="font-size:8px;color:var(--orange-2);text-transform:uppercase;">días</span></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:14.5px;color:var(--ink);">Presupuesto firme</div><div style="font-size:11.5px;color:var(--muted);">No pasarte del límite · +300 XP</div></div><div style="background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;">Empezar</div></div>
+            <div style="display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;"><div style="width:46px;height:46px;border-radius:13px;background:var(--blue-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-family:'IBM Plex Mono';font-weight:700;font-size:16px;color:var(--blue-2);line-height:1;">30</span><span style="font-size:8px;color:var(--blue-2);text-transform:uppercase;">días</span></div><div style="flex:1;"><div style="font-family:'Space Grotesk';font-weight:700;font-size:14.5px;color:var(--ink);">Ahorro del 20%</div><div style="font-size:11.5px;color:var(--muted);">Guardá 1 de cada 5 · +650 XP</div></div><div style="background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;">Empezar</div></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:linear-gradient(to top,var(--surface) 72%,transparent);display:flex;align-items:flex-start;justify-content:space-between;padding:14px 26px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg><span style="font-size:10px;font-weight:500;">Inicio</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V5M19 20v-7"/></svg><span style="font-size:10px;font-weight:500;">Progreso</span></div>
+          <div style="width:58px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue-2);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span style="font-size:10px;font-weight:600;">Misiones</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:500;">Historial</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);width:58px;height:58px;border-radius:20px;background:linear-gradient(145deg,var(--orange-2),var(--orange));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(249,115,22,.45);"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      </div>
+      <div style="text-align:center;margin-top:16px;font-family:'IBM Plex Mono';font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a9da5;">Misiones · Retos · oscuro</div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { amount: "32900", pin: "" };
+  fmt(d){ if(!d) return "0"; return d.replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+  renderVals(){
+    const a = this.state.amount || "";
+    const pinLen = (this.state.pin || "").length;
+    return {
+      amountDisplay: "$" + this.fmt(a || "0"),
+      onKey: (e) => {
+        const k = e.currentTarget.dataset.k;
+        this.setState(s => {
+          if (k === 'back') return { amount: s.amount.slice(0, -1) };
+          return { amount: (s.amount + k).slice(0, 12) };
+        });
+      },
+      pinDots: Array.from({ length: 6 }, (_, i) => ({ filled: i < pinLen })),
+      onPin: (e) => {
+        const k = e.currentTarget.dataset.p;
+        this.setState(s => {
+          const p = s.pin || "";
+          if (k === 'back') return { pin: p.slice(0, -1) };
+          if (p.length >= 6) return null;
+          return { pin: p + k };
+        });
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
