@@ -19,7 +19,7 @@ export function DailyStatusCard({ userId, monthTx, retosProgress }: Props) {
   const { gastoHoy, presupuestoDiario, pctGasto } = useMemo(() => {
     const hoy = new Date().toISOString().split('T')[0];
     const txHoy = monthTx.filter(t => t.Fecha === hoy);
-    const gastoHoy = txHoy.filter(isGasto).reduce((s, t) => s + t['Monto (COP)'], 0);
+    const gastoHoy = txHoy.filter(isGasto).reduce((s, t) => s + Number(t['Monto (COP)'] || 0), 0);
     const diasMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const presupuestoDiario = meta.activo && meta.monto > 0 ? meta.monto / diasMes : 0;
     const pctGasto = presupuestoDiario > 0 ? Math.min(gastoHoy / presupuestoDiario, 1.5) : 0;

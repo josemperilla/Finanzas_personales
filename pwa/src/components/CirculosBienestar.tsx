@@ -28,7 +28,7 @@ export function CirculosBienestar({ userId, monthTx, retosProgress }: Props) {
     const hoy = new Date();
     const todayStr = hoy.toISOString().split('T')[0];
     const txHoy = monthTx.filter(t => t.Fecha === todayStr);
-    const gastoHoy = txHoy.filter(isGasto).reduce((s, t) => s + t['Monto (COP)'], 0);
+    const gastoHoy = txHoy.filter(isGasto).reduce((s, t) => s + Number(t['Monto (COP)'] || 0), 0);
 
     let pctAhorro = 0;
     if (meta.activo && meta.monto > 0) {
