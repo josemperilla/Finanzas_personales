@@ -526,7 +526,7 @@ export async function deleteCard(id: string): Promise<void> {
 }
 
 export function extractLast4(tarjetaCuenta: string): string | null {
-  const matches = tarjetaCuenta.match(/\d{4}/g);
+  const matches = String(tarjetaCuenta ?? '').match(/\d{4}/g);
   return matches ? matches[matches.length - 1] : null;
 }
 
