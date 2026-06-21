@@ -409,6 +409,7 @@ export default function App() {
               <Agregar
                 transactions={transactions}
                 userId={userId}
+                cards={cards}
                 onSaved={async () => {
                   // Otorgar XP por registrar transacción
                   addXP(userId, 'registrarTransaccion');

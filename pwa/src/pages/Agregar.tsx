@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { saveTransaction, parseVoice, ManualTransaction, Transaction } from '../lib/api';
+import { saveTransaction, parseVoice, ManualTransaction, Transaction, Card } from '../lib/api';
 import { CATEGORIES } from '../lib/config';
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
@@ -15,6 +15,7 @@ interface Props {
   onSaved: () => void | Promise<void>;
   transactions: Transaction[];
   userId: string;
+  cards: Card[];
 }
 
 type VoiceState = 'idle' | 'recording' | 'processing' | 'prefilled';
@@ -30,20 +31,32 @@ interface FormData {
   nota:      string;
 }
 
-const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'] as const;
 const NUMPAD_ROWS = [['1','2','3'],['4','5','6'],['7','8','9'],['000','0','⌫']] as const;
 
-function makeDefaultForm(userId: string): FormData {
+function makeBankOptions(cards: Card[], transactions: Transaction[]): string[] {
+  // Priority: registered cards → unique bancos from past transactions → always 'Otro' last
+  const sources = cards.length > 0
+    ? cards.map(c => c.banco)
+    : transactions.map(t => t.Banco || '').filter(Boolean);
+  const unique = [...new Set(sources.filter(Boolean))];
+  if (!unique.includes('Otro')) unique.push('Otro');
+  return unique;
+}
+
+function makeDefaultForm(userId: string, bankOptions: string[]): FormData {
+  const stored = localStorage.getItem('fm_default_bank') || 'Otro';
+  const banco = bankOptions.includes(stored) ? stored : (bankOptions[0] ?? 'Otro');
   return {
     monto: '', comercio: '', nota: '',
-    banco: localStorage.getItem('fm_default_bank') || 'Otro',
+    banco,
     categoria: '', tipo: 'Compra',
     fecha: todayInTZ(getUserTimezone(userId)),
   };
 }
 
-export function Agregar({ onSaved, transactions, userId }: Props) {
-  const [form, setForm]             = useState<FormData>(() => makeDefaultForm(userId));
+export function Agregar({ onSaved, transactions, userId, cards }: Props) {
+  const bankOptions = useMemo(() => makeBankOptions(cards, transactions), [cards, transactions]);
+  const [form, setForm]             = useState<FormData>(() => makeDefaultForm(userId, bankOptions));
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [saveState, setSaveState]   = useState<SaveState>('idle');
@@ -481,7 +494,7 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
           Banco
         </div>
         <div className="ui-scroll-row" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 4, gap: 6 }}>
-          {BANKS.map(b => {
+          {bankOptions.map(b => {
             const active = form.banco === b;
             return (
               <motion.button
