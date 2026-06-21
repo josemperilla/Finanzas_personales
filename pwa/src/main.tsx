@@ -4,12 +4,7 @@ import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import './index.css'
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
-  });
-}
-
+// Reload the page when a lazy-loaded chunk fails to fetch (stale SW cache).
 window.addEventListener('unhandledrejection', (event) => {
   const msg = (event.reason?.message as string) || '';
   if (

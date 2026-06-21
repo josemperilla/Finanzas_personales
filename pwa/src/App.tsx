@@ -265,13 +265,15 @@ export default function App() {
 
   const handleUnlock = useCallback(() => {
     if (userId) {
-      sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
-      addKnownProfile(userId);
-      applyAccessibleMode(userId);
-      applyColorScheme(userId);
-      setAccessible(getAccessibleMode(userId));
-      applyPersonalizedAppIcon(userId, getDisplayName(userId));
-      registrarVisita(userId);
+      try {
+        sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+        addKnownProfile(userId);
+        applyAccessibleMode(userId);
+        applyColorScheme(userId);
+        setAccessible(getAccessibleMode(userId));
+        applyPersonalizedAppIcon(userId, getDisplayName(userId));
+        registrarVisita(userId);
+      } catch { /* non-critical side effects — never block unlock */ }
       setUnlocked(true);
     }
   }, [userId]);
@@ -282,12 +284,14 @@ export default function App() {
       if (result.ok) {
         localStorage.setItem('fm_profile', id);
         sessionStorage.setItem(`fm_unlocked_${id}`, '1');
-        addKnownProfile(id);
-        applyAccessibleMode(id);
-        applyColorScheme(id);
+        try {
+          addKnownProfile(id);
+          applyAccessibleMode(id);
+          applyColorScheme(id);
           setAccessible(getAccessibleMode(id));
-        applyPersonalizedAppIcon(id, getDisplayName(id));
-        registrarVisita(id);
+          applyPersonalizedAppIcon(id, getDisplayName(id));
+          registrarVisita(id);
+        } catch { /* non-critical side effects — never block unlock */ }
         setUserId(id);
         setUnlocked(true);
         return { status: 'ok' };
