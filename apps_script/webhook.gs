@@ -346,11 +346,29 @@ function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
 
   if (action === "transactions") {
-    return jsonResponse({ ok: true, data: getTransactions(userId) });
+    var months   = parseInt(e.parameter.months || "12", 10);
+    var search   = (e.parameter.search || "").trim().toUpperCase();
+    var startDate = e.parameter.startDate || "";
+    var endDate   = e.parameter.endDate   || "";
+    var cardFilter = (e.parameter.card || "").trim();
+    var txns = _getTxnsRange(userId, months);
+    if (search)    txns = txns.filter(function(t){ return String(t.Comercio || "").toUpperCase().indexOf(search) !== -1; });
+    if (startDate) txns = txns.filter(function(t){ return String(t.Fecha || "").slice(0,10) >= startDate; });
+    if (endDate)   txns = txns.filter(function(t){ return String(t.Fecha || "").slice(0,10) <= endDate; });
+    if (cardFilter) txns = txns.filter(function(t){ return String(t["Tarjeta/Cuenta"] || "").indexOf(cardFilter) !== -1; });
+    return jsonResponse({ ok: true, data: txns });
   }
 
   if (action === "cards") {
     return jsonResponse({ ok: true, data: _getCards(userId) });
+  }
+
+  if (action === "analytics") {
+    return jsonResponse(_buildAnalytics(userId, e.parameter));
+  }
+
+  if (action === "widgetData") {
+    return jsonResponse(_buildWidgetData(userId));
   }
 
   return jsonResponse({ ok: true, message: "Finance Webhook v2 — usa ?action=transactions&userId=jose para leer datos" });
@@ -494,7 +512,12 @@ function doPost(e) {
         sms_original: "MANUAL"
       };
       appendToSheet(data, userId);
-      return jsonResponse({ ok: true, data: data });
+      var manualResp = { ok: true, data: data };
+      if (data.categoria && data.categoria !== 'Ingreso') {
+        var mba = _checkBudgetAlert(userId, data.categoria);
+        if (mba) manualResp.budgetAlert = mba;
+      }
+      return jsonResponse(manualResp);
     }
 
     // Parseo de nota de voz con Claude API
@@ -514,13 +537,23 @@ function doPost(e) {
       var cat = payload.categoria  || "";
       if (!ts || !cat) return jsonResponse({ ok: false, error: "Faltan timestamp y categoria" });
       var comercioAprendido = updateCategoryInSheet(ts, cat, userId);
-      // Guardar aprendizaje {comercio → categoría} para mejorar detección futura
       if (comercioAprendido) {
+        var ucProps = PropertiesService.getScriptProperties();
+        // Legacy learning map
         var learnKey = "CATEGORY_LEARN_" + userId;
-        var learnProps = PropertiesService.getScriptProperties();
-        var learned = JSON.parse(learnProps.getProperty(learnKey) || "{}");
+        var learned = JSON.parse(ucProps.getProperty(learnKey) || "{}");
         learned[normalizeComercio(comercioAprendido).toUpperCase()] = cat;
-        learnProps.setProperty(learnKey, JSON.stringify(learned));
+        ucProps.setProperty(learnKey, JSON.stringify(learned));
+        // New rules engine: auto-save rule for this merchant → category
+        var rulesKey = "RULES_" + userId;
+        var userRulesUC = JSON.parse(ucProps.getProperty(rulesKey) || "[]");
+        var pattern = comercioAprendido.trim().toUpperCase().replace(/\s+/g, ' ');
+        var existIdx = userRulesUC.findIndex ? userRulesUC.findIndex(function(r){ return r.pattern === pattern; })
+          : (function(){ for(var i=0;i<userRulesUC.length;i++){ if(userRulesUC[i].pattern===pattern) return i; } return -1; })();
+        if (existIdx >= 0) { userRulesUC[existIdx].category = cat; userRulesUC[existIdx].updatedAt = new Date().toISOString(); }
+        else { userRulesUC.push({ pattern: pattern, category: cat, priority: userRulesUC.length + 1, createdAt: new Date().toISOString() }); }
+        if (userRulesUC.length > 200) userRulesUC = userRulesUC.slice(-200);
+        ucProps.setProperty(rulesKey, JSON.stringify(userRulesUC));
       }
       return jsonResponse({ ok: true });
     }
@@ -875,6 +908,202 @@ function doPost(e) {
       return jsonResponse({ ok: true, data: { total: total3, topCategory: topCat3, projection: projection, daysLeft: daysInMonth - dayOfMonth } });
     }
 
+    // ── CLUSTER 2: Calendario de Pagos Fijos (PRIORIDAD 1) ───────────────
+    if (type === "getFixedCalendar") {
+      var month = (payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM'));
+      return jsonResponse(_getFixedCalendar(userId, month));
+    }
+    if (type === "saveFixedPayment") {
+      var fp = payload.payment || {};
+      if (!fp.nombre || !fp.diaDelMes || !fp.monto) return jsonResponse({ ok: false, error: "nombre, diaDelMes y monto requeridos" });
+      return jsonResponse(_saveFixedPayment(userId, fp));
+    }
+    if (type === "deleteFixedPayment") {
+      if (!payload.id) return jsonResponse({ ok: false, error: "id requerido" });
+      return jsonResponse(_deleteFixedPayment(userId, payload.id));
+    }
+    if (type === "autoDetectFixed") {
+      var detected = _detectRecurring(_getTxnsRange(userId, 6));
+      return jsonResponse({ ok: true, suggestions: detected });
+    }
+
+    // ── CLUSTER 3: Rules Engine ───────────────────────────────────────────
+    if (type === "getRules") {
+      var sp3 = PropertiesService.getScriptProperties();
+      var rules3 = JSON.parse(sp3.getProperty("RULES_" + userId) || "[]");
+      return jsonResponse({ ok: true, rules: rules3 });
+    }
+    if (type === "deleteRule") {
+      if (!payload.pattern) return jsonResponse({ ok: false, error: "pattern requerido" });
+      var sp3b = PropertiesService.getScriptProperties();
+      var rules3b = JSON.parse(sp3b.getProperty("RULES_" + userId) || "[]");
+      rules3b = rules3b.filter(function(r){ return r.pattern !== payload.pattern; });
+      sp3b.setProperty("RULES_" + userId, JSON.stringify(rules3b));
+      return jsonResponse({ ok: true });
+    }
+
+    // ── CLUSTER 3: Category Budgets ───────────────────────────────────────
+    if (type === "getCategoryBudgets") {
+      var bMonth = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      return jsonResponse(_getCategoryStatus(userId, bMonth));
+    }
+    if (type === "setCategoryBudget") {
+      if (!payload.category || payload.amount === undefined) return jsonResponse({ ok: false, error: "category y amount requeridos" });
+      var bMonth2 = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      var sp4 = PropertiesService.getScriptProperties();
+      var budgets = JSON.parse(sp4.getProperty("CAT_BUDGETS_" + userId + "_" + bMonth2) || "{}");
+      budgets[payload.category] = Number(payload.amount) || 0;
+      sp4.setProperty("CAT_BUDGETS_" + userId + "_" + bMonth2, JSON.stringify(budgets));
+      return jsonResponse({ ok: true });
+    }
+    if (type === "deleteCategoryBudget") {
+      if (!payload.category) return jsonResponse({ ok: false, error: "category requerido" });
+      var bMonth3 = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      var sp4b = PropertiesService.getScriptProperties();
+      var budgets2 = JSON.parse(sp4b.getProperty("CAT_BUDGETS_" + userId + "_" + bMonth3) || "{}");
+      delete budgets2[payload.category];
+      sp4b.setProperty("CAT_BUDGETS_" + userId + "_" + bMonth3, JSON.stringify(budgets2));
+      return jsonResponse({ ok: true });
+    }
+
+    // ── CLUSTER 3: Net Worth ──────────────────────────────────────────────
+    if (type === "getNetWorth") {
+      var nwRaw = PropertiesService.getScriptProperties().getProperty("NET_WORTH_" + userId);
+      var nw = nwRaw ? JSON.parse(nwRaw) : { assets: [], debts: [] };
+      var totalAssets = (nw.assets || []).reduce(function(s,a){ return s + (Number(a.valor) || 0); }, 0);
+      var totalDebts  = (nw.debts  || []).reduce(function(s,d){ return s + (Number(d.saldo) || 0); }, 0);
+      return jsonResponse({ ok: true, assets: nw.assets || [], debts: nw.debts || [],
+        totalAssets: totalAssets, totalDebts: totalDebts, netWorth: totalAssets - totalDebts,
+        lastUpdated: nw.lastUpdated || null });
+    }
+    if (type === "saveNetWorthEntry") {
+      if (!payload.tipo || !payload.nombre) return jsonResponse({ ok: false, error: "tipo y nombre requeridos" });
+      var sp5 = PropertiesService.getScriptProperties();
+      var nw2Raw = sp5.getProperty("NET_WORTH_" + userId);
+      var nw2 = nw2Raw ? JSON.parse(nw2Raw) : { assets: [], debts: [] };
+      var entryId = payload.id || Utilities.getUuid();
+      var entry = { id: entryId, tipo: payload.tipo, nombre: payload.nombre,
+        valor: Number(payload.valor || payload.saldo) || 0,
+        moneda: payload.moneda || "COP", tasaAnual: payload.tasaAnual || null,
+        cuotaMensual: payload.cuotaMensual || null, fecha: new Date().toISOString().slice(0,10) };
+      if (payload.tipo === "debt") {
+        entry.saldo = entry.valor; delete entry.valor;
+        var dIdx = (nw2.debts || []).findIndex(function(d){ return d.id === entryId; });
+        if (dIdx >= 0) nw2.debts[dIdx] = entry; else nw2.debts.push(entry);
+      } else {
+        var aIdx = (nw2.assets || []).findIndex(function(a){ return a.id === entryId; });
+        if (aIdx >= 0) nw2.assets[aIdx] = entry; else nw2.assets.push(entry);
+      }
+      nw2.lastUpdated = new Date().toISOString().slice(0,10);
+      sp5.setProperty("NET_WORTH_" + userId, JSON.stringify(nw2));
+      return jsonResponse({ ok: true, id: entryId });
+    }
+    if (type === "deleteNetWorthEntry") {
+      if (!payload.tipo || !payload.id) return jsonResponse({ ok: false, error: "tipo y id requeridos" });
+      var sp5b = PropertiesService.getScriptProperties();
+      var nw3Raw = sp5b.getProperty("NET_WORTH_" + userId);
+      if (!nw3Raw) return jsonResponse({ ok: true });
+      var nw3 = JSON.parse(nw3Raw);
+      if (payload.tipo === "debt") nw3.debts = (nw3.debts || []).filter(function(d){ return d.id !== payload.id; });
+      else nw3.assets = (nw3.assets || []).filter(function(a){ return a.id !== payload.id; });
+      nw3.lastUpdated = new Date().toISOString().slice(0,10);
+      sp5b.setProperty("NET_WORTH_" + userId, JSON.stringify(nw3));
+      return jsonResponse({ ok: true });
+    }
+
+    // ── CLUSTER 3: Cashback Tracker ───────────────────────────────────────
+    if (type === "getCashback") {
+      var cbRaw = PropertiesService.getScriptProperties().getProperty("CASHBACK_" + userId);
+      var cb = cbRaw ? JSON.parse(cbRaw) : {};
+      var totalValueCOP = Object.keys(cb).reduce(function(s,k){
+        var c = cb[k]; return s + Math.round((Number(c.puntos)||0) * (Number(c.tasaPuntosCOP)||0));
+      }, 0);
+      var cards = {};
+      Object.keys(cb).forEach(function(k){
+        var c = cb[k];
+        cards[k] = { banco: c.banco, programa: c.programa, puntos: c.puntos || 0,
+          tasaPuntosCOP: c.tasaPuntosCOP || 0, valorEnCOP: Math.round((c.puntos||0)*(c.tasaPuntosCOP||0)) };
+      });
+      return jsonResponse({ ok: true, cards: cards, totalValueCOP: totalValueCOP });
+    }
+    if (type === "updateCashback") {
+      if (!payload.card) return jsonResponse({ ok: false, error: "card requerido" });
+      var sp6 = PropertiesService.getScriptProperties();
+      var cb2 = JSON.parse(sp6.getProperty("CASHBACK_" + userId) || "{}");
+      cb2[payload.card] = { banco: payload.banco || "", programa: payload.programa || "",
+        puntos: Number(payload.puntos) || 0, tasaPuntosCOP: Number(payload.tasaPuntosCOP) || 0 };
+      sp6.setProperty("CASHBACK_" + userId, JSON.stringify(cb2));
+      return jsonResponse({ ok: true });
+    }
+    if (type === "recordCashbackEarned") {
+      if (!payload.card || !payload.puntosGanados) return jsonResponse({ ok: false, error: "card y puntosGanados requeridos" });
+      var sp6b = PropertiesService.getScriptProperties();
+      var cb3 = JSON.parse(sp6b.getProperty("CASHBACK_" + userId) || "{}");
+      if (!cb3[payload.card]) return jsonResponse({ ok: false, error: "Tarjeta no registrada en cashback" });
+      cb3[payload.card].puntos = (cb3[payload.card].puntos || 0) + Number(payload.puntosGanados);
+      sp6b.setProperty("CASHBACK_" + userId, JSON.stringify(cb3));
+      return jsonResponse({ ok: true, totalPuntos: cb3[payload.card].puntos });
+    }
+
+    // ── CLUSTER 4: Mood Tracker ───────────────────────────────────────────
+    if (type === "saveMood") {
+      if (!payload.mood || payload.mood < 1 || payload.mood > 5) return jsonResponse({ ok: false, error: "mood debe ser 1-5" });
+      var sp7 = PropertiesService.getScriptProperties();
+      var moodHistory = JSON.parse(sp7.getProperty("MOOD_HISTORY_" + userId) || "[]");
+      var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+      moodHistory = moodHistory.filter(function(m){ return m.date !== today; });
+      moodHistory.push({ date: today, mood: Number(payload.mood), note: payload.note || "" });
+      moodHistory.sort(function(a,b){ return a.date > b.date ? 1 : -1; });
+      if (moodHistory.length > 52) moodHistory = moodHistory.slice(-52);
+      sp7.setProperty("MOOD_HISTORY_" + userId, JSON.stringify(moodHistory));
+      return jsonResponse({ ok: true });
+    }
+    if (type === "getMoodHistory") {
+      var mhRaw = PropertiesService.getScriptProperties().getProperty("MOOD_HISTORY_" + userId);
+      var moodHist = mhRaw ? JSON.parse(mhRaw) : [];
+      var txnsForMood = _getTxnsRange(userId, 3);
+      var moodWithSpend = moodHist.map(function(entry){
+        var weekStart = entry.date;
+        var d = new Date(weekStart);
+        var d2 = new Date(d); d2.setDate(d2.getDate() + 6);
+        var ws = weekStart.slice(0,10);
+        var we = d2.toISOString().slice(0,10);
+        var spentThatWeek = txnsForMood
+          .filter(function(t){ var f = String(t.Fecha||"").slice(0,10); return f >= ws && f <= we && (Number(t["Monto (COP)"])||0) > 0; })
+          .reduce(function(s,t){ return s + (Number(t["Monto (COP)"])||0); }, 0);
+        return { date: entry.date, mood: entry.mood, note: entry.note, spentThatWeek: spentThatWeek };
+      });
+      var lowMood = moodWithSpend.filter(function(m){ return m.mood <= 2; });
+      var highMood = moodWithSpend.filter(function(m){ return m.mood >= 4; });
+      var avgLow  = lowMood.length  ? Math.round(lowMood.reduce(function(s,m){ return s+m.spentThatWeek; },0)/lowMood.length) : null;
+      var avgHigh = highMood.length ? Math.round(highMood.reduce(function(s,m){ return s+m.spentThatWeek; },0)/highMood.length) : null;
+      var insight = null;
+      if (avgLow && avgHigh && avgHigh > 0) {
+        var diff = Math.round((avgLow - avgHigh) / avgHigh * 100);
+        if (diff > 20) insight = "Gastas " + diff + "% más en semanas con mood bajo (≤2) vs semanas con mood alto (≥4)";
+        else if (diff < -20) insight = "Curiosamente gastas " + Math.abs(diff) + "% menos cuando tu mood es bajo — ¡bien!";
+      }
+      return jsonResponse({ ok: true, history: moodWithSpend, correlation: { lowMoodAvgSpend: avgLow, highMoodAvgSpend: avgHigh, insight: insight }});
+    }
+
+    // ── CLUSTER 5: AI Intelligence ────────────────────────────────────────
+    if (type === "spendingCoach") {
+      var rlCoach = _checkRate(userId, "coach", 5);
+      if (!rlCoach.ok) return jsonResponse({ ok: false, error: rlCoach.error });
+      return jsonResponse(_spendingCoach(userId, Number(payload.months || 3)));
+    }
+    if (type === "getRetoSuggestion") {
+      var rlReto = _checkRate(userId, "reto", 10);
+      if (!rlReto.ok) return jsonResponse({ ok: false, error: rlReto.error });
+      var coachData = _spendingCoach(userId, 3);
+      return jsonResponse({ ok: coachData.ok, suggestedReto: coachData.suggestedReto || null });
+    }
+    if (type === "generateHealthReport") {
+      var rlReport = _checkRate(userId, "report", 3);
+      if (!rlReport.ok) return jsonResponse({ ok: false, error: rlReport.error });
+      return jsonResponse(_generateHealthReport(userId, payload.month || null));
+    }
+
     // SMS automático desde iOS Shortcut
     var sms    = (payload.sms    || "").trim();
     var sentAt = payload.timestamp || new Date().toISOString();
@@ -944,7 +1173,13 @@ function doPost(e) {
     parsed.sms_original = sms;
 
     appendToSheet(parsed, userId);
-    return jsonResponse({ ok: true, data: parsed });
+    var smsResponse = { ok: true, data: parsed };
+    // Check category budget alert after saving
+    if (parsed.categoria && parsed.categoria !== 'Ingreso') {
+      var ba = _checkBudgetAlert(userId, parsed.categoria);
+      if (ba) smsResponse.budgetAlert = ba;
+    }
+    return jsonResponse(smsResponse);
 
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
@@ -1456,12 +1691,19 @@ function detectCategory(merchant, userId) {
   if (!merchant) return "";
   var m = merchant.toUpperCase();
 
-  // Check user-learned mappings first (from manual corrections)
   if (userId) {
-    var learned = JSON.parse(PropertiesService.getScriptProperties().getProperty("CATEGORY_LEARN_" + userId) || "{}");
+    var sp = PropertiesService.getScriptProperties();
+    // Check explicit rules (RULES_<userId>) with pattern matching — highest priority
+    var userRules = JSON.parse(sp.getProperty("RULES_" + userId) || "[]");
+    var mNorm = merchant.trim().toUpperCase().replace(/\s+/g, ' ');
+    userRules.sort(function(a,b){ return (b.priority||0)-(a.priority||0); });
+    for (var ri = 0; ri < userRules.length; ri++) {
+      if (mNorm.indexOf(userRules[ri].pattern) !== -1) return userRules[ri].category;
+    }
+    // Check legacy learned mappings (from manual corrections)
+    var learned = JSON.parse(sp.getProperty("CATEGORY_LEARN_" + userId) || "{}");
     var normalized = normalizeComercio(merchant).toUpperCase();
     if (learned[normalized]) return learned[normalized];
-    // Also try exact match on raw merchant name
     if (learned[m]) return learned[m];
   }
 
@@ -2657,4 +2899,572 @@ function _getCards(userId) {
 
 function _saveCards(userId, cards) {
   PropertiesService.getScriptProperties().setProperty('cards_' + userId, JSON.stringify(cards));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ── NUEVAS CAPACIDADES BACKEND (Clusters 1-5) ────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Rate limit helper (devuelve {ok, error} en vez de throw) ─────────
+function _checkRate(userId, action, dailyLimit) {
+  var cache = CacheService.getScriptCache();
+  var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+  var key = 'rate_' + action + '_' + userId + '_' + today;
+  var count = parseInt(cache.get(key) || '0', 10);
+  if (count >= dailyLimit) return { ok: false, error: 'Límite diario de ' + action + ' alcanzado (' + dailyLimit + '/día).' };
+  cache.put(key, String(count + 1), 86400);
+  return { ok: true };
+}
+
+// ── Leer transacciones con ventana de meses configurable ─────────────
+function _getTxnsRange(userId, months) {
+  var ref = _getSheet(userId);
+  if (!ref.sheet) return [];
+  var rows = ref.sheet.getDataRange().getValues();
+  if (rows.length <= 1) return [];
+  var headers = rows[0];
+  var fechaIdx = headers.indexOf('Fecha');
+  var cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - (months || 12));
+  var result = [];
+  for (var i = rows.length - 1; i >= 1; i--) {
+    var row = rows[i];
+    if (fechaIdx >= 0) {
+      var cell = row[fechaIdx];
+      var d = cell instanceof Date ? cell : new Date(String(cell));
+      if (!isNaN(d.getTime()) && d < cutoff) break;
+    }
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      obj[headers[j]] = row[j] instanceof Date ? row[j].toISOString() : row[j];
+    }
+    result.push(obj);
+  }
+  return result;
+}
+
+// ── Normalizar nombre de comercio ─────────────────────────────────────
+function _normMerchant(s) {
+  return String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+// ── Detectar pagos recurrentes desde transacciones ───────────────────
+// Devuelve array de {comercio, monthlyAvg, annualCost, occurrences, lastSeen}
+function _detectRecurring(txns) {
+  var byMerchant = {};
+  txns.forEach(function(t) {
+    var cat = String(t.Categoría || '');
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0 || cat === 'Ingreso') return;
+    var key = _normMerchant(t.Comercio);
+    if (!key) return;
+    var month = String(t.Fecha || '').slice(0, 7);
+    if (!byMerchant[key]) byMerchant[key] = { comercio: String(t.Comercio || '').trim(), months: {}, montos: [], categoria: cat };
+    byMerchant[key].months[month] = true;
+    byMerchant[key].montos.push(monto);
+  });
+  var recurring = [];
+  Object.keys(byMerchant).forEach(function(k) {
+    var info = byMerchant[k];
+    var monthCount = Object.keys(info.months).length;
+    if (monthCount < 2) return;
+    var avg = Math.round(info.montos.reduce(function(s,v){ return s+v; },0) / info.montos.length);
+    var sortedMonths = Object.keys(info.months).sort();
+    recurring.push({
+      comercio: info.comercio,
+      monthlyAvg: avg,
+      annualCost: avg * 12,
+      occurrences: monthCount,
+      lastSeen: sortedMonths[sortedMonths.length - 1],
+      categoria: info.categoria,
+      cancelUrl: _getCancelUrl(k)
+    });
+  });
+  return recurring.sort(function(a,b){ return b.monthlyAvg - a.monthlyAvg; });
+}
+
+// Links de cancelación de servicios conocidos
+var CANCEL_URLS = {
+  'NETFLIX': 'https://www.netflix.com/cancelplan',
+  'SPOTIFY': 'https://www.spotify.com/account/subscription/cancel',
+  'AMAZON': 'https://www.amazon.com/mc/pipelines/cancellation',
+  'PRIME': 'https://www.amazon.com/mc/pipelines/cancellation',
+  'DISNEY': 'https://help.disneyplus.com/csp',
+  'HBO': 'https://play.max.com/settings/subscription',
+  'MAX': 'https://play.max.com/settings/subscription',
+  'PARAMOUNT': 'https://help.paramountplus.com',
+  'APPLE': 'https://support.apple.com/en-us/HT202039',
+  'YOUTUBE': 'https://support.google.com/youtube/answer/6308278',
+  'GOOGLE': 'https://support.google.com/googleplay/answer/2853785',
+  'MICROSOFT': 'https://account.microsoft.com/services',
+  'ADOBE': 'https://account.adobe.com/plans',
+  'CANVA': 'https://www.canva.com/settings/billing',
+  'NOTION': 'https://www.notion.so/my-account',
+  'RAPPI': 'https://rappi.com/configuracion',
+  'UBER': 'https://help.uber.com',
+  'DEEZER': 'https://www.deezer.com/account/offer',
+  'TIDAL': 'https://account.tidal.com/subscription',
+  'DUOLINGO': 'https://www.duolingo.com/settings/subscription',
+  'HEADSPACE': 'https://www.headspace.com/subscriptions',
+  'CALM': 'https://www.calm.com/settings',
+  'CHATGPT': 'https://chat.openai.com/settings',
+  'CLAUDE': 'https://console.anthropic.com/settings/billing',
+  'OPENAI': 'https://platform.openai.com/account/billing'
+};
+function _getCancelUrl(normKey) {
+  var keys = Object.keys(CANCEL_URLS);
+  for (var i = 0; i < keys.length; i++) {
+    if (normKey.indexOf(keys[i]) !== -1) return CANCEL_URLS[keys[i]];
+  }
+  return null;
+}
+
+// ── CLUSTER 1: Analytics Engine ───────────────────────────────────────
+function _buildAnalytics(userId, params) {
+  var months = parseInt((params && params.months) || '12', 10);
+  var txns = _getTxnsRange(userId, Math.max(months, 24));
+
+  // --- Top Merchants ---
+  var merchantMap = {};
+  txns.forEach(function(t) {
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0 || String(t.Categoría||'') === 'Ingreso') return;
+    var key = _normMerchant(t.Comercio);
+    if (!key) return;
+    if (!merchantMap[key]) merchantMap[key] = { comercio: String(t.Comercio||'').trim(), total:0, count:0, categoria: String(t.Categoría||'Otro') };
+    merchantMap[key].total += monto;
+    merchantMap[key].count++;
+  });
+  var topMerchants = Object.keys(merchantMap).map(function(k){
+    var m = merchantMap[k];
+    return { comercio: m.comercio, total: m.total, count: m.count, avgTicket: Math.round(m.total/m.count), categoria: m.categoria };
+  }).sort(function(a,b){ return b.total - a.total; }).slice(0, 20);
+
+  // --- By Card ---
+  var cardMap = {};
+  txns.forEach(function(t) {
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0) return;
+    var card = String(t['Tarjeta/Cuenta'] || 'Sin tarjeta');
+    if (!cardMap[card]) cardMap[card] = { card: card, banco: String(t.Banco||''), total:0, count:0, lastActivity: '', categories:{} };
+    cardMap[card].total += monto;
+    cardMap[card].count++;
+    var fecha = String(t.Fecha||'').slice(0,10);
+    if (fecha > cardMap[card].lastActivity) cardMap[card].lastActivity = fecha;
+    var cat = String(t.Categoría||'Otro');
+    cardMap[card].categories[cat] = (cardMap[card].categories[cat]||0) + monto;
+  });
+  var byCard = Object.values ? Object.values(cardMap) : Object.keys(cardMap).map(function(k){ return cardMap[k]; });
+  byCard.sort(function(a,b){ return b.total - a.total; });
+
+  // --- Hourly Heatmap ---
+  var DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  var heatmap = {};
+  for (var h = 0; h < 24; h++) {
+    heatmap[String(h)] = {};
+    DAYS.forEach(function(d){ heatmap[String(h)][d] = 0; });
+  }
+  txns.forEach(function(t) {
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0 || String(t.Categoría||'') === 'Ingreso') return;
+    var ts = String(t.Timestamp || t.Fecha || '');
+    var dt = new Date(ts);
+    if (isNaN(dt.getTime())) return;
+    var hour = dt.getHours();
+    var dow = DAYS[dt.getDay()];
+    heatmap[String(hour)][dow] = (heatmap[String(hour)][dow] || 0) + monto;
+  });
+
+  // --- Subscriptions ---
+  var subscriptions = _detectRecurring(txns).filter(function(s){ return s.occurrences >= 2; });
+
+  // --- Lifestyle Inflation ---
+  var monthlyTotals = {};
+  txns.forEach(function(t) {
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0 || String(t.Categoría||'') === 'Ingreso') return;
+    var month = String(t.Fecha||'').slice(0,7);
+    if (!month) return;
+    monthlyTotals[month] = (monthlyTotals[month]||0) + monto;
+  });
+  var sortedMonths = Object.keys(monthlyTotals).sort().slice(-6);
+  var inflationSignal = { detected: false, months: sortedMonths, totals: sortedMonths.map(function(m){ return monthlyTotals[m]||0; }), growthRatePct: null, message: null };
+  if (sortedMonths.length >= 4) {
+    var consecutive = 0;
+    var rates = [];
+    for (var mi = 1; mi < sortedMonths.length; mi++) {
+      var prev = monthlyTotals[sortedMonths[mi-1]] || 1;
+      var curr = monthlyTotals[sortedMonths[mi]] || 0;
+      var rate = (curr - prev) / prev * 100;
+      rates.push(rate);
+      if (rate >= 5) consecutive++; else consecutive = 0;
+    }
+    if (consecutive >= 3) {
+      var avgRate = Math.round(rates.slice(-3).reduce(function(s,r){ return s+r; },0) / 3);
+      inflationSignal.detected = true;
+      inflationSignal.growthRatePct = avgRate;
+      inflationSignal.message = 'Tu gasto base sube ~' + avgRate + '% cada mes desde ' + _monthName(sortedMonths[sortedMonths.length-4]) + '. ¿Es intencional?';
+    }
+  }
+
+  // --- Multi-year monthly breakdown ---
+  var multiYear = sortedMonths.concat(Object.keys(monthlyTotals).sort().filter(function(m){ return sortedMonths.indexOf(m) === -1; }));
+  var byMonth = {};
+  txns.forEach(function(t) {
+    var monto = Number(t['Monto (COP)']) || 0;
+    if (monto <= 0 || String(t.Categoría||'') === 'Ingreso') return;
+    var month = String(t.Fecha||'').slice(0,7);
+    var cat = String(t.Categoría||'Otro');
+    if (!byMonth[month]) byMonth[month] = { month: month, total: 0, byCategory: {} };
+    byMonth[month].total += monto;
+    byMonth[month].byCategory[cat] = (byMonth[month].byCategory[cat]||0) + monto;
+  });
+  var multiYearArr = Object.keys(byMonth).sort().map(function(m){ return byMonth[m]; });
+
+  return {
+    ok: true,
+    topMerchants: topMerchants,
+    byCard: byCard,
+    hourlyHeatmap: heatmap,
+    subscriptions: subscriptions,
+    inflationSignal: inflationSignal,
+    multiYear: multiYearArr
+  };
+}
+
+function _monthName(yyyymm) {
+  var months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var parts = String(yyyymm||'').split('-');
+  if (parts.length < 2) return yyyymm;
+  return months[parseInt(parts[1],10)-1] || yyyymm;
+}
+
+// ── CLUSTER 2: Calendario de Pagos Fijos ──────────────────────────────
+function _getFixedPayments(userId) {
+  var raw = PropertiesService.getScriptProperties().getProperty('FIXED_PAYMENTS_' + userId);
+  try { return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
+}
+function _saveFixedPayments(userId, payments) {
+  PropertiesService.getScriptProperties().setProperty('FIXED_PAYMENTS_' + userId, JSON.stringify(payments));
+}
+
+function _getFixedCalendar(userId, month) {
+  var payments = _getFixedPayments(userId);
+  var txns = _getTxnsRange(userId, 2);
+  var monthTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === month; });
+  var today = new Date();
+  var todayStr = today.toISOString().slice(0,10);
+  var yearMonth = month.split('-');
+  var y = parseInt(yearMonth[0],10), m = parseInt(yearMonth[1],10) - 1;
+  var daysInMonth = new Date(y, m+1, 0).getDate();
+
+  var result = payments.filter(function(p){ return p.activo !== false; }).map(function(p) {
+    var payDate = month + '-' + String(p.diaDelMes).padStart(2,'0');
+    var status = 'pending';
+    if (payDate < todayStr) {
+      // Look for matching txn (same category, amount ±15%, within ±5 days)
+      var amtLow = p.monto * 0.85, amtHigh = p.monto * 1.15;
+      var dayStart = month + '-' + String(Math.max(1, p.diaDelMes-5)).padStart(2,'0');
+      var dayEnd   = month + '-' + String(Math.min(daysInMonth, p.diaDelMes+5)).padStart(2,'0');
+      var match = monthTxns.find(function(t){
+        var monto = Number(t['Monto (COP)'])||0;
+        var fecha = String(t.Fecha||'').slice(0,10);
+        var catMatch = !p.categoria || t.Categoría === p.categoria;
+        return monto >= amtLow && monto <= amtHigh && fecha >= dayStart && fecha <= dayEnd && catMatch;
+      });
+      status = match ? 'paid' : 'overdue';
+    }
+    return { id: p.id, nombre: p.nombre, monto: p.monto, diaDelMes: p.diaDelMes,
+      categoria: p.categoria || 'Hogar', tipo: p.tipo || 'manual', status: status, payDate: payDate };
+  });
+
+  var totalExpected = result.reduce(function(s,p){ return s+p.monto; },0);
+  var totalPaid  = result.filter(function(p){ return p.status==='paid'; }).reduce(function(s,p){ return s+p.monto; },0);
+  var autoDetected = _detectRecurring(txns).filter(function(r){
+    return !payments.some(function(p){ return _normMerchant(p.nombre) === _normMerchant(r.comercio); });
+  });
+
+  return { ok: true, month: month, payments: result, totalExpected: totalExpected,
+    totalPaid: totalPaid, totalPending: totalExpected - totalPaid, autoDetected: autoDetected };
+}
+
+function _saveFixedPayment(userId, fp) {
+  var payments = _getFixedPayments(userId);
+  if (payments.length >= 50) return { ok: false, error: 'Máximo 50 pagos fijos' };
+  var id = fp.id || Utilities.getUuid();
+  var entry = { id: id, nombre: fp.nombre, monto: Number(fp.monto)||0,
+    diaDelMes: Number(fp.diaDelMes)||1, categoria: fp.categoria || 'Hogar',
+    activo: fp.activo !== false, tipo: fp.tipo || 'manual', creadoEn: new Date().toISOString().slice(0,10) };
+  var idx = payments.findIndex ? payments.findIndex(function(p){ return p.id === id; })
+    : (function(){ for(var i=0;i<payments.length;i++){ if(payments[i].id===id) return i; } return -1; })();
+  if (idx >= 0) payments[idx] = entry; else payments.push(entry);
+  _saveFixedPayments(userId, payments);
+  return { ok: true, id: id };
+}
+
+function _deleteFixedPayment(userId, id) {
+  var payments = _getFixedPayments(userId).filter(function(p){ return p.id !== id; });
+  _saveFixedPayments(userId, payments);
+  return { ok: true };
+}
+
+// ── CLUSTER 3: Budget Alert Helper ────────────────────────────────────
+function _checkBudgetAlert(userId, categoria) {
+  try {
+    var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+    var sp = PropertiesService.getScriptProperties();
+    var budgets = JSON.parse(sp.getProperty('CAT_BUDGETS_' + userId + '_' + month) || '{}');
+    var budget = Number(budgets[categoria]) || 0;
+    if (!budget) return null;
+    var txns = _getTxnsRange(userId, 1);
+    var spent = txns
+      .filter(function(t){ return String(t.Fecha||'').slice(0,7) === month && t.Categoría === categoria && (Number(t['Monto (COP)'])||0) > 0; })
+      .reduce(function(s,t){ return s + (Number(t['Monto (COP)'])||0); }, 0);
+    var pct = Math.round(spent / budget * 100);
+    if (pct >= 80) return { category: categoria, spent: spent, budget: budget, pct: pct };
+    return null;
+  } catch(e) { return null; }
+}
+
+function _getCategoryStatus(userId, month) {
+  var sp = PropertiesService.getScriptProperties();
+  var budgets = JSON.parse(sp.getProperty('CAT_BUDGETS_' + userId + '_' + month) || '{}');
+  var txns = _getTxnsRange(userId, 2).filter(function(t){ return String(t.Fecha||'').slice(0,7) === month; });
+  var result = {};
+  Object.keys(budgets).forEach(function(cat) {
+    var budget = Number(budgets[cat]) || 0;
+    var spent = txns.filter(function(t){ return t.Categoría === cat && (Number(t['Monto (COP)'])||0) > 0; })
+      .reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0);
+    result[cat] = { budget: budget, spent: spent, disponible: budget-spent, pct: budget ? Math.round(spent/budget*100) : 0 };
+  });
+  return { ok: true, month: month, categories: result };
+}
+
+// ── CLUSTER 5: AI Intelligence ────────────────────────────────────────
+function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
+  var key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    payload: JSON.stringify({
+      model: model || 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens || 1024,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    }),
+    muteHttpExceptions: true
+  });
+  var result = JSON.parse(resp.getContentText());
+  if (resp.getResponseCode() !== 200) throw new Error('Claude API error: ' + (result.error && result.error.message || resp.getContentText().slice(0,120)));
+  return (result.content && result.content[0] && result.content[0].text) || '';
+}
+
+function _spendingCoach(userId, months) {
+  var txns = _getTxnsRange(userId, months || 3);
+  // Aggregate data for Claude (deterministic computation)
+  var byCat = {};
+  txns.forEach(function(t){
+    var monto = Number(t['Monto (COP)'])||0;
+    if (monto<=0 || String(t.Categoría||'')==='Ingreso') return;
+    var cat = String(t.Categoría||'Otro');
+    byCat[cat]=(byCat[cat]||0)+monto;
+  });
+  var topCats = Object.keys(byCat).sort(function(a,b){ return byCat[b]-byCat[a]; }).slice(0,5)
+    .map(function(c){ return c+': $'+Math.round(byCat[c]).toLocaleString('es-CO'); }).join(', ');
+  var subs = _detectRecurring(txns).slice(0,5).map(function(s){ return s.comercio+'($'+s.monthlyAvg+'/mes)'; }).join(', ');
+  var totalSpent = Object.values ? Object.values(byCat).reduce(function(s,v){return s+v;},0)
+    : Object.keys(byCat).reduce(function(s,k){return s+byCat[k];},0);
+
+  var systemPrompt = 'Eres un coach financiero amigable para un usuario colombiano. Analiza los datos y devuelve ÚNICAMENTE un JSON válido con esta estructura: {"insights":["insight1","insight2","insight3"],"suggestedReto":{"titulo":"string","tipo":"budget_limit|frequency_limit|no_spend","categorias":["Cat"],"objetivo":number,"razon":"string"}}. Los insights deben ser específicos con números reales. El reto debe ser el más impactante dado el perfil. Máx 80 palabras por insight. En español colombiano informal.';
+  var userMsg = 'Datos del usuario (últimos ' + months + ' meses): Total gastado: $' + Math.round(totalSpent).toLocaleString('es-CO') + '. Por categoría: ' + topCats + '. Suscripciones detectadas: ' + (subs || 'ninguna') + '.';
+
+  try {
+    var rawText = _callClaudeAI(systemPrompt, userMsg, 800, 'claude-haiku-4-5-20251001');
+    var jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { ok: false, error: 'Claude no devolvió JSON válido' };
+    var parsed = JSON.parse(jsonMatch[0]);
+    return { ok: true, insights: parsed.insights || [], suggestedReto: parsed.suggestedReto || null };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+function _generateHealthReport(userId, month) {
+  var targetMonth = month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var txns = _getTxnsRange(userId, 6);
+  var monthTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === targetMonth; });
+  var prevMonth = (function(){
+    var d = new Date(targetMonth + '-01'); d.setMonth(d.getMonth()-1);
+    return Utilities.formatDate(d, 'America/Bogota', 'yyyy-MM');
+  })();
+  var prevTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === prevMonth; });
+
+  var sumCat = function(txArr) {
+    var r = {};
+    txArr.forEach(function(t){
+      var m = Number(t['Monto (COP)'])||0; if(m<=0||String(t.Categoría||'')==='Ingreso') return;
+      var c = String(t.Categoría||'Otro'); r[c]=(r[c]||0)+m;
+    }); return r;
+  };
+  var catCurr = sumCat(monthTxns), catPrev = sumCat(prevTxns);
+  var totalCurr = Object.keys(catCurr).reduce(function(s,k){return s+catCurr[k];},0);
+  var totalPrev = Object.keys(catPrev).reduce(function(s,k){return s+catPrev[k];},0);
+  var topCatsStr = Object.keys(catCurr).sort(function(a,b){return catCurr[b]-catCurr[a];}).slice(0,5)
+    .map(function(c){return c+': $'+Math.round(catCurr[c]).toLocaleString('es-CO');}).join(', ');
+  var subs = _detectRecurring(txns).slice(0,5).map(function(s){return s.comercio+'($'+s.monthlyAvg+'/mes)';}).join(', ');
+  var budgets = JSON.parse(PropertiesService.getScriptProperties().getProperty('CAT_BUDGETS_' + userId + '_' + targetMonth) || '{}');
+  var budgetStr = Object.keys(budgets).length ? Object.keys(budgets).map(function(c){
+    var b=budgets[c], s=catCurr[c]||0; return c+': gastado $'+Math.round(s).toLocaleString('es-CO')+' de $'+b.toLocaleString('es-CO')+'('+Math.round(s/b*100)+'%)';
+  }).join('; ') : 'sin presupuestos configurados';
+
+  var systemPrompt = 'Eres un asesor financiero generando un reporte mensual en español colombiano. Devuelve ÚNICAMENTE JSON con esta estructura exacta: {"resumenEjecutivo":"string","seccion1_gastos":"string","seccion2_tendencias":"string","seccion3_recomendaciones":["r1","r2","r3"],"proyeccion6meses":"string","scoreGeneral":number}. scoreGeneral es 0-100 basado en control de gastos y hábitos. Sé específico con números, usa lenguaje cercano pero profesional.';
+  var userMsg = 'Mes: '+targetMonth+'. Total gastos: $'+Math.round(totalCurr).toLocaleString('es-CO')+'. Mes anterior: $'+Math.round(totalPrev).toLocaleString('es-CO')+'. Variación: '+(totalPrev?Math.round((totalCurr-totalPrev)/totalPrev*100)+'%':'N/A')+'. Por categoría: '+topCatsStr+'. Presupuestos: '+budgetStr+'. Suscripciones: '+(subs||'ninguna')+'.';
+
+  try {
+    var rawText = _callClaudeAI(systemPrompt, userMsg, 2000, 'claude-sonnet-4-6');
+    var jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { ok: false, error: 'Claude no devolvió JSON válido' };
+    var report = JSON.parse(jsonMatch[0]);
+    report.periodo = targetMonth;
+    report.generadoEn = new Date().toISOString();
+    return { ok: true, report: report };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── CLUSTER 6: Widget Data ────────────────────────────────────────────
+function _buildWidgetData(userId) {
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'widget_' + userId;
+  var cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  var txns = _getTxnsRange(userId, 1);
+  var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var monthTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === month; });
+  var totalGastos = monthTxns.filter(function(t){ return (Number(t['Monto (COP)'])||0) > 0 && String(t.Categoría||'') !== 'Ingreso'; })
+    .reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0);
+  var sp = PropertiesService.getScriptProperties();
+  var profile = sp.getProperty('APP_PROFILE_NAME_' + userId) || userId;
+  var ultimasTxns = monthTxns.slice(0,5).map(function(t){
+    return { monto: Number(t['Monto (COP)'])||0, comercio: String(t.Comercio||''), fecha: String(t.Fecha||'').slice(0,10) };
+  });
+
+  var result = { ok: true, mesActual: _monthName(month) + ' ' + month.slice(0,4),
+    totalGastos: Math.round(totalGastos), ultimasTxns: ultimasTxns,
+    timestamp: new Date().toISOString() };
+  cache.put(cacheKey, JSON.stringify(result), 300); // 5 min cache
+  return result;
+}
+
+// ── Triggers programables (ejecutar una vez desde el editor GAS) ──────
+function createTriggers() {
+  var existing = ScriptApp.getProjectTriggers();
+  var names = existing.map(function(t){ return t.getHandlerFunction(); });
+  if (names.indexOf('sendWeeklySummaryTrigger') === -1)
+    ScriptApp.newTrigger('sendWeeklySummaryTrigger').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(8).create();
+  if (names.indexOf('sendFridayNudgeTrigger') === -1)
+    ScriptApp.newTrigger('sendFridayNudgeTrigger').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(17).create();
+  if (names.indexOf('sendUncategorizedReminderTrigger') === -1)
+    ScriptApp.newTrigger('sendUncategorizedReminderTrigger').timeBased().onWeekDay(ScriptApp.WeekDay.TUESDAY).atHour(9).create();
+  if (names.indexOf('checkLifestyleInflationTrigger') === -1)
+    ScriptApp.newTrigger('checkLifestyleInflationTrigger').timeBased().onMonthDay(1).atHour(9).create();
+  Logger.log('Triggers creados correctamente');
+}
+
+function sendWeeklySummaryTrigger() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try {
+      var email = PropertiesService.getScriptProperties().getProperty('APP_ALERT_EMAIL_' + uid);
+      if (!email) return;
+      var txns = _getTxnsRange(uid, 1);
+      var now = new Date();
+      var weekAgo = new Date(now.getTime() - 7*24*60*60*1000);
+      var weekTxns = txns.filter(function(t){
+        var d = new Date(String(t.Fecha||'')); return d >= weekAgo && d <= now && (Number(t['Monto (COP)'])||0) > 0 && String(t.Categoría||'') !== 'Ingreso';
+      });
+      if (!weekTxns.length) return;
+      var total = weekTxns.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0);
+      var byCat = {};
+      weekTxns.forEach(function(t){ var c=String(t.Categoría||'Otro'); byCat[c]=(byCat[c]||0)+(Number(t['Monto (COP)'])||0); });
+      var top = Object.keys(byCat).sort(function(a,b){return byCat[b]-byCat[a];}).slice(0,3)
+        .map(function(c){ return c+': $'+Math.round(byCat[c]).toLocaleString('es-CO'); }).join(' · ');
+      // Check lifestyle inflation
+      var analytics = _buildAnalytics(uid, { months: 4 });
+      var inflMsg = analytics.inflationSignal && analytics.inflationSignal.detected ? '<p style="color:#f59e0b">⚠️ '+analytics.inflationSignal.message+'</p>' : '';
+      MailApp.sendEmail({ to: email, subject: '📊 Tu semana financiera',
+        htmlBody: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2 style="color:#6366f1">Tu semana en números</h2><p>Gastaste <strong>$'+Math.round(total).toLocaleString('es-CO')+'</strong> esta semana.</p><p>'+top+'</p>'+inflMsg+'<p style="color:#94a3b8;font-size:11px">Finanzas Personales · resumen semanal</p></div>'
+      });
+    } catch(e) { Logger.log('sendWeeklySummary error para ' + uid + ': ' + e.message); }
+  });
+}
+
+function sendFridayNudgeTrigger() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try {
+      var email = PropertiesService.getScriptProperties().getProperty('APP_ALERT_EMAIL_' + uid);
+      if (!email) return;
+      var nudgeKey = 'NUDGE_LAST_' + uid;
+      var sp = PropertiesService.getScriptProperties();
+      var lastNudge = JSON.parse(sp.getProperty(nudgeKey) || '{}');
+      var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+      if (lastNudge.date === today) return;
+      var txns = _getTxnsRange(uid, 1);
+      var now = new Date();
+      var fridays = [0,7,14].map(function(d){ return new Date(now.getTime()-(d+now.getDay()===5?0:(now.getDay()+2)%7)*86400000); });
+      var restoCats = ['Restaurantes','Domicilios','Entretenimiento'];
+      var fridaySpend = txns.filter(function(t){
+        var d = new Date(String(t.Fecha||'')); var dow = d.getDay();
+        return (dow===5||dow===6) && restoCats.indexOf(String(t.Categoría||''))!==-1 && (Number(t['Monto (COP)'])||0)>0;
+      });
+      if (fridaySpend.length >= 3) {
+        var avg = Math.round(fridaySpend.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0)/3);
+        MailApp.sendEmail({ to: email, subject: '🍕 ¡Llega el viernes!',
+          htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>$'+avg.toLocaleString('es-CO')+'</strong> en restaurantes y domicilios. ¿Lo tenés en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+        });
+        sp.setProperty(nudgeKey, JSON.stringify({ date: today, type: 'friday-restaurant' }));
+      }
+    } catch(e) { Logger.log('sendFridayNudge error para ' + uid + ': ' + e.message); }
+  });
+}
+
+function sendUncategorizedReminderTrigger() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try {
+      var email = PropertiesService.getScriptProperties().getProperty('APP_ALERT_EMAIL_' + uid);
+      if (!email) return;
+      var txns = _getTxnsRange(uid, 1);
+      var weekAgo = new Date(Date.now() - 7*24*60*60*1000);
+      var uncat = txns.filter(function(t){
+        var d = new Date(String(t.Fecha||'')); return d >= weekAgo && (!t.Categoría || t.Categoría==='' || t.Categoría==='Otro');
+      }).length;
+      if (uncat >= 3) {
+        MailApp.sendEmail({ to: email, subject: '🏷️ Tienes '+uncat+' transacciones sin categorizar',
+          htmlBody: '<div style="font-family:sans-serif"><p>Tienes <strong>'+uncat+' transacciones</strong> sin categorizar esta semana. Categorizarlas mejora tu análisis financiero y te da XP.</p><p><a href="https://finanzas-abiertas.pages.dev">Abrir app →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+        });
+      }
+    } catch(e) { Logger.log('sendUncategorizedReminder error para ' + uid + ': ' + e.message); }
+  });
+}
+
+function checkLifestyleInflationTrigger() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try {
+      var email = PropertiesService.getScriptProperties().getProperty('APP_ALERT_EMAIL_' + uid);
+      if (!email) return;
+      var analytics = _buildAnalytics(uid, { months: 6 });
+      var inf = analytics.inflationSignal;
+      if (inf && inf.detected) {
+        MailApp.sendEmail({ to: email, subject: '📈 Alerta: tu gasto sube cada mes',
+          htmlBody: '<div style="font-family:sans-serif"><p>⚠️ <strong>'+inf.message+'</strong></p><p>Tus totales recientes: '+inf.months.map(function(m,i){ return _monthName(m)+': $'+(inf.totals[i]||0).toLocaleString('es-CO'); }).join(' → ')+'</p><p><a href="https://finanzas-abiertas.pages.dev">Ver análisis →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+        });
+      }
+    } catch(e) { Logger.log('checkLifestyleInflation error para ' + uid + ': ' + e.message); }
+  });
 }
