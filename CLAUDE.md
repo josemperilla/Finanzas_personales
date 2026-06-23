@@ -1,92 +1,97 @@
-# Agent Instructions
+# Agent Instructions — Personal Finance Manager
 
-You're working inside the **WAT framework** (Workflows, Agents, Tools). This architecture separates concerns so that probabilistic AI handles reasoning while deterministic code handles execution. That separation is what makes this system reliable.
+App personal de finanzas. **Stack vivo:** PWA (React+Vite+TS) → Cloudflare Pages
+Functions → Apps Script (`apps_script/webhook.gs`) → Google Sheets (un tab por usuario).
 
-## The WAT Architecture
+> Históricamente este repo usaba Streamlit + SQLite + Python (el "WAT framework"). Esa
+> arquitectura se migró y la capa Python quedó archivada en `archive/` (ver
+> `archive/README.md`). Este documento describe la arquitectura **actual**.
 
-**Layer 1: Workflows (The Instructions)**
-- Markdown SOPs stored in `workflows/`
-- Each workflow defines the objective, required inputs, which tools to use, expected outputs, and how to handle edge cases
-- Written in plain language, the same way you'd brief someone on your team
+## Arquitectura viva
 
-**Layer 2: Agents (The Decision-Maker)**
-- This is your role. You're responsible for intelligent coordination.
-- Read the relevant workflow, run tools in the correct sequence, handle failures gracefully, and ask clarifying questions when needed
-- You connect intent to execution without trying to do everything yourself
-- Example: If you need to pull data from a website, don't attempt it directly. Read `workflows/scrape_website.md`, figure out the required inputs, then execute `tools/scrape_single_site.py`
-
-**Layer 3: Tools (The Execution)**
-- Python scripts in `tools/` that do the actual work
-- API calls, data transformations, file operations, database queries
-- Credentials and API keys are stored in `.env`
-- These scripts are consistent, testable, and fast
-
-**Why this matters:** When AI tries to handle every step directly, accuracy drops fast. If each step is 90% accurate, you're down to 59% success after just five steps. By offloading execution to deterministic scripts, you stay focused on orchestration and decision-making where you excel.
-
-## How to Operate
-
-**1. Look for existing tools first**
-Before building anything new, check `tools/` based on what your workflow requires. Only create new scripts when nothing exists for that task.
-
-**2. Learn and adapt when things fail**
-When you hit an error:
-- Read the full error message and trace
-- Fix the script and retest (if it uses paid API calls or credits, check with me before running again)
-- Document what you learned in the workflow (rate limits, timing quirks, unexpected behavior)
-- Example: You get rate-limited on an API, so you dig into the docs, discover a batch endpoint, refactor the tool to use it, verify it works, then update the workflow so this never happens again
-
-**3. Keep workflows current**
-Workflows should evolve as you learn. When you find better methods, discover constraints, or encounter recurring issues, update the workflow. That said, don't create or overwrite workflows without asking unless I explicitly tell you to. These are your instructions and need to be preserved and refined, not tossed after one use.
-
-## The Self-Improvement Loop
-
-Every failure is a chance to make the system stronger:
-1. Identify what broke
-2. Fix the tool
-3. Verify the fix works
-4. Update the workflow with the new approach
-5. Move on with a more robust system
-
-This loop is how the framework improves over time.
-
-## File Structure
-
-**What goes where:**
-- **Deliverables**: Final outputs go to cloud services (Google Sheets, Slides, etc.) where I can access them directly
-- **Intermediates**: Temporary processing files that can be regenerated
-
-**Directory layout:**
 ```
-.tmp/           # Temporary files (scraped data, intermediate exports). Regenerated as needed.
-tools/          # Python scripts for deterministic execution
-workflows/      # Markdown SOPs defining what to do and how
-.env            # API keys and environment variables (NEVER store secrets anywhere else)
-credentials.json, token.json  # Google OAuth (gitignored)
+pwa/              → React 18 + Vite + TypeScript + Tailwind (la UI que usa la gente)
+functions/api/    → Cloudflare Pages Functions:
+                     - proxy.js  → esconde WEBHOOK_URL/WEB_SECRET del bundle y reenvía a GAS
+                     - ocr.js    → Claude Vision (foto de recibo)
+                     - extract-pdf.js, sms.js, shortcut-config.js
+apps_script/      → webhook.gs (backend vivo, ~2.6k LOC, monolito) vía clasp → Google Sheets
+android/          → wrapper APK (Capacitor/Gradle)
+ios_shortcut/     → docs de captura vía iOS Shortcuts (ingestion de SMS → webhook)
+archive/          → capa Python legacy (FastAPI no desplegado + tools Streamlit). Recuperable.
 ```
 
-**Core principle:** Local files are just for processing. Anything I need to see or use lives in cloud services. Everything in `.tmp/` is disposable.
+**Flujo de datos:** iOS Shortcuts / PWA → `webhook.gs` → Sheet del usuario. La PWA lee
+y escribe transacciones a través del proxy de Cloudflare (`/api/proxy`), nunca tocando
+el webhook directo ni exponiendo `WEB_SECRET`.
 
-## Bottom Line
+## Cómo operar
 
-You sit between what I want (workflows) and what actually gets done (tools). Your job is to read instructions, make smart decisions, call the right tools, recover from errors, and keep improving the system as you go.
+**Correr / desarrollar** (todo vive en `pwa/`):
+```bash
+cd pwa && npm install
+npm run dev      # http://localhost:5173
+npm run build    # tsc --noEmit + vite build
+npm run test     # vitest
+```
+Detalle completo en `workflows/onboarding.md`.
 
-Stay pragmatic. Stay reliable. Keep learning.
+**Deploy (manual, sin CI todavía):**
+- PWA + functions: `wrangler deploy` (desde la raíz).
+- Backend: `cd apps_script && clasp push`.
+
+**Antes de tocar algo:** revisa `workflows/` (SOPs) y declara `apps_script/webhook.gs`
+como fuente de verdad para parsing de bancos (`parseBanco*`) y categorización
+(`detectCategory`). El drift entre el UI (`pwa/src/lib/config.ts`) y el backend se verifica
+con `node scripts/check-category-drift.mjs`.
+
+## Decisiones y limitaciones conocidas
+
+- **Backend:** GAS + Sheets elegido el 2026-06-05 para 10–15 usuarios. FastAPI/Postgres
+  (en `archive/`) se reactiva solo ante triggers: >20 usuarios, Gmail multi-cuenta,
+  análisis cruzado, o >2 años de historial. Ver `TODOS.md`.
+- **Presupuestos / gamificación / learnings:** viven en **localStorage por dispositivo**
+  (no sincronizan entre dispositivos). Limitación aceptada por ahora.
+- **Sin router lib** en la PWA (tabs manuales con `useState`). Sin tests E2E.
+- **`webhook.gs` es un monolito de ~2.6k LOC** — su modularización queda para una
+  iteración futura.
+
+## Cómo mejorar el sistema
+
+- Ante errores: lee el mensaje completo, fixea, verifica, y documenta el aprendizaje en el
+  workflow correspondiente (o `TODOS.md` si es una decisión técnica).
+- No crees workflows nuevos sin preguntar; estos archivos son instrucciones que se refinan.
+- Secrets **solo** en `.env` (gitignored), Cloudflare env vars, o GAS Script Properties.
+  Nunca en el bundle de la PWA.
+
+## File structure
+
+```
+pwa/              # UI (código fuente + build a dist/)
+functions/api/    # edge (JS)
+apps_script/      # backend vivo (.gs)
+workflows/        # SOPs en Markdown
+scripts/          # utilidades de verificación (p.ej. check-category-drift.mjs)
+archive/          # capa Python legacy (desechable/recuperable)
+docs/             # notas y brainstorms
+.env              # credenciales (NUNCA commitear)
+wrangler.jsonc    # config Cloudflare
+```
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+Cuando el request matchee un skill disponible, invócalo vía la herramienta Skill. En duda, invoca el skill.
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
-- Author a backlog-ready spec/issue → invoke /spec
+Reglas clave:
+- Ideas de producto/brainstorming → `/office-hours`
+- Estrategia/scope → `/plan-ceo-review`
+- Arquitectura → `/plan-eng-review`
+- Design system/review de plan → `/design-consultation` o `/plan-design-review`
+- Pipeline de review completo → `/autoplan`
+- Bugs/errores → `/investigate`
+- QA/comportamiento del sitio → `/qa` o `/qa-only`
+- Code review/diff → `/review`
+- Pulido visual → `/design-review`
+- Ship/deploy/PR → `/ship` o `/land-and-deploy`
+- Guardar progreso → `/context-save`
+- Autorar spec/issue → `/spec`

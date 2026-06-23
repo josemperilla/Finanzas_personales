@@ -56,7 +56,9 @@ export function getUserTabOrder(userId: string): ReorderableTab[] {
         return parsed as ReorderableTab[];
       }
     }
-  } catch {}
+  } catch {
+    /* JSON inválido o formato inesperado — usar defaults */
+  }
   return [...DEFAULT_TAB_ORDER];
 }
 

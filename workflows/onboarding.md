@@ -1,61 +1,67 @@
 # Onboarding: Personal Finance Manager
 
+Setup para correr y desarrollar el app. El stack vivo es una **PWA (React+Vite+TS)**
+que habla con **Apps Script (`apps_script/webhook.gs`)** vía **Cloudflare Pages Functions**,
+persistiendo en **Google Sheets**.
+
 ## Requisitos previos
 
-- Python 3.9+
-- Java 8+ (solo si se necesita tabula-py como fallback para AV Villas)
+- **Node.js 18+** y npm (para la PWA)
+- (Opcional, solo para deploy) `wrangler` CLI (Cloudflare) y `clasp` CLI (Apps Script)
 
-### Instalar Java en macOS
-```bash
-brew install openjdk
-```
-
-## Setup inicial
+## Setup del PWA (desarrollo local)
 
 ```bash
-# 1. Instalar dependencias
-python3 -m pip install -r requirements.txt
+cd pwa
+npm install
 
-# 2. Crear archivo .env con tus credenciales
-cp .env.example .env
-# Edita .env y agrega:
-#   ANTHROPIC_API_KEY=sk-ant-...
+# Crea variables de entorno locales para desarrollo.
+# En PROD estos secretos viven server-side en Cloudflare (functions/api/proxy.js),
+# NUNCA en el bundle. En dev, apunta directo al webhook:
+cp ../.env.example ../.env  # si no existe
+# Configura en pwa/.env.local:
+#   VITE_WEBHOOK_URL=https://script.google.com/macros/s/TU_ID/exec?_secret=TU_SECRET
+#   VITE_WEBHOOK_SECRET=TU_SECRET_WEB   # solo para bypass del proxy en dev
 
-# 3. Inicializar la base de datos
-python3 -c "from tools.db.schema import init_db; init_db()"
-
-# 4. Lanzar la aplicación
-streamlit run ui/app.py
+npm run dev   # abre en http://localhost:5173
 ```
 
-La app abrirá en `http://localhost:8501`.
+> Nota: `import.meta.env.PROD` en `pwa/src/lib/config.ts` decide si la PWA usa el proxy
+> (`/api/proxy`) o las variables `VITE_WEBHOOK_*` directas.
 
-## Cargar tus primeros extractos
+## Comandos del PWA
 
-1. Ve a **Cargar Extractos** en el menú lateral.
-2. Sube los PDFs de tus tarjetas (Banco de Bogotá, Itaú, AV Villas).
-3. El sistema detecta el banco automáticamente y parsea las transacciones.
-4. Ve al **Dashboard** para ver tus gastos.
+```bash
+npm run dev        # dev server (Vite)
+npm run build      # type-check (tsc) + bundle a dist/
+npm run preview    # servir el build localmente
+npm run test       # vitest run
+npm run test:watch # vitest en modo watch
+npm run lint       # ESLint (si está configurado)
+```
 
-## Configurar API key de Claude
+## Deploy
 
-La API key es necesaria para:
-- Categorizar comercios que no están en las reglas predefinidas
-- El chat de lenguaje natural
-
-Consigue tu API key en: https://console.anthropic.com
+- **PWA + Cloudflare Functions** (juntos): desde la raíz del repo, `wrangler deploy`.
+  Sirve `pwa/dist/` como assets estáticos + `functions/api/*` como edge functions.
+  Variables `WEBHOOK_URL`, `WEB_SECRET`, `ANTHROPIC_API_KEY` se configuran en el
+  dashboard de Cloudflare.
+- **Backend Apps Script**: `cd apps_script && clasp push` (usa `.clasp.json`).
 
 ## Agregar bancos nuevos
 
-Ver `workflows/add_new_bank.md`.
+Ver `workflows/add_new_bank.md` — el parser canónico vive en `apps_script/webhook.gs`.
 
-## Estructura de archivos
+## Estructura de archivos (vivo)
 
 ```
-tools/         # Scripts Python de ejecución determinística
-workflows/     # SOPs en Markdown (este directorio)
-ui/            # Interfaz Streamlit
-data/          # Base de datos SQLite (creada automáticamente)
-.tmp/          # Archivos temporales (ignorados en git)
-.env           # Credenciales (NUNCA commitear)
+pwa/                # App React+Vite+TS (UI)
+functions/api/      # Cloudflare Pages Functions (proxy, ocr, pdf, sms)
+apps_script/        # webhook.gs (backend vivo) → Google Sheets
+android/            # wrapper APK (Capacitor/Gradle)
+ios_shortcut/       # docs de captura vía iOS Shortcuts
+workflows/          # SOPs en Markdown (este directorio)
+archive/            # Capa Python legacy (FastAPI + tools Streamlit) — ver archive/README.md
+docs/               # Notas y brainstorms
+.env / .env.example # Credenciales (NUNCA commitear .env)
 ```

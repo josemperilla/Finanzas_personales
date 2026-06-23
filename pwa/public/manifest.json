@@ -4,8 +4,8 @@
   "description": "Tu gestor de finanzas personales",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0f1e",
-  "theme_color": "#6366f1",
+  "background_color": "#F5F1EA",
+  "theme_color": "#0E6B4D",
   "orientation": "portrait",
   "icons": [
     {

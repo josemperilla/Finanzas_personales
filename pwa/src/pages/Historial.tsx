@@ -7,6 +7,7 @@ import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
+import { Icon, categoryIcon } from '../components/ui/icons';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
@@ -104,6 +105,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
   const [dateFrom, setDateFrom]           = useState('');
   const [dateTo, setDateTo]               = useState('');
   const [showAdvanced, setShowAdvanced]   = useState(false);
+  const [showDateRange, setShowDateRange] = useState(false);
   const [viewMode, setViewMode]           = useState<'list' | 'calendar'>('list');
   const [showImport, setShowImport]       = useState(false);
   const activeFilterCount = [
@@ -264,9 +266,69 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
             fontSize: 12.5, fontWeight: 400, cursor: 'pointer',
             fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 4,
           }}>
-            <span style={{ fontSize: 13 }}>⊟</span> Filtros{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+            <Icon name="settings" size={13} /> Filtros{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+          </motion.button>
+          <motion.button aria-expanded={showDateRange} whileTap={{ scale: 0.94 }} onClick={() => setShowDateRange(v => !v)} style={{
+            flexShrink: 0, padding: '5px 12px', borderRadius: 999,
+            border: `1.5px solid ${showDateRange || dateFrom || dateTo ? 'var(--blue-600)' : 'var(--line)'}`,
+            background: showDateRange || dateFrom || dateTo ? 'var(--blue-50)' : 'transparent',
+            color: showDateRange || dateFrom || dateTo ? 'var(--blue-700)' : 'var(--ink-2)',
+            fontSize: 12.5, fontWeight: dateFrom || dateTo ? 600 : 400, cursor: 'pointer',
+            fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
+          }}>
+            <Icon name="list" size={13} /> Rango personalizado
           </motion.button>
         </div>
+
+        {/* Inline custom date range (proto .daterange) */}
+        <AnimatePresence>
+          {showDateRange && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={quickEase}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+                padding: '10px 12px', borderRadius: 14,
+                background: 'var(--card)', border: '1px solid var(--line)',
+              }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Desde</span>
+                <input
+                  type="date"
+                  aria-label="Fecha desde"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  style={{
+                    flex: 1, boxSizing: 'border-box', minWidth: 0, height: 34, padding: '0 8px',
+                    border: '1.5px solid var(--line)', borderRadius: 9, background: 'var(--surface)',
+                    color: 'var(--ink)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                  }}
+                />
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Hasta</span>
+                <input
+                  type="date"
+                  aria-label="Fecha hasta"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  style={{
+                    flex: 1, boxSizing: 'border-box', minWidth: 0, height: 34, padding: '0 8px',
+                    border: '1.5px solid var(--line)', borderRadius: 9, background: 'var(--surface)',
+                    color: 'var(--ink)', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                  }}
+                />
+                {(dateFrom || dateTo) && (
+                  <button type="button" onClick={() => { setDateFrom(''); setDateTo(''); }} aria-label="Limpiar rango" style={{
+                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)',
+                    display: 'flex', alignItems: 'center', padding: 2, flexShrink: 0,
+                  }}><Icon name="x" size={14} /></button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {activeFilterCount > 0 && (
           <div role="status" style={{
