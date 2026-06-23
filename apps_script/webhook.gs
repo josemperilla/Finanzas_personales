@@ -3414,8 +3414,6 @@ function sendFridayNudgeTrigger() {
       var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
       if (lastNudge.date === today) return;
       var txns = _getTxnsRange(uid, 1);
-      var now = new Date();
-      var fridays = [0,7,14].map(function(d){ return new Date(now.getTime()-(d+now.getDay()===5?0:(now.getDay()+2)%7)*86400000); });
       var restoCats = ['Restaurantes','Domicilios','Entretenimiento'];
       var fridaySpend = txns.filter(function(t){
         var d = new Date(String(t.Fecha||'')); var dow = d.getDay();
