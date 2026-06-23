@@ -214,7 +214,8 @@ export default function App() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('no autorizado')) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('unauthorized') || lower.includes('no autorizado')) {
         // Session token expired — force re-login
         if (userId) sessionStorage.removeItem(`fm_unlocked_${userId}`);
         setUnlocked(false);
