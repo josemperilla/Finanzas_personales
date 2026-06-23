@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } fro
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
+import FlowBackground from './components/FlowBackground';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
 import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, Card, getUnknownCards } from './lib/api';
@@ -344,8 +345,9 @@ export default function App() {
       initial={false}
       animate={{ opacity: unlocked ? 1 : 0.88, y: unlocked ? 0 : 18 }}
       transition={softSpring}
-      style={{ minHeight: '100dvh', background: 'var(--surface)', overflowY: 'auto' }}
+      style={{ minHeight: '100dvh', background: 'transparent', overflowY: 'auto' }}
     >
+      <FlowBackground />
       <AnimatePresence mode="wait">
         <motion.main
           className="app-page"

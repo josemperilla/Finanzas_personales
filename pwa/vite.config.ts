@@ -18,8 +18,8 @@ export default defineConfig({
         name: 'Finanzas Personales',
         short_name: 'Finanzas',
         description: 'Tu gestor de finanzas personales',
-        theme_color: '#6366f1',
-        background_color: '#0a0f1e',
+        theme_color: '#0E6B4D',
+        background_color: '#F5F1EA',
         display: 'standalone',
         start_url: '/',
         icons: [

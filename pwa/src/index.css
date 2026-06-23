@@ -3,39 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --blue-700: #1d4ed8;
-  --blue-600: #2563eb;
-  --blue-500: #3b82f6;
-  --blue-300: #bfd4fb;
-  --blue-100: #dbeafe;
-  --blue-50:  #e9f0fe;
+  --blue-700: #0a5640;
+  --blue-600: #0E6B4D;
+  --blue-500: #13805C;
+  --blue-300: #9fcdb8;
+  --blue-100: #DDEBE3;
+  --blue-50:  #E8F1EC;
   /* shorthand aliases used in components */
-  --blue:      #2563eb;
-  --blue-2:    #3b82f6;
-  --blue-soft: #e9f0fe;
+  --blue:      #0E6B4D;
+  --blue-2:    #13805C;
+  --blue-soft: #DDEBE3;
 
-  --orange-600: #ea580c;
-  --orange-500: #f97316;
-  --orange-400: #fb923c;
-  --orange-100: #fdeadd;
-  --orange-50:  #fff7ed;
+  --orange-600: #9c4a2e;
+  --orange-500: #B85C3A;
+  --orange-400: #C7704E;
+  --orange-100: #F1E2D6;
+  --orange-50:  #F7ECE3;
   /* shorthand aliases */
-  --orange:      #ea580c;
-  --orange-2:    #f97316;
-  --orange-soft: #fdeadd;
+  --orange:      #B85C3A;
+  --orange-2:    #C7704E;
+  --orange-soft: #F1E2D6;
 
-  --ink:       #16171c;
-  --ink-2:     #4a4d56;
-  --muted:     #8d909a;
-  --muted-2:   #8d909a;
-  --line:      #ecece6;
-  --surface:   #f5f5f2;
-  --card:      #ffffff;
-  --surface-2: #f0f0ec;
+  --ink:       #1C1B17;
+  --ink-2:     #4a4942;
+  --muted:     #6E6759;
+  --muted-2:   #97907F;
+  --line:      #E4DDCF;
+  --surface:   #F5F1EA;
+  --card:      #FCFAF5;
+  --surface-2: #EFE9DD;
   --white:     #ffffff;
 
-  --good:      #15a34a;
-  --good-soft: #e4f6ea;
+  --good:      #0E6B4D;
+  --good-soft: #DDEBE3;
 
   --font-display: 'Space Grotesk', sans-serif;
   --font-body:    'Plus Jakarta Sans', sans-serif;
@@ -61,17 +61,17 @@
   --r-2xl:  24px;
   --r-pill: 999px;
 
-  --shadow-card:   0 2px 8px rgba(16,18,28,0.06), 0 1px 2px rgba(16,18,28,0.04);
-  --shadow-blue:   0 8px 20px rgba(37,99,235,0.28);
-  --shadow-orange: 0 8px 20px rgba(249,115,22,0.32);
-  --shadow-float:  0 24px 50px rgba(16,18,28,0.16);
-  --shadow-nav:    0 -4px 24px rgba(16,18,28,0.06);
-  --shadow-focus:  0 0 0 4px rgba(37,99,235,0.16);
+  --shadow-card:   0 2px 8px rgba(28,27,23,0.06), 0 1px 2px rgba(28,27,23,0.04);
+  --shadow-blue:   0 8px 20px rgba(14,107,77,0.24);
+  --shadow-orange: 0 8px 20px rgba(184,92,58,0.26);
+  --shadow-float:  0 24px 50px rgba(28,27,23,0.14);
+  --shadow-nav:    0 -4px 24px rgba(28,27,23,0.06);
+  --shadow-focus:  0 0 0 4px rgba(14,107,77,0.18);
 
-  --grad-brand:   linear-gradient(150deg, #1d4ed8, #2563eb 60%, #1e40af);
-  --grad-card:    linear-gradient(125deg, #1d4ed8 0%, #2563eb 45%, #f97316 130%);
-  --grad-accent:  linear-gradient(90deg, #2563eb, #f97316);
-  --grad-orange:  linear-gradient(135deg, #f97316, #ea580c);
+  --grad-brand:   linear-gradient(150deg, #0a5640, #0E6B4D 60%, #13805C);
+  --grad-card:    linear-gradient(125deg, #0E6B4D 0%, #13805C 60%, #0a5640 130%);
+  --grad-accent:  linear-gradient(90deg, #0E6B4D, #13805C);
+  --grad-orange:  linear-gradient(135deg, #C7704E, #B85C3A);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -96,8 +96,8 @@
   --danger-bg: #fee2e2;
   --warning: #c2410c;
   --warning-bg: #fdeadd;
-  --nav-glass: rgba(245, 245, 242, 0.92);
-  --nav-border: rgba(148, 163, 184, 0.20);
+  --nav-glass: rgba(245, 241, 234, 0.92);
+  --nav-border: rgba(110, 103, 89, 0.18);
 }
 
 *, *::before, *::after {
@@ -143,6 +143,8 @@ textarea:focus-visible,
 
 #root {
   min-height: 100dvh;
+  position: relative;
+  z-index: 1;
 }
 
 ::-webkit-scrollbar {
@@ -283,35 +285,35 @@ select option {
 
 /* ── Dark mode ─────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --surface:   #0a0d13;
-  --card:      #141923;
-  --surface-2: #1b212c;
-  --ink:       #f2f4f8;
-  --ink-2:     #a7adba;
-  --muted:     #697084;
-  --muted-2:   #697084;
-  --line:      #222a36;
+  --surface:   #0B0F14;
+  --card:      #161C24;
+  --surface-2: #1B232D;
+  --ink:       #E8F0F7;
+  --ink-2:     #A8B2BD;
+  --muted:     #8A99A8;
+  --muted-2:   #5F6E7D;
+  --line:      #222B36;
 
-  --blue-50:  #16243f;
-  --blue-100: #1e3a8a;
-  --blue-300: #60a5fa;
-  --blue:      #3b82f6;
-  --blue-2:    #60a5fa;
-  --blue-soft: #16243f;
+  --blue-50:  #0E2A36;
+  --blue-100: #10303D;
+  --blue-300: #3BD0FF;
+  --blue:      #00B4FF;
+  --blue-2:    #3BD0FF;
+  --blue-soft: #0E2A36;
 
-  --orange-50:  #2e1c10;
-  --orange-100: #431407;
-  --orange:      #f97316;
-  --orange-2:    #fb923c;
-  --orange-soft: #2e1c10;
+  --orange-50:  #2A1814;
+  --orange-100: #3A261C;
+  --orange:      #FF6B5C;
+  --orange-2:    #FF8A7E;
+  --orange-soft: #2A1814;
 
   --good:      #22c55e;
   --good-soft: #13301f;
 
   --shadow-card:  0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
   --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
-  --shadow-blue:  0 8px 20px rgba(59,130,246,0.40);
-  --nav-glass: rgba(10, 13, 19, 0.90);
+  --shadow-blue:  0 8px 20px rgba(0,180,255,0.40);
+  --nav-glass: rgba(11, 15, 20, 0.90);
   --nav-border: rgba(255, 255, 255, 0.06);
 
   color-scheme: dark;
@@ -320,35 +322,35 @@ select option {
 /* Auto: follow system preference when user hasn't set a manual override */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface:   #0a0d13;
-    --card:      #141923;
-    --surface-2: #1b212c;
-    --ink:       #f2f4f8;
-    --ink-2:     #a7adba;
-    --muted:     #697084;
-    --muted-2:   #697084;
-    --line:      #222a36;
+    --surface:   #0B0F14;
+    --card:      #161C24;
+    --surface-2: #1B232D;
+    --ink:       #E8F0F7;
+    --ink-2:     #A8B2BD;
+    --muted:     #8A99A8;
+    --muted-2:   #5F6E7D;
+    --line:      #222B36;
 
-    --blue-50:  #16243f;
-    --blue-100: #1e3a8a;
-    --blue-300: #60a5fa;
-    --blue:      #3b82f6;
-    --blue-2:    #60a5fa;
-    --blue-soft: #16243f;
+    --blue-50:  #0E2A36;
+    --blue-100: #10303D;
+    --blue-300: #3BD0FF;
+    --blue:      #00B4FF;
+    --blue-2:    #3BD0FF;
+    --blue-soft: #0E2A36;
 
-    --orange-50:  #2e1c10;
-    --orange-100: #431407;
-    --orange:      #f97316;
-    --orange-2:    #fb923c;
-    --orange-soft: #2e1c10;
+    --orange-50:  #2A1814;
+    --orange-100: #3A261C;
+    --orange:      #FF6B5C;
+    --orange-2:    #FF8A7E;
+    --orange-soft: #2A1814;
 
     --good:      #22c55e;
     --good-soft: #13301f;
 
     --shadow-card:  0 2px 8px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
     --shadow-float: 0 16px 40px rgba(0,0,0,0.65);
-    --shadow-blue:  0 8px 20px rgba(59,130,246,0.40);
-    --nav-glass: rgba(10, 13, 19, 0.90);
+    --shadow-blue:  0 8px 20px rgba(0,180,255,0.40);
+    --nav-glass: rgba(11, 15, 20, 0.90);
     --nav-border: rgba(255, 255, 255, 0.06);
 
     color-scheme: dark;
