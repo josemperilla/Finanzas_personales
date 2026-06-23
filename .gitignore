@@ -26,3 +26,7 @@ Extractos_lectura/
 !.dev.vars.example
 !.env.example
 .gstack/
+
+# Claude Code (config local, worktrees, estado de agentes — settings.local.json contiene secrets)
+.claude/
+!.claude/settings.json
