@@ -191,7 +191,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
     let succeeded = false;
     try {
       await saveTransaction(data);
-      setForm(makeDefaultForm(userId));
+      setForm(makeDefaultForm(userId, bankOptions));
       succeeded = true;
       setSaveState('success');
       showToast('Transacción guardada', true);
