@@ -2,84 +2,56 @@
 
 ## Cuándo usar este workflow
 
-Cuando necesites soportar extractos de un banco que no sea Banco de Bogotá, Itaú o AV Villas.
+Cuando necesites soportar notificaciones/extractos de un banco que la app aún no parsea.
 
-## Pasos
+## ⚠️ Fuente de verdad
 
-### 1. Obtener muestras del extracto
-Consigue al menos 2-3 extractos del banco en el formato que quieras soportar (PDF/XLSX/CSV).
+El parsing de bancos **canónico y vivo** vive en `apps_script/webhook.gs` (funciones
+`parseBogota`, `parseItau`, `parseDavivienda`, `parseBancolibia`, `parseAvVillas`).
+Es por ahí donde entra la ingestion diaria (iOS Shortcuts → webhook). **Cualquier
+parser nuevo se agrega ahí.**
 
-### 2. Inspeccionar la estructura
-```python
-import pdfplumber
-with pdfplumber.open('extracto.pdf') as pdf:
-    for i, page in enumerate(pdf.pages[:2]):
-        print(f'=== PÁGINA {i+1} ===')
-        tables = page.extract_tables()
-        print(f'Tablas: {len(tables)}')
-        for j, table in enumerate(tables):
-            print(f'Tabla {j+1}: {table[:5]}')
-        if not tables:
-            print(page.extract_text()[:500])
-```
+> El pipeline Python de PDF/CSV (`pdfplumber`) que existía en `tools/ingest/parsers/`
+> quedó archivado en `archive/tools/`. Si se revive esa vía (statements PDF batch),
+> actualizar también ahí — pero hoy NO es la vía de ingestion del app.
 
-### 3. Crear el parser
+## Pasos (canal vivo: SMS en webhook.gs)
 
-Crea `tools/ingest/parsers/[banco]_parser.py` heredando de `BaseParser`:
+### 1. Obtener muestras
+Consigue 2-3 SMS/notificaciones reales del banco (texto completo, tal como llegan).
 
-```python
-from tools.ingest.parsers.base_parser import BaseParser, RawTransaction
+### 2. Inspeccionar el formato
+Identifica cómo el banco codifica: monto, fecha, último 4 dígitos, tipo (compra/pago/abono),
+y el comercio. Banco de Bogotá y Itaú usan formatos distintos — ver "Gotchas" abajo.
 
-class NuevoBancoParser(BaseParser):
-    def get_bank_name(self) -> str:
-        return "nuevo_banco"
+### 3. Agregar el parser en `apps_script/webhook.gs`
+Crea una función `parseNuevoBanco(sms, userId)` siguiendo el patrón de las existentes
+(retorna `{ banco, tipo, monto, fecha, comercio, tarjeta, smsOriginal }` o `null` si
+no matchea).
 
-    def extract(self, filepath: str) -> list[RawTransaction]:
-        # Implementar extracción específica
-        ...
-```
+### 4. Registrar en el dispatcher
+En la función que enruta SMS por banco (buscar `parseBogota`/`parseItau` en el mismo
+archivo), agrega la condición de detección para el nuevo banco.
 
-### 4. Registrar en detector.py
+### 5. Probar
+- Desde el editor de Apps Script: llama `parseNuevoBanco("SMS de ejemplo", "userId")`
+  con las muestras del paso 1 y verifica los campos extraídos.
+- O envía un SMS de prueba por el webhook (`type=parseSms` o el canal que use el Shortcut).
 
-En `tools/ingest/detector.py`, agrega patrones en el diccionario `patterns`:
-```python
-"nuevo_banco": [r"nuevo.?banco", r"nb_extracto"],
-```
-
-### 5. Registrar en loader.py
-
-En `tools/ingest/loader.py`, agrega en `_get_parser()`:
-```python
-if bank == "nuevo_banco":
-    from tools.ingest.parsers.nuevo_banco_parser import NuevoBancoParser
-    return NuevoBancoParser()
-```
-
-### 6. Probar
-```python
-from tools.db.schema import init_db
-from tools.ingest.loader import load_file
-init_db()
-result = load_file('ruta/al/extracto.pdf')
-print(result)
-```
-
-### 7. Documentar gotchas
-
-Agrega una sección en este workflow con los quirks específicos del banco
-(formato de fechas, formato de montos, columnas especiales, etc.).
+### 6. Documentar gotchas
+Agrega una sección abajo con los quirks específicos del banco.
 
 ## Gotchas por banco
 
 ### Banco de Bogotá
-- Transacciones comprimidas en celdas multi-línea
-- Montos en formato US con coma como miles: `89,262` = 89.262 COP
-- Transacciones en moneda extranjera: segunda línea en descripción con `EUR 84,20`
+- Transacciones comprimidas en celdas multi-línea (en extractos PDF).
+- Montos en formato US con coma como miles: `89,262` = 89.262 COP.
+- Transacciones en moneda extranjera: segunda línea en descripción con `EUR 84,20`.
 
 ### Itaú
-- Tablas limpias con bordes — pdfplumber `extract_tables()` funciona bien
-- Prefijo "COMPRA EN " en descripciones — se limpia con merchant_cleaner
+- Tablas limpias con bordes (en PDF) — `extract_tables()` funciona bien.
+- Prefijo "COMPRA EN " en descripciones — se limpia con merchant_cleaner.
 
 ### AV Villas
-- Algunos extractos son imágenes — tabula con lattice mode puede ayudar
-- Nombres de meses en español: "15 ene 2024"
+- Algunos extractos son imágenes — tabula con lattice mode puede ayudar.
+- Nombres de meses en español: "15 ene 2024".
