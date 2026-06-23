@@ -11,6 +11,11 @@ export const WEBHOOK_SECRET = import.meta.env.PROD
 
 export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 
+// ⚠️ NO es la fuente de verdad. La categorización real la hace el backend vivo
+// `apps_script/webhook.gs:detectCategory()` (ese es el autoritativo: es lo que persiste).
+// Esta lista existe solo para render inmediato del UI (colores + picker) antes de fetchar.
+// Si agregas/quitas una categoría, actualiza también detectCategory() en webhook.gs y corre
+// `node scripts/check-category-drift.mjs` para verificar que no haya drift.
 export const CATEGORIES = [
   { name: 'Restaurantes',   color: '#f59e0b' },
   { name: 'Domicilios',     color: '#fb923c' },

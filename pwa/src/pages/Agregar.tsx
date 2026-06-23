@@ -1,11 +1,12 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { saveTransaction, parseVoice, ManualTransaction, Transaction } from '../lib/api';
 import { CATEGORIES } from '../lib/config';
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
-import { quickEase, softSpring } from '../lib/motion';
+import { Icon, categoryIcon } from '../components/ui/icons';
+import { quickEase, softSpring, popVariants } from '../lib/motion';
 import { getUserTimezone } from '../lib/profiles';
 import { todayInTZ } from '../lib/utils';
 import { detectUnusualCategories } from '../lib/analytics';
@@ -56,6 +57,21 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
   const [unusualAlert, setUnusualAlert] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!catOpen) return;
+    function handleOutside(e: MouseEvent | TouchEvent) {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [catOpen]);
 
   type SpeechRecognitionInstance = {
     lang: string; continuous: boolean; interimResults: boolean;
@@ -444,34 +460,112 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
         </AnimatePresence>
       </div>
 
-      {/* Category chips */}
+      {/* Category dropdown */}
       <div style={{ padding: '10px 0 0' }}>
         <div style={{ paddingLeft: 16, marginBottom: 6, fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Categoría
         </div>
-        <div className="ui-scroll-row" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 4, gap: 7 }}>
-          {CATEGORIES.map(cat => {
-            const active = form.categoria === cat.name;
+        <div ref={catRef} style={{ position: 'relative', padding: '0 16px' }}>
+          {(() => {
+            const selected = CATEGORIES.find(c => c.name === form.categoria);
             return (
               <motion.button
-                key={cat.name}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => setForm(f => ({ ...f, categoria: f.categoria === cat.name ? '' : cat.name }))}
+                type="button"
+                whileTap={{ scale: 0.985 }}
+                onClick={() => setCatOpen(o => !o)}
+                aria-haspopup="listbox"
+                aria-expanded={catOpen}
                 style={{
-                  flexShrink: 0, padding: '7px 14px', borderRadius: 999,
-                  background: active ? cat.color : 'var(--card)',
-                  color: active ? '#fff' : 'var(--ink-2)',
-                  border: `1.5px solid ${active ? cat.color : 'var(--line)'}`,
-                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
+                  width: '100%', boxSizing: 'border-box',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '13px 15px', borderRadius: 'var(--r-md)',
+                  background: 'var(--card)', border: '1.5px solid var(--line)',
+                  fontSize: 14, fontWeight: 600, color: 'var(--ink)', textAlign: 'left',
+                  fontFamily: 'var(--font-body)', cursor: 'pointer',
                   WebkitTapHighlightColor: 'transparent',
-                  transition: 'background 0.14s ease, color 0.14s ease, border-color 0.14s ease',
                 }}
               >
-                {cat.name}
+                <span style={{
+                  width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                  display: 'grid', placeItems: 'center',
+                  background: 'var(--surface-2)',
+                  color: selected ? selected.color : 'var(--muted)',
+                }}>
+                  <Icon name={selected ? categoryIcon(selected.name) : 'receipt'} size={17} />
+                </span>
+                <span style={{ color: selected ? 'var(--ink)' : 'var(--muted)' }}>
+                  {selected ? selected.name : 'Categoría'}
+                </span>
+                <motion.span
+                  animate={{ rotate: catOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ marginLeft: 'auto', display: 'inline-flex', color: 'var(--muted)' }}
+                >
+                  <Icon name="chevron-down" size={18} />
+                </motion.span>
               </motion.button>
             );
-          })}
+          })()}
+
+          <AnimatePresence>
+            {catOpen && (
+              <motion.div
+                role="listbox"
+                variants={popVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={quickEase}
+                style={{
+                  position: 'absolute', left: 16, right: 16, top: 'calc(100% + 6px)',
+                  background: 'var(--card)', border: '1.5px solid var(--line)',
+                  borderRadius: 'var(--r-md)', boxShadow: 'var(--shadow-float)',
+                  zIndex: 200, maxHeight: 248, overflowY: 'auto', padding: 4,
+                  transformOrigin: 'top center',
+                }}
+              >
+                {CATEGORIES.map(cat => {
+                  const active = form.categoria === cat.name;
+                  return (
+                    <motion.button
+                      key={cat.name}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setForm(f => ({ ...f, categoria: cat.name }));
+                        setCatOpen(false);
+                      }}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        display: 'flex', alignItems: 'center', gap: 11,
+                        padding: 10, borderRadius: 10, border: 'none',
+                        background: active ? 'var(--surface-2)' : 'transparent',
+                        fontSize: 14, fontWeight: 600,
+                        color: active ? cat.color : 'var(--ink)',
+                        fontFamily: 'var(--font-body)', textAlign: 'left', cursor: 'pointer',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      <span style={{
+                        width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                        display: 'grid', placeItems: 'center',
+                        background: 'var(--surface)', color: cat.color,
+                      }}>
+                        <Icon name={categoryIcon(cat.name)} size={17} />
+                      </span>
+                      <span>{cat.name}</span>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        marginLeft: 'auto', background: cat.color, flexShrink: 0,
+                      }} />
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

@@ -13,9 +13,9 @@ export const quickEase: Transition = {
 };
 
 export const pageVariants = {
-  initial: { opacity: 0, y: 8, scale: 0.997 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -5, scale: 0.997 },
+  initial: { opacity: 0, y: 8, scale: 0.997, rotateY: 3.5, transformPerspective: 1200 },
+  animate: { opacity: 1, y: 0, scale: 1, rotateY: 0, transformPerspective: 1200 },
+  exit: { opacity: 0, y: -5, scale: 0.997, rotateY: -3.5, transformPerspective: 1200 },
 };
 
 export const staggerContainer = {

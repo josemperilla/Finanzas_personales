@@ -36,8 +36,7 @@ interface Props {
   onRetry?: () => void;
   onAdd: () => void;
   onViewAll: () => void;
-  onLogout?: () => void;
-  onSettings?: () => void;
+  onOpenMenu?: () => void;
   userId: string;
   gamificationKey?: number;
   cards?: Card[];
@@ -64,7 +63,7 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onOpenMenu, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -276,7 +275,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
-          <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
+          <ProfileAvatar userId={userId} onOpenMenu={onOpenMenu} />
         </div>
       </motion.div>
 
@@ -652,76 +651,36 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 }
 
-function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLogout?: () => void; onSettings?: () => void }) {
+function ProfileAvatar({ userId, onOpenMenu }: { userId: string; onOpenMenu?: () => void }) {
   const profile  = getProfile(userId);
   const customAvatar = getUserAvatar(userId);
   const displayName = getUserNickname(userId) || profile?.name || userId;
   const avatarSrc = customAvatar || profile?.avatar;
   const [failed, setFailed] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        onClick={() => setMenuOpen(v => !v)}
-        style={{
-          width: 42, height: 42, borderRadius: '50%',
-          background: (failed || !avatarSrc) ? 'var(--grad-brand)' : 'var(--card)',
-          border: '2px solid #fff',
-          boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', cursor: 'pointer', padding: 0,
-          color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
-        }}
-      >
-        {(failed || !avatarSrc) ? (
-          profile?.initial ?? userId.charAt(0).toUpperCase()
-        ) : (
-          <img src={avatarSrc} alt={displayName} onError={() => setFailed(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
-        )}
-      </motion.button>
-
-      <AnimatePresence>
-        {menuOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }} onClick={() => setMenuOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: -6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: -6 }}
-              transition={quickEase}
-              style={{
-                position: 'absolute', top: 50, right: 0, zIndex: 51,
-                background: 'var(--card)', borderRadius: 14, overflow: 'hidden',
-                boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
-                border: '1px solid var(--line)', minWidth: 160,
-              }}
-            >
-              <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid var(--line)' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{displayName}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
-              </div>
-              {onSettings && (
-                <button onClick={() => { setMenuOpen(false); onSettings(); }}
-                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-body)' }}>
-                  Ajustes
-                </button>
-              )}
-              {onLogout && (
-                <button onClick={() => { setMenuOpen(false); onLogout(); }}
-                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: '#b91c1c', fontFamily: 'var(--font-body)' }}>
-                  Cerrar sesión
-                </button>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
+    <motion.button
+      whileTap={{ scale: 0.92 }}
+      onClick={onOpenMenu}
+      aria-label="Abrir menú"
+      style={{
+        flexShrink: 0,
+        width: 42, height: 42, borderRadius: '50%',
+        background: (failed || !avatarSrc) ? 'var(--grad-brand)' : 'var(--card)',
+        border: '2px solid #fff',
+        boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', cursor: 'pointer', padding: 0,
+        color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
+      }}
+    >
+      {(failed || !avatarSrc) ? (
+        profile?.initial ?? userId.charAt(0).toUpperCase()
+      ) : (
+        <img src={avatarSrc} alt={displayName} onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+      )}
+    </motion.button>
   );
 }
 

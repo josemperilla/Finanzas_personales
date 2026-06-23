@@ -17,6 +17,9 @@ import { SetupPin } from './components/SetupPin';
 import { TutorialCanales } from './components/TutorialCanales';
 import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
+import { Drawer } from './components/Drawer';
+import { Icon } from './components/ui/icons';
+import { exportToCSV } from './lib/export';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
 import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha, awardBadge } from './lib/gamification';
@@ -93,6 +96,7 @@ export default function App() {
   const lastFetchRef = useRef<number>(0);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showBalanceWidget, setShowBalanceWidget] = useState(
@@ -369,8 +373,7 @@ export default function App() {
                 onRetry={load}
                 onAdd={() => setTab('agregar')}
                 onViewAll={() => setTab('historial')}
-                onLogout={handleSwitchProfile}
-                onSettings={() => setShowSettings(true)}
+                onOpenMenu={() => setDrawerOpen(true)}
                 userId={userId}
                 gamificationKey={gamificationKey}
                 cards={cards}
@@ -395,6 +398,7 @@ export default function App() {
                 loading={loading}
                 userId={userId}
                 onViewHistorial={() => setTab('historial')}
+                onOpenChat={() => setTab('chat')}
               />
             )}
             {tab === 'historial' && (
@@ -439,6 +443,41 @@ export default function App() {
 
       {unlocked && userId && createPortal(
         <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />,
+        document.body
+      )}
+
+      {unlocked && userId && tab !== 'chat' && tab !== 'agregar' && createPortal(
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={() => setTab('chat')}
+          aria-label="Pregúntale a Fino"
+          style={{
+            position: 'fixed', right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            width: 50, height: 50, borderRadius: '50%',
+            background: 'var(--grad-brand)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+            display: 'grid', placeItems: 'center',
+            boxShadow: 'var(--shadow-blue)', zIndex: 'var(--z-nav)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Icon name="sparkles" size={22} />
+        </motion.button>,
+        document.body
+      )}
+
+      {userId && createPortal(
+        <Drawer
+          open={drawerOpen}
+          userId={userId}
+          onClose={() => setDrawerOpen(false)}
+          onCuentas={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
+          onAsistente={() => setTab('chat')}
+          onAjustes={() => setShowSettings(true)}
+          onExportar={() => exportToCSV(transactions)}
+          onUsuarios={() => setShowSettings(true)}
+          onLogout={handleSwitchProfile}
+        />,
         document.body
       )}
 
