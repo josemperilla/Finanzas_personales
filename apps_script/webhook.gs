@@ -274,7 +274,7 @@ function _checkRateLimit(action, userId) {
       : "Límite diario de operaciones alcanzado. Intenta mañana.";
     throw new Error(msg);
   }
-  cache.put(key, String(count + 1), 86400);
+  cache.put(key, String(count + 1), 21600);
 }
 
 // ── Auth check ───────────────────────────────────────────────
@@ -865,8 +865,9 @@ function doPost(e) {
 
     // Cuenta transacciones sin categorizar (tipo: "uncategorizedCount")
     if (type === "uncategorizedCount") {
-      var ss2    = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SHEET_ID"));
-      var tab2   = ss2.getSheetByName(userId);
+      var ref2   = _getSheet(userId);
+      var ss2    = ref2.ss;
+      var tab2   = ref2.sheet;
       if (!tab2) return jsonResponse({ ok: true, count: 0 });
       var data2    = tab2.getDataRange().getValues();
       var headers2 = data2[0];
@@ -881,8 +882,8 @@ function doPost(e) {
 
     // Resumen del mes (type: "monthSummary") — para widget iOS Shortcut
     if (type === "monthSummary") {
-      var ss3    = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty("SHEET_ID"));
-      var tab3   = ss3.getSheetByName(userId);
+      var ref3   = _getSheet(userId);
+      var tab3   = ref3.sheet;
       if (!tab3) return jsonResponse({ ok: true, data: { total: 0, topCategory: null, projection: 0 } });
       var data3    = tab3.getDataRange().getValues();
       var headers3 = data3[0];
@@ -1081,7 +1082,7 @@ function doPost(e) {
       var avgLow  = lowMood.length  ? Math.round(lowMood.reduce(function(s,m){ return s+m.spentThatWeek; },0)/lowMood.length) : null;
       var avgHigh = highMood.length ? Math.round(highMood.reduce(function(s,m){ return s+m.spentThatWeek; },0)/highMood.length) : null;
       var insight = null;
-      if (avgLow && avgHigh && avgHigh > 0) {
+      if (avgLow !== null && avgHigh !== null && avgHigh > 0) {
         var diff = Math.round((avgLow - avgHigh) / avgHigh * 100);
         if (diff > 20) insight = "Gastas " + diff + "% más en semanas con mood bajo (≤2) vs semanas con mood alto (≥4)";
         else if (diff < -20) insight = "Curiosamente gastas " + Math.abs(diff) + "% menos cuando tu mood es bajo — ¡bien!";
@@ -2918,7 +2919,7 @@ function _checkRate(userId, action, dailyLimit) {
   var key = 'rate_' + action + '_' + userId + '_' + today;
   var count = parseInt(cache.get(key) || '0', 10);
   if (count >= dailyLimit) return { ok: false, error: 'Límite diario de ' + action + ' alcanzado (' + dailyLimit + '/día).' };
-  cache.put(key, String(count + 1), 86400);
+  cache.put(key, String(count + 1), 21600);
   return { ok: true };
 }
 
@@ -2938,7 +2939,7 @@ function _getTxnsRange(userId, months) {
     if (fechaIdx >= 0) {
       var cell = row[fechaIdx];
       var d = cell instanceof Date ? cell : new Date(String(cell));
-      if (!isNaN(d.getTime()) && d < cutoff) break;
+      if (!isNaN(d.getTime()) && d < cutoff) continue;
     }
     var obj = {};
     for (var j = 0; j < headers.length; j++) {
@@ -3028,7 +3029,8 @@ function _getCancelUrl(normKey) {
 // ── CLUSTER 1: Analytics Engine ───────────────────────────────────────
 function _buildAnalytics(userId, params) {
   var months = parseInt((params && params.months) || '12', 10);
-  var txns = _getTxnsRange(userId, Math.max(months, 24));
+  var multiYearMonths = Math.max(months, 24);
+  var txns = _getTxnsRange(userId, multiYearMonths);
 
   // --- Top Merchants ---
   var merchantMap = {};
@@ -3196,13 +3198,13 @@ function _getFixedCalendar(userId, month) {
 
 function _saveFixedPayment(userId, fp) {
   var payments = _getFixedPayments(userId);
-  if (payments.length >= 50) return { ok: false, error: 'Máximo 50 pagos fijos' };
   var id = fp.id || Utilities.getUuid();
   var entry = { id: id, nombre: fp.nombre, monto: Number(fp.monto)||0,
     diaDelMes: Number(fp.diaDelMes)||1, categoria: fp.categoria || 'Hogar',
     activo: fp.activo !== false, tipo: fp.tipo || 'manual', creadoEn: new Date().toISOString().slice(0,10) };
   var idx = payments.findIndex ? payments.findIndex(function(p){ return p.id === id; })
     : (function(){ for(var i=0;i<payments.length;i++){ if(payments[i].id===id) return i; } return -1; })();
+  if (idx < 0 && payments.length >= 50) return { ok: false, error: 'Máximo 50 pagos fijos' };
   if (idx >= 0) payments[idx] = entry; else payments.push(entry);
   _saveFixedPayments(userId, payments);
   return { ok: true, id: id };
@@ -3426,7 +3428,7 @@ function sendFridayNudgeTrigger() {
         return (dow===5||dow===6) && restoCats.indexOf(String(t.Categoría||''))!==-1 && (Number(t['Monto (COP)'])||0)>0;
       });
       if (fridaySpend.length >= 3) {
-        var avg = Math.round(fridaySpend.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0)/3);
+        var avg = Math.round(fridaySpend.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0)/fridaySpend.length);
         MailApp.sendEmail({ to: email, subject: '🍕 ¡Llega el viernes!',
           htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>$'+avg.toLocaleString('es-CO')+'</strong> en restaurantes y domicilios. ¿Lo tenés en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
         });

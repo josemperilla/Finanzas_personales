@@ -45,9 +45,14 @@ export function SmsSetupWizard({ userId, accentColor = 'var(--blue-700)', onVeri
   const baselineRef = useRef<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const deadlineRef = useRef<number>(0);
+  const mountedRef = useRef(true);
+  const resolvedRef = useRef(false);
 
-  // Limpia el polling si el componente se desmonta (cerrar el modal a medias).
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    resolvedRef.current = false;
+    return () => { mountedRef.current = false; if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   function copyId() {
     navigator.clipboard.writeText(userId).then(() => {
@@ -61,6 +66,7 @@ export function SmsSetupWizard({ userId, accentColor = 'var(--blue-700)', onVeri
   }
 
   async function poll() {
+    if (!mountedRef.current) { stopPoll(); return; }
     if (Date.now() > deadlineRef.current) {
       stopPoll();
       setTestState('timeout');
@@ -69,7 +75,9 @@ export function SmsSetupWizard({ userId, accentColor = 'var(--blue-700)', onVeri
     }
     try {
       const at = await getLastSmsSeen();
-      if (baselineRef.current != null && at > baselineRef.current) {
+      if (!mountedRef.current) { stopPoll(); return; }
+      if (baselineRef.current != null && at > baselineRef.current && !resolvedRef.current) {
+        resolvedRef.current = true;
         stopPoll();
         setTestState('success');
         localStorage.setItem('fm_sms_verified_' + userId, '1');
@@ -81,10 +89,14 @@ export function SmsSetupWizard({ userId, accentColor = 'var(--blue-700)', onVeri
   // Captura el baseline AL iniciar (antes de que el usuario mande el SMS de prueba)
   // y arranca el polling. El orden tap→enviar evita falsos negativos.
   async function startTest() {
+    resolvedRef.current = false;
     setTestState('waiting');
     try {
-      baselineRef.current = await getLastSmsSeen();
+      const baseline = await getLastSmsSeen();
+      if (!mountedRef.current) return;
+      baselineRef.current = baseline;
     } catch {
+      if (!mountedRef.current) return;
       setTestState('error');
       return;
     }

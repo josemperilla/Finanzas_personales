@@ -69,7 +69,7 @@ export interface Transaction {
 // con la lógica de CoverturaMeter para que la prueba en vivo no derive del medidor.
 export const isSmsTx = (tx: Transaction): boolean => {
   const f = (tx.Fuente || 'sms').toLowerCase();
-  return f === 'sms' || f.startsWith('sms');
+  return f === 'sms' || f.startsWith('sms') || f === 'apple_pay' || f === 'google_pay';
 };
 export const countSmsTx = (txs: Transaction[]): number => txs.filter(isSmsTx).length;
 
@@ -118,7 +118,11 @@ export function fetchTransactions(): Promise<Transaction[]> {
   return _inflightFetch;
 }
 
-export async function saveTransaction(data: ManualTransaction): Promise<void> {
+export interface SaveTransactionResult {
+  budgetAlert?: { category: string; spent: number; budget: number; pct: number };
+}
+
+export async function saveTransaction(data: ManualTransaction): Promise<SaveTransactionResult> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
     method: 'POST',
@@ -127,6 +131,7 @@ export async function saveTransaction(data: ManualTransaction): Promise<void> {
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al guardar');
+  return { budgetAlert: json.budgetAlert };
 }
 
 export async function parseVoice(text: string): Promise<VoiceParsed> {
