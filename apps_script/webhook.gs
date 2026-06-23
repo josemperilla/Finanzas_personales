@@ -854,7 +854,10 @@ function doPost(e) {
       parsedNotif.timestamp    = new Date();
       parsedNotif.categoria    = detectCategory(parsedNotif.comercio, userId);
       parsedNotif.sms_original = "PUSH | " + title + " | " + body;
-      parsedNotif.fuente       = "notification";
+      var ntxt = title + ' ' + body;
+      parsedNotif.fuente       = /apple\s*pay/i.test(ntxt) ? 'apple_pay'
+                               : /google\s*pay/i.test(ntxt) ? 'google_pay'
+                               : 'notification';
 
       appendToSheet(parsedNotif, userId);
       return jsonResponse({ ok: true, data: parsedNotif });
@@ -1171,6 +1174,9 @@ function doPost(e) {
     parsed.categoria    = parsed.income ? 'Ingreso' : detectCategory(parsed.comercio, userId);
     delete parsed.income;
     parsed.sms_original = sms;
+    parsed.fuente       = /apple\s*pay/i.test(sms) ? 'apple_pay'
+                        : /google\s*pay/i.test(sms) ? 'google_pay'
+                        : 'sms';
 
     appendToSheet(parsed, userId);
     var smsResponse = { ok: true, data: parsed };
