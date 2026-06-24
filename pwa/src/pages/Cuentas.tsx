@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
-import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription, fetchNetWorth, saveNetWorthEntry, deleteNetWorthEntry, NetWorthData, NetWorthEntry, fetchCashback, updateCashback, CashbackData } from '../lib/api';
+import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription, fetchNetWorth, saveNetWorthEntry, deleteNetWorthEntry, NetWorthData, NetWorthEntry, fetchCashback, updateCashback, deleteCashback, CashbackData } from '../lib/api';
 import { attributeSpend, computeExencion, computeCupo, CardSpend, CupoStatus, ExencionStatus } from '../lib/cardOptimizer';
 import { getCardBenefits } from '../lib/cardCatalog';
 import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
@@ -419,10 +419,13 @@ const STATUS_COLOR: Record<string, string> = { paid: '#15803d', pending: '#d9770
 interface FixedFormState { nombre: string; monto: string; diaDelMes: string; categoria: string; }
 const emptyFixedForm = (): FixedFormState => ({ nombre: '', monto: '', diaDelMes: '1', categoria: 'Hogar' });
 
-function FixedPaymentForm({ onSave, onClose }: { onSave: (p: FixedPayment) => Promise<void>; onClose: () => void }) {
-  const [form, setForm] = useState<FixedFormState>(emptyFixedForm());
+function FixedPaymentForm({ initial, onSave, onClose }: { initial?: FixedPaymentStatus; onSave: (p: FixedPayment) => Promise<void>; onClose: () => void }) {
+  const [form, setForm] = useState<FixedFormState>(() => initial
+    ? { nombre: initial.nombre, monto: String(initial.monto), diaDelMes: String(initial.diaDelMes), categoria: initial.categoria }
+    : emptyFixedForm());
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const editing = !!initial;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -433,7 +436,11 @@ function FixedPaymentForm({ onSave, onClose }: { onSave: (p: FixedPayment) => Pr
     if (!dia || dia < 1 || dia > 28) { setErr('Día debe ser 1-28'); return; }
     setSaving(true);
     try {
-      await onSave({ nombre: form.nombre.trim(), monto, diaDelMes: dia, categoria: form.categoria, tipo: 'manual' });
+      await onSave({
+        ...(initial ? { id: initial.id } : {}),
+        nombre: form.nombre.trim(), monto, diaDelMes: dia, categoria: form.categoria,
+        tipo: initial?.tipo ?? 'manual',
+      });
       onClose();
     } catch (e) {
       setErr((e as Error).message || 'Error al guardar');
@@ -453,7 +460,7 @@ function FixedPaymentForm({ onSave, onClose }: { onSave: (p: FixedPayment) => Pr
         style={{ width: '100%', maxWidth: 480, background: 'var(--card)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 16 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>Nuevo pago fijo</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>{editing ? 'Editar pago fijo' : 'Nuevo pago fijo'}</div>
           <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>✕</motion.button>
         </div>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -509,6 +516,7 @@ function FixedCalendarSection({ userId }: { userId: string }) {
   const [data, setData] = useState<FixedCalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editPayment, setEditPayment] = useState<FixedPaymentStatus | null>(null);
   const [suggestions, setSuggestions] = useState<Subscription[]>([]);
   const [detectingAuto, setDetectingAuto] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -592,7 +600,7 @@ function FixedCalendarSection({ userId }: { userId: string }) {
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => setShowForm(true)}
+            onClick={() => { setEditPayment(null); setShowForm(true); }}
             style={{ height: 36, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
           >
             + Agregar
@@ -625,7 +633,8 @@ function FixedCalendarSection({ userId }: { userId: string }) {
             <motion.div
               key={p.id}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={quickEase}
-              style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}
+              onClick={() => { setEditPayment(p); setShowForm(true); }}
+              style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
             >
               <span style={{ fontSize: 22, flexShrink: 0 }}>{STATUS_ICON[p.status]}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -641,7 +650,7 @@ function FixedCalendarSection({ userId }: { userId: string }) {
               </div>
               <motion.button
                 whileTap={{ scale: 0.85 }}
-                onClick={() => handleDelete(p.id)}
+                onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 4, flexShrink: 0 }}
                 title="Eliminar"
               >
@@ -692,7 +701,7 @@ function FixedCalendarSection({ userId }: { userId: string }) {
       )}
 
       <AnimatePresence>
-        {showForm && <FixedPaymentForm onSave={handleSave} onClose={() => setShowForm(false)} />}
+        {showForm && <FixedPaymentForm initial={editPayment ?? undefined} onSave={handleSave} onClose={() => { setShowForm(false); setEditPayment(null); }} />}
       </AnimatePresence>
     </div>
   );
@@ -783,15 +792,60 @@ function NetWorthForm({ tipo, onSave, onClose }: { tipo: 'asset' | 'debt'; onSav
   );
 }
 
+// Snapshots mensuales del patrimonio en localStorage (por dispositivo, como
+// presupuestos/gamificación). El backend solo expone el estado actual.
+function recordNetWorthSnapshot(userId: string, value: number): NwSnapshot[] {
+  const key = `fm_networth_history_${userId}`;
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  let hist: NwSnapshot[] = [];
+  try { hist = JSON.parse(localStorage.getItem(key) || '[]'); } catch { hist = []; }
+  const idx = hist.findIndex(h => h.month === month);
+  if (idx >= 0) hist[idx].value = value;
+  else hist.push({ month, value });
+  hist = hist.slice(-12);
+  localStorage.setItem(key, JSON.stringify(hist));
+  return hist;
+}
+
+interface NwSnapshot { month: string; value: number }
+
+function Sparkline({ points }: { points: number[] }) {
+  if (points.length < 2) return null;
+  const W = 130, H = 34, pad = 3;
+  const min = Math.min(...points), max = Math.max(...points);
+  const range = max - min || 1;
+  const xy = (v: number, i: number) => {
+    const x = pad + (i / (points.length - 1)) * (W - 2 * pad);
+    const y = H - pad - ((v - min) / range) * (H - 2 * pad);
+    return [x, y] as const;
+  };
+  const path = points.map((v, i) => { const [x, y] = xy(v, i); return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`; }).join(' ');
+  const [lx, ly] = xy(points[points.length - 1], points.length - 1);
+  return (
+    <svg width={W} height={H} style={{ display: 'block' }}>
+      <path d={path} fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="2.5" fill="#fff" />
+    </svg>
+  );
+}
+
 function NetWorthSection({ userId }: { userId: string }) {
   const [data, setData] = useState<NetWorthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [formTipo, setFormTipo] = useState<'asset' | 'debt' | null>(null);
+  const [history, setHistory] = useState<NwSnapshot[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setData(await fetchNetWorth()); } catch (_) { /* optional section */ } finally { setLoading(false); }
-  }, []);
+    try {
+      const d = await fetchNetWorth();
+      setData(d);
+      if (d.assets.length > 0 || d.debts.length > 0) {
+        setHistory(recordNetWorthSnapshot(userId, d.netWorth));
+      }
+    } catch (_) { /* optional section */ } finally { setLoading(false); }
+  }, [userId]);
 
   useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);
 
@@ -825,8 +879,27 @@ function NetWorthSection({ userId }: { userId: string }) {
 
       {/* Hero number */}
       <div style={{ background: 'var(--grad-brand)', borderRadius: 20, padding: '20px 22px', marginBottom: 14, color: '#fff', boxShadow: 'var(--shadow-blue)' }}>
-        <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, marginBottom: 4 }}>Tu patrimonio neto</div>
-        <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.02em' }}>{fmtCOP(nw)}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, marginBottom: 4 }}>Tu patrimonio neto</div>
+            <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.02em' }}>{fmtCOP(nw)}</div>
+            {history.length >= 2 && (() => {
+              const prev = history[history.length - 2].value;
+              const diff = nw - prev;
+              if (diff === 0) return null;
+              return (
+                <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.9, marginTop: 4 }}>
+                  {diff > 0 ? '↑' : '↓'} {fmtCOP(Math.abs(diff))} vs mes anterior
+                </div>
+              );
+            })()}
+          </div>
+          {history.length >= 2 && (
+            <div style={{ flexShrink: 0, opacity: 0.95 }}>
+              <Sparkline points={history.map(h => h.value)} />
+            </div>
+          )}
+        </div>
         {data && hasEntries && (
           <div style={{ display: 'flex', gap: 18, marginTop: 14 }}>
             <div>
@@ -911,18 +984,32 @@ function NetWorthSection({ userId }: { userId: string }) {
 
 interface CbFormState { card: string; banco: string; programa: string; puntos: string; tasaPuntosCOP: string; }
 
-function CashbackForm({ cards, initial, onSave, onClose }: {
+function CashbackForm({ cards, initial, onSave, onDelete, onClose }: {
   cards: Card[];
   initial?: { card: string; banco: string; programa: string; puntos: number; tasaPuntosCOP: number };
   onSave: (card: string, banco: string, programa: string, puntos: number, tasa: number) => Promise<void>;
+  onDelete: (card: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<CbFormState>(() => initial
     ? { card: initial.card, banco: initial.banco, programa: initial.programa, puntos: String(initial.puntos), tasaPuntosCOP: String(initial.tasaPuntosCOP) }
     : { card: cards[0]?.ultimos4 || '', banco: cards[0]?.banco || '', programa: '', puntos: '', tasaPuntosCOP: '' });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
   const editing = !!initial;
+
+  async function handleDelete() {
+    if (!initial) return;
+    setDeleting(true);
+    try {
+      await onDelete(initial.card);
+      onClose();
+    } catch (e) {
+      setErr((e as Error).message || 'Error al eliminar');
+      setDeleting(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -991,10 +1078,16 @@ function CashbackForm({ cards, initial, onSave, onClose }: {
             </label>
           </div>
           {err && <div style={{ fontSize: 13, color: '#ef4444' }}>{err}</div>}
-          <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={saving}
+          <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={saving || deleting}
             style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
             {saving ? 'Guardando…' : 'Guardar'}
           </motion.button>
+          {editing && (
+            <motion.button whileTap={{ scale: 0.97 }} type="button" onClick={handleDelete} disabled={saving || deleting}
+              style={{ height: 44, borderRadius: 14, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              {deleting ? 'Eliminando…' : 'Eliminar programa'}
+            </motion.button>
+          )}
         </form>
       </motion.div>
     </motion.div>,
@@ -1017,6 +1110,11 @@ function CashbackSection({ cards }: { cards: Card[] }) {
 
   const handleSave = async (card: string, banco: string, programa: string, puntos: number, tasa: number) => {
     await updateCashback(card, banco, programa, puntos, tasa);
+    await load();
+  };
+
+  const handleDelete = async (card: string) => {
+    await deleteCashback(card);
     await load();
   };
 
@@ -1081,7 +1179,7 @@ function CashbackSection({ cards }: { cards: Card[] }) {
       )}
 
       <AnimatePresence>
-        {showForm && <CashbackForm cards={cards} initial={editInitial} onSave={handleSave} onClose={() => { setShowForm(false); setEditKey(null); }} />}
+        {showForm && <CashbackForm cards={cards} initial={editInitial} onSave={handleSave} onDelete={handleDelete} onClose={() => { setShowForm(false); setEditKey(null); }} />}
       </AnimatePresence>
     </div>
   );

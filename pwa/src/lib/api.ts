@@ -898,6 +898,17 @@ export async function updateCashback(
   if (!json.ok) throw new Error(json.error || 'Error al actualizar cashback');
 }
 
+export async function deleteCashback(card: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteCashback', card })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar cashback');
+}
+
 // ── Mood Tracker (Cluster 4) ──────────────────────────────────
 
 export interface MoodEntry {

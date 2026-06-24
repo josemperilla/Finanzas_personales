@@ -1039,6 +1039,14 @@ function doPost(e) {
       sp6.setProperty("CASHBACK_" + userId, JSON.stringify(cb2));
       return jsonResponse({ ok: true });
     }
+    if (type === "deleteCashback") {
+      if (!payload.card) return jsonResponse({ ok: false, error: "card requerido" });
+      var sp6d = PropertiesService.getScriptProperties();
+      var cb4 = JSON.parse(sp6d.getProperty("CASHBACK_" + userId) || "{}");
+      delete cb4[payload.card];
+      sp6d.setProperty("CASHBACK_" + userId, JSON.stringify(cb4));
+      return jsonResponse({ ok: true });
+    }
     if (type === "recordCashbackEarned") {
       if (!payload.card || !payload.puntosGanados) return jsonResponse({ ok: false, error: "card y puntosGanados requeridos" });
       var sp6b = PropertiesService.getScriptProperties();
