@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription, fetchNetWorth, saveNetWorthEntry, deleteNetWorthEntry, NetWorthData, NetWorthEntry, fetchCashback, updateCashback, CashbackData } from '../lib/api';
@@ -18,6 +18,7 @@ interface Props {
   userId: string;
   transactions: Transaction[];
   initialCard?: { banco: string; ultimos4: string };
+  initialSection?: 'fixed' | 'networth' | 'cashback';
   onBack?: () => void;
 }
 
@@ -1086,12 +1087,25 @@ function CashbackSection({ cards }: { cards: Card[] }) {
   );
 }
 
-export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
+export function Cuentas({ userId, transactions, initialCard, initialSection, onBack }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(!!initialCard);
   const [editCard, setEditCard] = useState<Card | null>(null);
   const [error, setError] = useState('');
+  const fixedRef = useRef<HTMLDivElement>(null);
+  const networthRef = useRef<HTMLDivElement>(null);
+  const cashbackRef = useRef<HTMLDivElement>(null);
+
+  // Scroll a la sección pedida desde los accesos rápidos del Home
+  useEffect(() => {
+    if (!initialSection || loading) return;
+    const ref = initialSection === 'fixed' ? fixedRef
+      : initialSection === 'networth' ? networthRef
+      : cashbackRef;
+    const t = setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+    return () => clearTimeout(t);
+  }, [initialSection, loading]);
 
   // Gasto del mes en curso atribuido a cada tarjeta (por banco + últimos 4).
   const spendByCard = useMemo(() => {
@@ -1235,13 +1249,19 @@ export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
       )}
 
       {/* Fixed Payment Calendar */}
-      <FixedCalendarSection userId={userId} />
+      <div ref={fixedRef} style={{ scrollMarginTop: 16 }}>
+        <FixedCalendarSection userId={userId} />
+      </div>
 
       {/* Net Worth */}
-      <NetWorthSection userId={userId} />
+      <div ref={networthRef} style={{ scrollMarginTop: 16 }}>
+        <NetWorthSection userId={userId} />
+      </div>
 
       {/* Cashback / Points */}
-      <CashbackSection cards={cards} />
+      <div ref={cashbackRef} style={{ scrollMarginTop: 16 }}>
+        <CashbackSection cards={cards} />
+      </div>
 
       <AnimatePresence>
         {(showForm || editCard) && (

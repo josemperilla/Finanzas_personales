@@ -42,6 +42,7 @@ interface Props {
   cards?: Card[];
   onManageCards?: () => void;
   onRegisterUnknown?: (banco: string, ultimos4: string) => void;
+  onQuickNav?: (dest: 'fixed' | 'networth' | 'budgets') => void;
 }
 
 const slideVariants = {
@@ -63,7 +64,7 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onOpenMenu, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onOpenMenu, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown, onQuickNav }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -584,6 +585,39 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {/* Accesos rápidos a finanzas */}
+        {!loading && onQuickNav && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14, display: 'flex', gap: 8 }}>
+            {([
+              { dest: 'fixed' as const,    icon: 'repeat' as const,    label: 'Pagos fijos' },
+              { dest: 'networth' as const, icon: 'bar-chart' as const, label: 'Patrimonio' },
+              { dest: 'budgets' as const,  icon: 'receipt' as const,   label: 'Presupuestos' },
+            ]).map(item => (
+              <motion.button
+                key={item.dest}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onQuickNav(item.dest)}
+                style={{
+                  flex: 1, background: 'var(--card)', border: '1px solid var(--line)',
+                  borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-card)',
+                  padding: '14px 8px', display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+                  background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon name={item.icon} size={20} style={{ color: 'var(--blue-700)' }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', lineHeight: 1.2 }}>
+                  {item.label}
+                </span>
+              </motion.button>
+            ))}
           </motion.div>
         )}
 

@@ -96,6 +96,8 @@ export default function App() {
   const lastFetchRef = useRef<number>(0);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [cuentasSection, setCuentasSection] = useState<'fixed' | 'networth' | 'cashback' | undefined>(undefined);
+  const [settingsSection, setSettingsSection] = useState<'budgets' | undefined>(undefined);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -378,8 +380,12 @@ export default function App() {
                 userId={userId}
                 gamificationKey={gamificationKey}
                 cards={cards}
-                onManageCards={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
+                onManageCards={() => { setInitialUnknownCard(undefined); setCuentasSection(undefined); setTab('cuentas'); }}
                 onRegisterUnknown={(banco, ultimos4) => { setInitialUnknownCard({ banco, ultimos4 }); setTab('cuentas'); }}
+                onQuickNav={(dest) => {
+                  if (dest === 'budgets') { setSettingsSection('budgets'); setShowSettings(true); }
+                  else { setInitialUnknownCard(undefined); setCuentasSection(dest); setTab('cuentas'); }
+                }}
               />
             )}
             {tab === 'progreso' && userId && (
@@ -436,6 +442,7 @@ export default function App() {
                 userId={userId}
                 transactions={transactions}
                 initialCard={initialUnknownCard}
+                initialSection={cuentasSection}
                 onBack={() => setTab('home')}
               />
             )}
@@ -523,11 +530,13 @@ export default function App() {
         {showSettings && userId && (
           <Suspense fallback={null}>
             <Settings key="settings" userId={userId} transactions={transactions}
+              initialSection={settingsSection}
               onProfilesChanged={() => setProfiles(getKnownProfiles())}
               onCategoryChange={handleCategoryChange}
               onDataRefresh={() => { void load(); }}
               onClose={() => {
                 setShowSettings(false);
+                setSettingsSection(undefined);
                 setAccessible(getAccessibleMode(userId));
                 applyPersonalizedAppIcon(userId, getDisplayName(userId));
               }} />

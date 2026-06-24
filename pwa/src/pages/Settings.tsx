@@ -31,16 +31,18 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 interface Props {
   userId: string;
   transactions: Transaction[];
+  initialSection?: 'budgets';
   onClose: () => void;
   onProfilesChanged?: () => void;
   onCategoryChange?: (timestamp: string, categoria: string) => void;
   onDataRefresh?: () => void;
 }
 
-export function Settings({ userId, transactions, onClose, onProfilesChanged, onCategoryChange, onDataRefresh }: Props) {
+export function Settings({ userId, transactions, initialSection, onClose, onProfilesChanged, onCategoryChange, onDataRefresh }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   useOverlayA11y(true, onClose, overlayRef);
   const profile = getProfile(userId);
+  const budgetsRef = useRef<HTMLDivElement>(null);
 
   const [defaultBank, setDefaultBank] = useState(
     () => localStorage.getItem('fm_default_bank') || 'Otro'
@@ -125,6 +127,13 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Scroll a Presupuestos cuando se abre desde el acceso rápido del Home
+  useEffect(() => {
+    if (initialSection !== 'budgets') return;
+    const t = setTimeout(() => budgetsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+    return () => clearTimeout(t);
+  }, [initialSection]);
 
   function handleNicknameSave(value: string) {
     const trimmed = value.trim();
@@ -727,6 +736,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
 
           {/* ── Presupuestos por categoría ── */}
           {HAS_WEBHOOK_URL && (
+            <div ref={budgetsRef} style={{ scrollMarginTop: 16 }}>
             <Section title="Presupuestos del mes">
               <div style={{ paddingTop: 4, paddingBottom: 4 }}>
                 {budgetsLoading ? (
@@ -812,6 +822,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
                 </AnimatePresence>
               </div>
             </Section>
+            </div>
           )}
 
           {/* ── Reglas de categorización (servidor) ── */}
