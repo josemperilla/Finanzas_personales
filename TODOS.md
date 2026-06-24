@@ -1,10 +1,14 @@
 # TODOs y decisiones técnicas
 
+> **2026-06-21:** `api/` (FastAPI), `tools/` (Streamlit) y `tests/` se movieron a
+> `archive/` (ver `archive/README.md`). Los TODOs que dependían de esa capa se marcan
+> `[ARCHIVADO]`. El backend vivo sigue siendo `apps_script/webhook.gs` + Google Sheets.
+
 ## TODO: Agregar framework de tests (vitest) al pwa
 
-El pwa no tiene ningún framework de tests automatizados. Todos los nuevos code paths
-se verifican manualmente. Con el sprint de Análisis Inteligente, se documentaron 14 paths
-que requieren verificación manual (badge lifecycle, dismissal, multi-usuario, colores, top merchants).
+**Estado (2026-06-21):** vitest YA está configurado (`pwa/vite.config.ts` +
+`pwa/src/test/setup.ts`) y hay 3 tests: `BottomNav.test.tsx`, `cardOptimizer.test.ts`,
+`ui/primitives.test.tsx`. Falta ampliar cobertura (analytics.ts, parsers, categorización).
 
 **Por qué:** Sin tests, cada sprint agrega regresiones potenciales no detectables hasta QA manual.
 `vitest` + `@testing-library/react` es la combinación estándar para proyectos Vite+React.
@@ -39,7 +43,7 @@ Surfaced by: plan-eng-review 2026-06-09 (Outside Voice finding 4)
 
 ## TODO: Crear DESIGN.md con sistema de diseño documentado
 
-Ejecutar `/design-consultation` para generar `DESIGN.md` con tokens de color, tipografía,
+**Estado (2026-06-21):** `DESIGN.md` existe. Mantenerlo actualizado al evolucionar tokens.
 espaciados, patrones de componentes y convenciones de interacción del app.
 
 **Por qué:** Sin DESIGN.md, cada revisión de diseño (plan-design-review, design-review)
@@ -91,10 +95,12 @@ cualquiera de estas condiciones:
 4. Se necesita **análisis cruzado** entre usuarios
 5. Se necesita **historial > 2 años** por usuario (riesgo de límite 500MB)
 
-### Estado del FastAPI en `api/`
+### Estado del FastAPI en `api/` [ARCHIVADO 2026-06-21]
 
-~70% listo: auth JWT, CRUD completo, modelos Alembic, integración Claude.
-Falta: rate limiting, tests de integración, logging, hardening de inputs.
+`api/` se movió a `archive/` (ver `archive/README.md`). Estaba ~70% listo (auth JWT,
+CRUD completo, modelos Alembic, integración Claude). Si se reactiva por los triggers de
+arriba, recuperarlo con `git mv archive/api ./` y completar: rate limiting, tests de
+integración, logging, hardening de inputs.
 
 ---
 
@@ -122,16 +128,9 @@ Surfaced by: /ship pre-landing review 2026-06-10 (Testing specialist + Red Team)
 
 ---
 
-## P2 TODO: Corregir entorno sqlalchemy para test_api.py
+## P2 TODO: Corregir entorno sqlalchemy para test_api.py [ARCHIVADO 2026-06-21]
 
-`tests/test_api.py` falla con `ModuleNotFoundError: No module named 'sqlalchemy'` en el
-entorno Python 3.9 del sistema. No es un problema del código del branch — es configuración
-del entorno local.
-
-**Cómo:** `pip install sqlalchemy` en el entorno correcto, o crear un `requirements.txt`
-con dependencias de test y usar `pip install -r requirements.txt` en CI.
-
-Surfaced by: /ship test run 2026-06-10
+`tests/` se movió a `archive/`. Irrelevante mientras la capa FastAPI esté archivada.
 
 ---
 

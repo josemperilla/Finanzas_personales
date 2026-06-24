@@ -2,6 +2,7 @@ import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } fro
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BottomNav, Tab } from './components/BottomNav';
+import FlowBackground from './components/FlowBackground';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
 import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, Card, getUnknownCards } from './lib/api';
@@ -9,7 +10,6 @@ import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
-import { applyPalettes } from './lib/palette';
 import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
@@ -17,6 +17,9 @@ import { SetupPin } from './components/SetupPin';
 import { TutorialCanales } from './components/TutorialCanales';
 import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
+import { Drawer } from './components/Drawer';
+import { Icon } from './components/ui/icons';
+import { exportToCSV } from './lib/export';
 import { BalanceWidget } from './components/BalanceWidget';
 import { Skeleton } from './components/ui/primitives';
 import { registrarVisita, checkBadgesSync, BADGES, addXP, updateRacha, awardBadge } from './lib/gamification';
@@ -49,7 +52,14 @@ function PageFallback() {
 }
 
 export default function App() {
-  useEffect(() => { applyTheme(getTheme()); applyPalettes(); }, []);
+  useEffect(() => {
+    // Reset sub-palettes — only Claro / Sistema / Oscuro are supported now
+    localStorage.removeItem('fm_dark_palette');
+    localStorage.removeItem('fm_light_palette');
+    document.documentElement.removeAttribute('data-dark-palette');
+    document.documentElement.removeAttribute('data-light-palette');
+    applyTheme(getTheme());
+  }, []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
@@ -86,6 +96,7 @@ export default function App() {
   const lastFetchRef = useRef<number>(0);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [accessible, setAccessible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showBalanceWidget, setShowBalanceWidget] = useState(
@@ -168,11 +179,14 @@ export default function App() {
         registrarVisita(userId);
         const meta = getMeta(userId);
         const now = new Date();
-        const gastoMes = processed
-          .filter(tx => { const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T')); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+        const today = now.toISOString().split('T')[0];
+        const diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const gastoHoy = processed
           .filter(isGasto)
+          .filter(tx => (tx.Fecha || (tx.Timestamp || '').split(' ')[0]) === today)
           .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
-        const isWithinBudget = meta.activo && meta.monto > 0 ? gastoMes <= meta.monto : true;
+        const presupuestoDiario = meta.activo && meta.monto > 0 ? meta.monto / diasMes : 0;
+        const isWithinBudget = presupuestoDiario > 0 ? gastoHoy <= presupuestoDiario : true;
         updateRacha(userId, isWithinBudget);
         setGamificationKey(k => k + 1);
         const subs = detectSubscriptions(processed);
@@ -200,7 +214,8 @@ export default function App() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('no autorizado')) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('unauthorized') || lower.includes('no autorizado')) {
         // Session token expired — force re-login
         if (userId) sessionStorage.removeItem(`fm_unlocked_${userId}`);
         setUnlocked(false);
@@ -256,14 +271,15 @@ export default function App() {
 
   const handleUnlock = useCallback(() => {
     if (userId) {
-      sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
-      addKnownProfile(userId);
-      applyAccessibleMode(userId);
-      applyColorScheme(userId);
-      applyPalettes();
-      setAccessible(getAccessibleMode(userId));
-      applyPersonalizedAppIcon(userId, getDisplayName(userId));
-      registrarVisita(userId);
+      try {
+        sessionStorage.setItem(`fm_unlocked_${userId}`, '1');
+        addKnownProfile(userId);
+        applyAccessibleMode(userId);
+        applyColorScheme(userId);
+        setAccessible(getAccessibleMode(userId));
+        applyPersonalizedAppIcon(userId, getDisplayName(userId));
+        registrarVisita(userId);
+      } catch { /* non-critical side effects — never block unlock */ }
       setUnlocked(true);
     }
   }, [userId]);
@@ -274,13 +290,14 @@ export default function App() {
       if (result.ok) {
         localStorage.setItem('fm_profile', id);
         sessionStorage.setItem(`fm_unlocked_${id}`, '1');
-        addKnownProfile(id);
-        applyAccessibleMode(id);
-        applyColorScheme(id);
-        applyPalettes();
-        setAccessible(getAccessibleMode(id));
-        applyPersonalizedAppIcon(id, getDisplayName(id));
-        registrarVisita(id);
+        try {
+          addKnownProfile(id);
+          applyAccessibleMode(id);
+          applyColorScheme(id);
+          setAccessible(getAccessibleMode(id));
+          applyPersonalizedAppIcon(id, getDisplayName(id));
+          registrarVisita(id);
+        } catch { /* non-critical side effects — never block unlock */ }
         setUserId(id);
         setUnlocked(true);
         return { status: 'ok' };
@@ -333,8 +350,9 @@ export default function App() {
       initial={false}
       animate={{ opacity: unlocked ? 1 : 0.88, y: unlocked ? 0 : 18 }}
       transition={softSpring}
-      style={{ minHeight: '100dvh', background: 'var(--surface)', overflowY: 'auto' }}
+      style={{ minHeight: '100dvh', background: 'transparent', overflowY: 'auto' }}
     >
+      <FlowBackground />
       <AnimatePresence mode="wait">
         <motion.main
           className="app-page"
@@ -356,8 +374,7 @@ export default function App() {
                 onRetry={load}
                 onAdd={() => setTab('agregar')}
                 onViewAll={() => setTab('historial')}
-                onLogout={handleSwitchProfile}
-                onSettings={() => setShowSettings(true)}
+                onOpenMenu={() => setDrawerOpen(true)}
                 userId={userId}
                 gamificationKey={gamificationKey}
                 cards={cards}
@@ -382,6 +399,7 @@ export default function App() {
                 loading={loading}
                 userId={userId}
                 onViewHistorial={() => setTab('historial')}
+                onOpenChat={() => setTab('chat')}
               />
             )}
             {tab === 'historial' && (
@@ -398,6 +416,7 @@ export default function App() {
               <Agregar
                 transactions={transactions}
                 userId={userId}
+                cards={cards}
                 onSaved={async () => {
                   // Otorgar XP por registrar transacción
                   addXP(userId, 'registrarTransaccion');
@@ -415,6 +434,7 @@ export default function App() {
             {tab === 'cuentas' && userId && (
               <Cuentas
                 userId={userId}
+                transactions={transactions}
                 initialCard={initialUnknownCard}
                 onBack={() => setTab('home')}
               />
@@ -425,6 +445,41 @@ export default function App() {
 
       {unlocked && userId && createPortal(
         <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />,
+        document.body
+      )}
+
+      {unlocked && userId && tab !== 'chat' && tab !== 'agregar' && createPortal(
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={() => setTab('chat')}
+          aria-label="Pregúntale a Fino"
+          style={{
+            position: 'fixed', right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            width: 50, height: 50, borderRadius: '50%',
+            background: 'var(--grad-brand)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+            display: 'grid', placeItems: 'center',
+            boxShadow: 'var(--shadow-blue)', zIndex: 'var(--z-nav)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Icon name="sparkles" size={22} />
+        </motion.button>,
+        document.body
+      )}
+
+      {userId && createPortal(
+        <Drawer
+          open={drawerOpen}
+          userId={userId}
+          onClose={() => setDrawerOpen(false)}
+          onCuentas={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
+          onAsistente={() => setTab('chat')}
+          onAjustes={() => setShowSettings(true)}
+          onExportar={() => exportToCSV(transactions)}
+          onUsuarios={() => setShowSettings(true)}
+          onLogout={handleSwitchProfile}
+        />,
         document.body
       )}
 

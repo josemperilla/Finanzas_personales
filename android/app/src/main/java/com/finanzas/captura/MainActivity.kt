@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         val userId = etUserId.text.toString().trim().lowercase()
 
         if (url.isBlank()) { toast("Ingresa el Webhook URL"); return }
-        if (userId.isBlank()) { toast("Ingresa tu usuario (jose o dani)"); return }
+        if (userId.isBlank()) { toast("Ingresa tu usuario"); return }
         if (!url.startsWith("https://")) { toast("La URL debe empezar con https://"); return }
 
         prefs.save(url, userId)

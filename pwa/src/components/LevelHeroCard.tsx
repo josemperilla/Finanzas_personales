@@ -84,7 +84,7 @@ export function LevelHeroCard({ userId }: Props) {
           fontFamily: 'var(--font-mono)', fontSize: 13,
           color: 'var(--ink-2)', fontWeight: 600, marginBottom: 4,
         }}>
-          {animatedXP} / {xpMax} XP
+          {animatedXP.toLocaleString('es-CO')} / {xpMax.toLocaleString('es-CO')} XP
         </div>
         {nivelSig ? (
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
@@ -94,7 +94,7 @@ export function LevelHeroCard({ userId }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={quickEase}
-              style={{ color: 'var(--blue)' }}
+              style={{ color: 'var(--orange)' }}
             >
               {xpToNext} XP
             </motion.b>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corriente — 3 opciones de display</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papel:#F5F1EA; --lino:#FCFAF5; --tinta:#1C1B17; --humo:#6E6759;
+  --borde:#E4DDCF; --borde2:#EFE9DD;
+  --accent:#0E6B4D; --accent2:#13805C; --accent-soft:#DDEBE3;
+  --r-md:14px; --r-lg:20px; --r-xl:28px; --pill:999px;
+  --t-2xs:11px; --t-xs:12px; --t-sm:13px; --t-base:15px; --t-md:17px; --t-lg:22px; --t-xl:28px; --t-hero:56px;
+  --f-display:"Space Grotesk", system-ui, sans-serif;
+  --f-body:"Hanken Grotesk", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, monospace;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:light}
+body{font-family:var(--f-body);color:var(--tinta);background:var(--papel);-webkit-font-smoothing:antialiased;font-size:var(--t-base);line-height:1.45}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.disp{font-family:var(--f-display)}
+
+/* font picker bar */
+.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--lino) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--borde);padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar .lab{font-size:var(--t-2xs);text-transform:uppercase;letter-spacing:.08em;color:var(--humo);font-weight:700;margin-right:4px}
+.opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 14px;border-radius:var(--pill);border:1px solid var(--borde);background:var(--lino);transition:all .2s var(--ease)}
+.opt.on{background:var(--tinta);border-color:var(--tinta);color:var(--lino)}
+.opt .nm{font-family:var(--f-pick,"Space Grotesk");font-weight:600;font-size:var(--t-sm)}
+.opt .ds{font-size:9px;opacity:.7;font-weight:600}
+.opt.on .ds{opacity:.85}
+.note{margin-left:auto;font-size:var(--t-xs);color:var(--humo);max-width:34ch;text-align:right}
+
+/* device frame */
+.wrap{display:flex;justify-content:center;padding:24px 16px 60px}
+.device{width:100%;max-width:392px;background:var(--lino);border-radius:44px;border:1px solid var(--borde);box-shadow:0 24px 60px rgba(28,27,23,.09);overflow:hidden}
+.screen{padding:18px 22px 28px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 12px}
+.sec-h h2{font-family:var(--f-display);font-size:var(--t-lg);font-weight:500;letter-spacing:-.01em}
+.link{font-size:var(--t-xs);color:var(--accent);font-weight:600}
+
+/* hero */
+.hero{background:var(--lino);border:1px solid var(--borde);border-radius:var(--r-xl);padding:24px 22px 20px;box-shadow:0 10px 30px rgba(28,27,23,.06)}
+.hero .eb{font-size:var(--t-2xs);letter-spacing:.12em;text-transform:uppercase;color:var(--humo);font-weight:600}
+.hero .hi{font-family:var(--f-display);font-size:var(--t-xl);font-weight:500;letter-spacing:-.01em;margin-bottom:14px}
+.hero .amt{font-family:var(--f-display);font-weight:500;font-size:var(--t-hero);line-height:1;letter-spacing:-.025em;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.hero .amt .cur{font-size:var(--t-xl);color:var(--humo);vertical-align:14px;margin-right:3px;font-weight:400}
+.hero .delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--t-xs);font-weight:600;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:var(--pill)}
+.track{height:6px;background:var(--borde2);border-radius:var(--pill);overflow:hidden;margin-top:16px}
+.track>i{display:block;height:100%;width:68%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:var(--pill)}
+.meta{display:flex;justify-content:space-between;margin-top:14px;font-size:var(--t-xs);color:var(--humo)}
+.meta b{color:var(--tinta);font-weight:600}
+
+/* cat list */
+.cats{background:var(--lino);border:1px solid var(--borde);border-radius:var(--r-lg);padding:4px 14px;box-shadow:0 10px 30px rgba(28,27,23,.05)}
+.cat{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--borde2)}
+.cat:last-child{border-bottom:none}
+.cic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--papel)}
+.cnm{font-size:var(--t-sm);font-weight:600}
+.cbar{height:4px;background:var(--borde2);border-radius:var(--pill);overflow:hidden;margin-top:6px}
+.cbar>i{display:block;height:100%;border-radius:var(--pill)}
+.camt{font-family:var(--f-mono);font-size:var(--t-sm);font-weight:500;text-align:right}
+.cpct{font-size:var(--t-2xs);color:var(--humo);text-align:right}
+
+/* nudge */
+.nudge{display:flex;gap:14px;align-items:center;background:linear-gradient(120deg,var(--accent-soft),transparent);border:1px solid color-mix(in srgb,var(--accent) 18%,var(--borde));border-radius:var(--r-lg);padding:16px 18px;margin-top:16px}
+.nudge .nt{font-size:var(--t-sm);font-weight:600}
+.nudge .ns{font-size:var(--t-2xs);color:var(--humo);margin-top:2px}
+.nbar{height:4px;background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:var(--pill);margin-top:8px;overflow:hidden}
+.nbar>i{display:block;height:100%;width:64%;background:var(--accent);border-radius:var(--pill)}
+.nudge-body{flex:1}
+
+/* progreso */
+.level{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-radius:var(--r-xl);padding:22px}
+.level .eb{font-size:var(--t-2xs);letter-spacing:.1em;text-transform:uppercase;opacity:.85;font-weight:600}
+.level .nm{font-family:var(--f-display);font-size:var(--t-xl);font-weight:500;margin:4px 0 2px;letter-spacing:-.01em}
+.level .xp{font-family:var(--f-mono);font-size:var(--t-sm);opacity:.85}
+.lbar{height:7px;background:rgba(255,255,255,.25);border-radius:var(--pill);margin-top:14px;overflow:hidden}
+.lbar>i{display:block;height:100%;width:62%;background:#fff;border-radius:var(--pill)}
+.card{background:var(--lino);border:1px solid var(--borde);border-radius:var(--r-lg);padding:18px;box-shadow:0 10px 30px rgba(28,27,23,.05);margin-top:14px}
+.streak{display:flex;align-items:center;gap:14px}
+.flame{font-size:30px}
+.sn{font-family:var(--f-display);font-size:var(--t-xl);font-weight:500}
+.ss{font-size:var(--t-xs);color:var(--humo)}
+.sueno{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--borde2)}
+.sueno:last-child{border-bottom:none}
+.snm{font-size:var(--t-sm);font-weight:600}
+.sp{font-size:var(--t-2xs);color:var(--humo);margin-top:2px}
+.sbar{height:4px;background:var(--borde2);border-radius:var(--pill);margin-top:6px;overflow:hidden}
+.sbar>i{display:block;height:100%;background:var(--accent);border-radius:var(--pill)}
+.samt{font-family:var(--f-mono);font-size:var(--t-xs);font-weight:600;text-align:right}
+.cap{font-size:var(--t-xs);color:var(--humo)}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="lab">Display</span>
+  <button class="opt on" data-f="A"><span class="nm">A · Space Grotesk</span><span class="ds">grotesque moderna</span></button>
+  <button class="opt" data-f="B"><span class="nm">B · Source Serif 4</span><span class="ds">serif robusta</span></button>
+  <button class="opt" data-f="C"><span class="nm">C · Space Mono</span><span class="ds">mono display</span></button>
+  <span class="note">El monto grande, los títulos y el nivel usan la display. Body: Hanken · datos: IBM Plex Mono.</span>
+</div>
+
+<div class="wrap"><div class="device">
+
+  <!-- HOME -->
+  <div class="screen">
+    <div class="hero">
+      <div class="hi">Buenos días, José</div>
+      <div class="eb">Gastado este mes</div>
+      <div class="amt"><span class="cur">$</span>1.240.500</div>
+      <span class="delta">↓ 12% vs mayo</span>
+      <div class="track"><i></i></div>
+      <div class="meta"><span><b>$560.000</b> para tu meta</span><span><b>68%</b> de $1.800.000</span></div>
+    </div>
+
+    <div class="sec-h"><h2>¿En qué se fue?</h2></div>
+    <div class="cats" id="cats"></div>
+
+    <div class="nudge">
+      <div style="font-size:24px">✈️</div>
+      <div class="nudge-body"><div class="nt">Vacaciones · $3.200.000</div><div class="ns">Te faltan $1.140.000 · 64% ahorrado</div><div class="nbar"><i></i></div></div>
+    </div>
+  </div>
+
+  <!-- PROGRESO -->
+  <div class="screen">
+    <div class="level">
+      <div class="eb">Nivel 3 · Administrador</div>
+      <div class="nm">Hormiga → Maestro</div>
+      <div class="xp">940 / 1.500 XP · 620 para Financiero</div>
+      <div class="lbar"><i></i></div>
+    </div>
+
+    <div class="card">
+      <div class="streak"><div class="flame">🔥</div><div style="flex:1"><div class="sn">14 días de racha</div><div class="ss">Registraste un movimiento cada día · 1 freeze</div></div></div>
+    </div>
+
+    <div class="sec-h"><h2>Sueños</h2></div>
+    <div class="card">
+      <div class="sueno"><div style="font-size:22px">✈️</div><div style="flex:1"><div class="snm">Vacaciones</div><div class="sp">$2.060.000 de $3.200.000 · dic 2026</div><div class="sbar"><i style="width:64%"></i></div></div><div class="samt">64%</div></div>
+      <div class="sueno"><div style="font-size:22px">💻</div><div style="flex:1"><div class="snm">MacBook</div><div class="sp">$3.100.000 de $7.500.000 · mar 2027</div><div class="sbar"><i style="width:41%"></i></div></div><div class="samt">41%</div></div>
+      <div class="sueno"><div style="font-size:22px">🛟</div><div style="flex:1"><div class="snm">Fondo de emergencia</div><div class="sp">$8.400.000 de $12.000.000</div><div class="sbar"><i style="width:70%"></i></div></div><div class="samt">70%</div></div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+const CATS=[
+ {n:'Restaurantes',amt:410000,pct:33,c:'#f59e0b'},
+ {n:'Mercado',amt:280000,pct:23,c:'#10b981'},
+ {n:'Transporte',amt:180000,pct:14,c:'#06b6d4'},
+ {n:'Domicilios',amt:120000,pct:10,c:'#fb923c'},
+ {n:'Suscripciones',amt:95000,pct:8,c:'#8b5cf6'},
+ {n:'Hogar',amt:88000,pct:7,c:'#f97316'}
+];
+const cop=n=>Math.round(n).toLocaleString('es-CO');
+document.getElementById('cats').innerHTML=CATS.map(c=>'<div class="cat"><div class="cic" style="color:'+c.c+'">●</div><div><div class="cnm">'+c.n+'</div><div class="cbar"><i style="width:'+c.pct*2.6+'%;background:'+c.c+'"></i></div></div><div><div class="camt">$'+cop(c.amt)+'</div><div class="cpct">'+c.pct+'%</div></div></div>').join('');
+
+const F={
+ A:['"Space Grotesk", system-ui, sans-serif'],
+ B:['"Source Serif 4", Georgia, serif'],
+ C:['"Space Mono", ui-monospace, monospace']
+};
+document.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const s=F[b.dataset.f][0];
+  document.documentElement.style.setProperty('--f-display',s);
+  document.querySelectorAll('.opt .nm').forEach(n=>{n.style.fontFamily=s;});
+}));
+</script>
+</body>
+</html>

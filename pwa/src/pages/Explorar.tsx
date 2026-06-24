@@ -6,6 +6,7 @@ import { formatCOP } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
+import { Icon } from '../components/ui/icons';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 import { getBudgets, setBudget, clearBudget, getSharedBudgets, setSharedBudget, clearSharedBudget } from '../lib/budgets';
@@ -21,6 +22,7 @@ interface Props {
   loading: boolean;
   userId: string;
   onViewHistorial?: () => void;
+  onOpenChat?: () => void;
 }
 
 interface MonthStats {
@@ -105,7 +107,7 @@ function AnimatedAmount({ value, size = 15 }: { value: number; size?: number }) 
 const HEALTH_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e'];
 const HEALTH_LABELS = ['Crítico', 'Regular', 'Bien', 'Excelente'];
 
-export function Explorar({ transactions, loading, userId, onViewHistorial }: Props) {
+export function Explorar({ transactions, loading, userId, onViewHistorial, onOpenChat }: Props) {
   const [activeBank, setActiveBank] = useState('Todos');
   const [compareMode, setCompareMode] = useState(false);
   const [merchantView, setMerchantView] = useState<'amount' | 'count'>('amount');
@@ -160,7 +162,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
     return (
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 100px', fontFamily: 'var(--font-body)' }}>
         <p style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 2px' }}>Análisis</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Explorar</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Insights</h1>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           {[1,2,3,4].map(i => (
             <div key={i} style={{
@@ -179,7 +181,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
     return (
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 100px', fontFamily: 'var(--font-body)' }}>
         <p style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 2px' }}>Análisis</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Explorar</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 24px', letterSpacing: '-0.02em' }}>Insights</h1>
         <FriendlyEmptyState
           title="Aún no hay datos para explorar"
           message="Con unas cuantas transacciones podré mostrar tendencias, categorías top y comercios frecuentes."
@@ -197,7 +199,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
       {/* Header */}
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 0', marginBottom: 16 }}>
         <p style={{ margin: '0 0 2px', color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Análisis</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 14px', letterSpacing: '-0.02em' }}>Explorar</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 14px', letterSpacing: '-0.02em' }}>Insights</h1>
 
         {/* Bank filter chips */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
@@ -283,7 +285,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
               </div>
               <div style={{ height: 5, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
                 <motion.div
-                  animate={{ width: `${healthScore}%` }}
+                  animate={{ width: `${healthScore.score}%` }}
                   initial={{ width: 0 }}
                   transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                   style={{ height: '100%', borderRadius: 999, background: healthColor }}
@@ -788,6 +790,44 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
           </motion.button>
         )}
       </motion.div>
+
+      {onOpenChat && (
+        <div style={{
+          position: 'sticky', left: 0, right: 0,
+          bottom: 'calc(76px + env(safe-area-inset-bottom))',
+          margin: '4px 0 0', padding: '12px 20px',
+          background: 'color-mix(in srgb, var(--surface) 90%, transparent)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          borderTop: '1px solid var(--line)',
+          display: 'flex', gap: 10, alignItems: 'center',
+        }}>
+          <input
+            readOnly
+            placeholder="Pregunta sobre tu dinero…"
+            onFocus={e => { e.target.blur(); onOpenChat(); }}
+            onClick={onOpenChat}
+            style={{
+              flex: 1, border: '1px solid var(--line)', background: 'var(--card)',
+              borderRadius: 'var(--r-pill)', padding: '11px 16px',
+              fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--font-body)',
+              outline: 'none', cursor: 'pointer',
+            }}
+          />
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={onOpenChat}
+            aria-label="Abrir asistente"
+            style={{
+              width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+              background: 'var(--blue)', color: '#fff', border: 'none', cursor: 'pointer',
+              display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow-blue)',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <Icon name="send" size={18} />
+          </motion.button>
+        </div>
+      )}
 
       <AnimatePresence>
         {drillCategory && (

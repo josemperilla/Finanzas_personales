@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { Icon, categoryIcon, type IconName } from './icons';
 
 interface Props {
   domain: string | null;
   name: string;
   size?: number;
   color: string;
+  /** Categoría de la transacción — define el ícono Lucide de fallback. */
+  category?: string;
+  /** Override directo del ícono de fallback (gana sobre `category`). */
+  fallbackIcon?: IconName;
 }
 
 function getSources(domain: string): string[] {
@@ -14,26 +19,25 @@ function getSources(domain: string): string[] {
   ];
 }
 
-export function MerchantLogo({ domain, name, size = 38, color }: Props) {
+export function MerchantLogo({ domain, name, size = 38, color, category, fallbackIcon }: Props) {
   const [srcIndex, setSrcIndex] = useState(0);
   const sources = domain ? getSources(domain) : [];
   const src = sources[srcIndex];
+  const icon: IconName = fallbackIcon ?? (category ? categoryIcon(category) : 'receipt');
 
   return (
     <div style={{
+      position: 'relative',
       width: size,
       height: size,
       borderRadius: Math.round(size * 0.325),
       flexShrink: 0,
-      background: src ? '#fff' : color,
-      border: src ? '1px solid var(--line)' : 'none',
+      background: src ? '#fff' : 'var(--surface)',
+      border: src ? '1px solid var(--line)' : '1px solid var(--line)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: '#fff',
-      fontFamily: 'var(--font-display)',
-      fontWeight: 700,
-      fontSize: Math.round(size * 0.39),
+      color: color,
       overflow: 'hidden',
     }}>
       {src ? (
@@ -44,7 +48,7 @@ export function MerchantLogo({ domain, name, size = 38, color }: Props) {
           style={{ width: '76%', height: '76%', objectFit: 'contain' }}
         />
       ) : (
-        name.charAt(0).toUpperCase()
+        <Icon name={icon} size={Math.round(size * 0.5)} />
       )}
     </div>
   );

@@ -1,41 +1,10 @@
 import { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { setUserNickname, setUserAvatar, getUserAvatar } from '../lib/profiles';
-import { resizeImageToAvatar } from '../lib/avatar';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { setUserNickname, setUserAvatar } from '../lib/profiles';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
-import { addSueno } from '../lib/suenos';
 import { setMeta } from '../lib/meta';
-import { awardBadge } from '../lib/gamification';
-import { SmsSetupWizard } from './SmsSetupWizard';
-
-type Clase = 'hormiga' | 'administrador' | 'sonador';
-
-const CLASES: { id: Clase; emoji: string; nombre: string; desc: string; color: string }[] = [
-  { id: 'hormiga',       emoji: '🐜', nombre: 'La Hormiga Sabia',  desc: 'Ahorra poco a poco, cada grano cuenta', color: '#3b82f6' },
-  { id: 'administrador', emoji: '📊', nombre: 'El Administrador',  desc: 'Control total, presupuesto exacto',      color: '#8b5cf6' },
-  { id: 'sonador',       emoji: '✨', nombre: 'El Soñador',        desc: 'Metas grandes, sueños por cumplir',      color: '#f59e0b' },
-];
-
-const SUENOS_SUGERIDOS: Record<Clase, { emoji: string; nombre: string; monto: number }[]> = {
-  hormiga: [
-    { emoji: '🏠', nombre: 'Fondo de emergencias', monto: 3000000 },
-    { emoji: '📱', nombre: 'Nuevo celular',         monto: 1500000 },
-    { emoji: '✈️', nombre: 'Viaje nacional',        monto: 2000000 },
-    { emoji: '🎓', nombre: 'Curso o carrera',       monto: 5000000 },
-  ],
-  administrador: [
-    { emoji: '🏠', nombre: 'Prima o cuota apartamento', monto: 10000000 },
-    { emoji: '🚗', nombre: 'Cuota inicial carro',        monto: 8000000 },
-    { emoji: '💼', nombre: 'Capital propio negocio',     monto: 15000000 },
-    { emoji: '🎓', nombre: 'Posgrado o maestría',        monto: 20000000 },
-  ],
-  sonador: [
-    { emoji: '✈️', nombre: 'Viaje al exterior', monto: 8000000 },
-    { emoji: '🏄', nombre: 'Año sabático',       monto: 30000000 },
-    { emoji: '🏠', nombre: 'Casa propia',         monto: 50000000 },
-    { emoji: '🌎', nombre: 'Nómada digital',      monto: 20000000 },
-  ],
-};
+import { formatCOP } from '../lib/utils';
+import { Icon, type IconName } from './ui/icons';
 
 interface Props {
   userId: string;
@@ -43,90 +12,119 @@ interface Props {
   onFinish: () => void;
 }
 
-type Step = 'clase' | 'profile' | 'sueno' | 'meta' | 'shortcut';
-const STEPS: Step[] = ['clase', 'profile', 'sueno', 'meta', 'shortcut'];
+const STEPS = ['bienvenida', 'nombre', 'meta', 'captura', 'pin', 'invitacion', 'listo'] as const;
+type Step = (typeof STEPS)[number];
 
-const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const AVATARS: IconName[] = ['user', 'sparkles', 'leaf', 'coffee', 'heart', 'plane'];
 
-const primaryBtn: React.CSSProperties = {
-  width: '100%', height: 52, borderRadius: 16, border: 'none',
-  background: 'var(--grad-orange)', color: '#fff',
-  fontSize: 'var(--text-base)', fontWeight: 700, cursor: 'pointer',
-  fontFamily: 'var(--font-display)', letterSpacing: '-0.01em',
-  boxShadow: '0 8px 20px rgba(234,88,12,.35)',
+const META_CHIPS = [1_200_000, 1_800_000, 2_500_000];
+
+interface Canal {
+  id: string;
+  icon: IconName;
+  titulo: string;
+  sub: string;
+}
+const CANALES: Canal[] = [
+  { id: 'sms', icon: 'smartphone', titulo: 'Notificaciones SMS', sub: 'Detectamos gastos de mensajes' },
+  { id: 'voz', icon: 'mic', titulo: 'Por voz', sub: 'Dices el gasto, lo parseamos' },
+  { id: 'foto', icon: 'file', titulo: 'Foto de extracto', sub: 'Importamos el PDF' },
+  { id: 'manual', icon: 'code', titulo: 'Manual', sub: 'Lo escribes tú' },
+];
+
+const PIN_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'] as const;
+
+// ── estilos compartidos ──────────────────────────────────────────
+const kickerStyle: React.CSSProperties = {
+  fontSize: 'var(--text-2xs)', letterSpacing: '0.12em', textTransform: 'uppercase',
+  color: 'var(--muted)', fontWeight: 700, marginBottom: 10,
 };
-const ghostBtn: React.CSSProperties = {
-  width: '100%', height: 50, background: 'none', border: '1px solid var(--line)', borderRadius: 14,
-  color: 'var(--muted)', fontSize: 'var(--text-base)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+const headingStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 500,
+  lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 10, color: 'var(--ink)',
+};
+const paraStyle: React.CSSProperties = {
+  fontSize: 'var(--text-base)', color: 'var(--muted)', marginBottom: 24,
+  maxWidth: '30ch', lineHeight: 1.5,
+};
+const inputStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)',
+  background: 'var(--card)', borderRadius: 'var(--r-md)', padding: 15,
+  fontSize: 'var(--text-base)', color: 'var(--ink)', outline: 'none',
+  fontFamily: 'var(--font-body)',
+};
+const blockBtn: React.CSSProperties = {
+  width: '100%', background: 'var(--blue)', color: '#fff', fontWeight: 600,
+  padding: 15, borderRadius: 'var(--r-pill)', fontSize: 'var(--text-base)',
+  marginTop: 8, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
 };
 
 export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState<Step>('clase');
-  const [clase, setClase] = useState<Clase | null>(null);
+  const reduced = useReducedMotion();
+  const [step, setStep] = useState<Step>('bienvenida');
+  const stepIndex = STEPS.indexOf(step);
+
   const [name, setName] = useState(initialDisplayName || '');
-  const [avatar, setAvatar] = useState<string | null>(() => getUserAvatar(userId));
-  const [selectedSueno, setSelectedSueno] = useState<number | null>(null);
-  const [metaInput, setMetaInput] = useState('');
+  const [avatar, setAvatar] = useState<IconName>('user');
+  const [meta, setMetaValue] = useState<number>(1_800_000);
+  const [canales, setCanales] = useState<string[]>(['sms', 'voz', 'foto']);
+  const [pin, setPin] = useState('');
+  const [invite, setInvite] = useState('');
+
   useOverlayA11y(true, undefined, containerRef);
 
-  const claseInfo = clase ? CLASES.find(c => c.id === clase) : null;
-  const claseColor = claseInfo?.color ?? 'var(--blue-600)';
-
-  function next() {
-    const i = STEPS.indexOf(step);
-    if (i < STEPS.length - 1) setStep(STEPS[i + 1]);
-    else {
-      localStorage.setItem(`fm_tutorial_seen_${userId}`, '1');
-      onFinish();
-    }
-  }
-
-  function saveClaseAndNext(c: Clase) {
-    setClase(c);
-    localStorage.setItem(`fm_clase_${userId}`, c);
-    next();
-  }
-
-  function saveProfileAndNext() {
+  function persist() {
     const trimmed = name.trim();
     if (trimmed) setUserNickname(userId, trimmed);
-    next();
-  }
-
-  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+    // El avatar es el nombre de un ícono Lucide (string).
+    setUserAvatar(userId, avatar);
+    if (meta > 0) setMeta(userId, { monto: meta, activo: true });
     try {
-      const dataUrl = await resizeImageToAvatar(file);
-      setAvatar(dataUrl);
-      setUserAvatar(userId, dataUrl);
-    } catch { /* imagen inválida — ignorar */ }
+      localStorage.setItem(`fm_canales_${userId}`, JSON.stringify(canales));
+    } catch { /* localStorage no disponible — ignorar */ }
   }
 
-  function saveSuenoAndNext() {
-    if (selectedSueno !== null && clase) {
-      const s = SUENOS_SUGERIDOS[clase][selectedSueno];
-      const fechaObj = new Date();
-      fechaObj.setFullYear(fechaObj.getFullYear() + 1);
-      addSueno(userId, {
-        nombre: s.nombre, emoji: s.emoji, monto: s.monto,
-        fechaObjetivo: fechaObj.toISOString().split('T')[0],
-        activo: true,
-      });
-      awardBadge(userId, 'primer-sueno');
-    }
-    next();
+  function finish() {
+    persist();
+    localStorage.setItem(`fm_tutorial_seen_${userId}`, '1');
+    onFinish();
   }
 
-  function saveMetaAndNext() {
-    const monto = parseInt(metaInput.replace(/\D/g, ''), 10);
-    if (monto > 0) setMeta(userId, { monto, activo: true });
-    next();
+  function next() {
+    if (stepIndex < STEPS.length - 1) setStep(STEPS[stepIndex + 1]);
+    else finish();
+  }
+  function back() {
+    if (stepIndex > 0) setStep(STEPS[stepIndex - 1]);
+  }
+  function skip() {
+    // saltar al último paso (Listo)
+    setStep('listo');
   }
 
-  const stepIndex = STEPS.indexOf(step);
+  function toggleCanal(id: string) {
+    setCanales(prev => (prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]));
+  }
+
+  function pressPin(k: string) {
+    if (k === '') return;
+    if (k === 'del') { setPin(p => p.slice(0, -1)); return; }
+    setPin(p => (p.length < 6 ? p + k : p));
+  }
+
+  const pinDotCount = Math.max(4, Math.min(6, pin.length || 4));
+
+  // transición con leve drift (rotateY + translate), respeta reduced motion
+  const variants = reduced
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, x: 28, rotateY: 6 },
+        animate: { opacity: 1, x: 0, rotateY: 0 },
+        exit: { opacity: 0, x: -28, rotateY: -6 },
+      };
+  const transition = { duration: reduced ? 0.18 : 0.4, ease: [0.22, 1, 0.36, 1] as const };
 
   return (
     <motion.div
@@ -134,297 +132,308 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
-      initial={{ opacity: 0, y: '6%' }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9996,
-        background: 'var(--surface)',
+        background: 'color-mix(in srgb, var(--surface) 86%, transparent)',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center',
-        overflowY: 'auto',
-        padding: 'max(48px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom))',
+        padding: 'max(40px, env(safe-area-inset-top)) 26px max(30px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* Logo mark */}
-      <div style={{
-        width: 64, height: 64, borderRadius: 22,
-        background: 'var(--grad-orange)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 8px 24px rgba(234,88,12,.35)',
-        fontSize: 28, marginBottom: 8, flexShrink: 0,
-      }}>
-        💰
-      </div>
-
-      {/* Dots de progreso */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexShrink: 0 }}>
+      {/* Barras de progreso */}
+      <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
         {STEPS.map((s, i) => (
           <div key={s} style={{
-            width: i === stepIndex ? 24 : 8, height: 8, borderRadius: 999,
-            background: i <= stepIndex ? (i === stepIndex ? 'var(--blue)' : 'var(--blue-soft)') : 'var(--line)',
-            transition: 'all 0.25s ease',
+            height: 4, flex: 1, borderRadius: 'var(--r-pill)',
+            background: i <= stepIndex ? 'var(--blue)' : 'var(--line)',
+            transition: 'background 0.25s ease',
           }} />
         ))}
       </div>
 
-      <div style={{ width: '100%', maxWidth: 340, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-
+      {/* Cuerpo del paso */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        width: '100%', maxWidth: 360, margin: '0 auto', perspective: 1000,
+      }}>
         <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={variants.initial}
+            animate={variants.animate}
+            exit={variants.exit}
+            transition={transition}
+            style={{ display: 'flex', flexDirection: 'column' }}
+          >
+            {/* ── 0 · Bienvenida ── */}
+            {step === 'bienvenida' && (
+              <>
+                <div style={kickerStyle}>Bienvenida</div>
+                <div id="onboarding-title" style={headingStyle}>Corriente</div>
+                <div style={paraStyle}>
+                  Tu dinero, en calma. Sin maraña de gráficos ni presión — solo lo que necesitas
+                  saber, cuando lo necesitas.
+                </div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={blockBtn}>
+                  Empezar <Icon name="arrow-right" size={18} />
+                </motion.button>
+              </>
+            )}
 
-          {/* ── Paso 1: Elige tu clase ── */}
-          {step === 'clase' && (
-            <motion.div key="clase" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 44, marginBottom: 10 }}>⚔️</div>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  Elige tu clase
+            {/* ── 1 · ¿Cómo te llamas? ── */}
+            {step === 'nombre' && (
+              <>
+                <div style={kickerStyle}>Paso 1 de 6 · Tú</div>
+                <div id="onboarding-title" style={headingStyle}>¿Cómo te llamas?</div>
+                <input
+                  autoFocus
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') next(); }}
+                  placeholder="Tu nombre"
+                  style={inputStyle}
+                />
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', margin: '14px 0 8px', fontWeight: 600 }}>
+                  Elige un avatar
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  Define cómo vas a jugar con tu dinero
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {AVATARS.map(name => {
+                    const sel = avatar === name;
+                    return (
+                      <motion.button
+                        key={name}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setAvatar(name)}
+                        aria-pressed={sel}
+                        style={{
+                          aspectRatio: '1', borderRadius: 'var(--r-md)',
+                          border: `1px solid ${sel ? 'var(--blue)' : 'var(--line)'}`,
+                          background: sel ? 'var(--blue-soft)' : 'var(--card)',
+                          display: 'grid', placeItems: 'center',
+                          color: sel ? 'var(--blue)' : 'var(--muted)',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        <Icon name={name} size={24} />
+                      </motion.button>
+                    );
+                  })}
                 </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                {CLASES.map(c => (
-                  <motion.button key={c.id} whileTap={{ scale: 0.98 }} onClick={() => saveClaseAndNext(c.id)} style={{
-                    border: `2px solid ${c.color}33`,
-                    background: `${c.color}0e`,
-                    borderRadius: 16, padding: '16px 18px',
-                    display: 'flex', alignItems: 'center', gap: 14,
-                    cursor: 'pointer', textAlign: 'left',
-                  }}>
-                    <div style={{ fontSize: 32, lineHeight: 1 }}>{c.emoji}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2 }}>{c.nombre}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.desc}</div>
-                    </div>
-                    <div style={{ color: c.color, fontSize: 20, fontWeight: 700 }}>›</div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+              </>
+            )}
 
-          {/* ── Paso 2: Perfil (nombre + foto) ── */}
-          {step === 'profile' && (
-            <motion.div key="profile" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  ¿Cómo te llamas?
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  {claseInfo ? `${claseInfo.nombre}, bienvenido` : 'Así te mostraremos en la app'}
-                </div>
-              </div>
-              <label style={{ cursor: 'pointer' }}>
-                <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
-                <motion.div whileTap={{ scale: 0.96 }} style={{
-                  width: 100, height: 100, borderRadius: '50%',
-                  background: avatar ? 'var(--card)' : claseColor,
-                  border: `4px solid ${claseColor}`,
-                  boxShadow: `0 8px 28px ${claseColor}44`,
-                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 36,
+            {/* ── 2 · Meta mensual ── */}
+            {step === 'meta' && (
+              <>
+                <div style={kickerStyle}>Paso 2 de 6 · Meta</div>
+                <div id="onboarding-title" style={headingStyle}>¿Cuánto quieres gastar al mes?</div>
+                <div style={paraStyle}>Una guía, no una jaula. Puedes cambiarla cuando quieras.</div>
+                <div style={{
+                  fontFamily: 'var(--font-display)', fontSize: 40, fontWeight: 500,
+                  letterSpacing: '-0.02em', color: 'var(--ink)', marginBottom: 14,
                 }}>
-                  {avatar
-                    ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : (name.trim().charAt(0).toUpperCase() || claseInfo?.emoji || '+')}
-                </motion.div>
-              </label>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-                Toca para añadir una foto · opcional
-              </div>
-              <input
-                autoFocus
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && name.trim()) saveProfileAndNext(); }}
-                placeholder="Tu nombre"
-                style={{
-                  width: '100%', boxSizing: 'border-box', height: 52, padding: '0 16px',
-                  border: `1.5px solid ${claseColor}66`, borderRadius: 14, background: 'var(--card)',
-                  color: 'var(--ink)', fontSize: 'var(--text-base)', fontFamily: 'var(--font-body)',
-                  textAlign: 'center', outline: 'none',
-                }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={saveProfileAndNext}
-                  disabled={!name.trim()}
-                  style={{ ...primaryBtn, background: name.trim() ? claseColor : 'var(--line)', cursor: name.trim() ? 'pointer' : 'default' }}>
-                  Continuar
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
+                  {formatCOP(meta)}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7 }}>
+                  {META_CHIPS.map(v => {
+                    const sel = meta === v;
+                    return (
+                      <motion.button
+                        key={v}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => setMetaValue(v)}
+                        style={{
+                          height: 40, borderRadius: 'var(--r-md)',
+                          border: `1px solid ${sel ? 'var(--blue)' : 'var(--line)'}`,
+                          background: sel ? 'var(--blue-soft)' : 'var(--card)',
+                          color: sel ? 'var(--blue)' : 'var(--muted)',
+                          fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer',
+                          fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+                        }}
+                      >
+                        ${(v / 1_000_000).toFixed(1)}M
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
-          {/* ── Paso 4: Primer Sueño ── */}
-          {step === 'sueno' && clase && (
-            <motion.div key="sueno" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 44, marginBottom: 10 }}>🌟</div>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  ¿Cuál es tu primera misión?
+            {/* ── 3 · ¿Cómo capturas tus gastos? ── */}
+            {step === 'captura' && (
+              <>
+                <div style={kickerStyle}>Paso 3 de 6 · Captura</div>
+                <div id="onboarding-title" style={headingStyle}>¿Cómo capturas tus gastos?</div>
+                <div style={paraStyle}>
+                  Elige los canales que quieres activar. Puedes añadir otros después.
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  Elige un sueño para empezar a trabajar hacia él
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {CANALES.map(c => {
+                    const sel = canales.includes(c.id);
+                    return (
+                      <motion.button
+                        key={c.id}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => toggleCanal(c.id)}
+                        aria-pressed={sel}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12, padding: 14, width: '100%',
+                          border: `1px solid ${sel ? 'var(--blue)' : 'var(--line)'}`,
+                          borderRadius: 'var(--r-md)',
+                          background: sel ? 'var(--blue-soft)' : 'var(--card)',
+                          textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        <span style={{
+                          width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                          background: 'var(--surface)', display: 'grid', placeItems: 'center',
+                          color: 'var(--blue)',
+                        }}>
+                          <Icon name={c.icon} size={18} />
+                        </span>
+                        <span style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ink)' }}>{c.titulo}</span>
+                          <span style={{ fontSize: 'var(--text-2xs)', color: 'var(--muted)' }}>{c.sub}</span>
+                        </span>
+                        <span style={{ marginLeft: 'auto', color: 'var(--blue)', opacity: sel ? 1 : 0, transition: 'opacity 0.15s' }}>
+                          <Icon name="check" size={20} />
+                        </span>
+                      </motion.button>
+                    );
+                  })}
                 </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                {SUENOS_SUGERIDOS[clase].map((s, i) => (
-                  <motion.button key={i} whileTap={{ scale: 0.98 }} onClick={() => setSelectedSueno(i)} style={{
-                    border: `2px solid ${selectedSueno === i ? claseColor : 'var(--line)'}`,
-                    background: selectedSueno === i ? `${claseColor}12` : 'var(--card)',
-                    borderRadius: 14, padding: '14px 16px',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease',
-                  }}>
-                    <div style={{ fontSize: 26 }}>{s.emoji}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{s.nombre}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Meta: ${s.monto.toLocaleString('es-CO')}</div>
-                    </div>
-                    {selectedSueno === i && <div style={{ color: claseColor, fontSize: 18, fontWeight: 700 }}>✓</div>}
-                  </motion.button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={saveSuenoAndNext}
-                  disabled={selectedSueno === null}
-                  style={{ ...primaryBtn, background: selectedSueno !== null ? claseColor : 'var(--line)', cursor: selectedSueno !== null ? 'pointer' : 'default' }}>
-                  {selectedSueno !== null ? '¡Elegir este sueño! 🎯' : 'Selecciona uno'}
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
-                  Omitir por ahora
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
+              </>
+            )}
 
-          {/* ── Paso 5: Meta mensual ── */}
-          {step === 'meta' && (
-            <motion.div key="meta" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 44, marginBottom: 10 }}>💰</div>
-                <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                  ¿Cuánto puedes gastar este mes?
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 260, margin: '0 auto' }}>
-                  Activa tus círculos de bienestar y te avisamos si te pasas del límite
-                </div>
-              </div>
-              <div style={{ width: '100%' }}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Presupuesto mensual (COP)
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 16, fontWeight: 600, pointerEvents: 'none' }}>$</span>
-                  <input
-                    autoFocus
-                    type="number"
-                    inputMode="numeric"
-                    value={metaInput}
-                    onChange={e => setMetaInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveMetaAndNext(); }}
-                    placeholder="2000000"
-                    style={{
-                      width: '100%', boxSizing: 'border-box', height: 52, padding: '0 16px 0 36px',
-                      border: `1.5px solid ${claseColor}66`, borderRadius: 14, background: 'var(--card)',
-                      color: 'var(--ink)', fontSize: 'var(--text-base)', fontFamily: 'var(--font-body)', outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  {[1500000, 2500000, 4000000].map(v => (
-                    <motion.button key={v} whileTap={{ scale: 0.96 }} onClick={() => setMetaInput(String(v))} style={{
-                      flex: 1, height: 36, borderRadius: 10,
-                      border: `1.5px solid ${metaInput === String(v) ? claseColor : 'var(--line)'}`,
-                      background: metaInput === String(v) ? `${claseColor}12` : 'var(--card)',
-                      color: metaInput === String(v) ? claseColor : 'var(--muted)',
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    }}>
-                      ${(v / 1000000).toFixed(1)}M
-                    </motion.button>
+            {/* ── 4 · Crea tu PIN (visual; el PIN real ya se creó en SetupPin) ── */}
+            {step === 'pin' && (
+              <>
+                <div style={kickerStyle}>Paso 4 de 6 · Seguridad</div>
+                <div id="onboarding-title" style={headingStyle}>Tu PIN está listo</div>
+                <div style={paraStyle}>Ya creaste tu PIN de 4 dígitos para entrar a la app.</div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '18px 0' }}>
+                  {Array.from({ length: pinDotCount }).map((_, i) => (
+                    <div key={i} style={{
+                      width: 12, height: 12, borderRadius: '50%',
+                      border: '1.5px solid var(--blue)',
+                      background: i < pin.length ? 'var(--blue)' : 'transparent',
+                    }} />
                   ))}
                 </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={saveMetaAndNext}
-                  style={{ ...primaryBtn, background: metaInput ? claseColor : 'var(--line)', cursor: metaInput ? 'pointer' : 'default' }}>
-                  Activar presupuesto 🎯
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
-                  Configurar después
-                </motion.button>
-                <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-                  Podrás cambiarlo cuando quieras desde ajustes.
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 7, marginTop: 6 }}>
+                  {PIN_KEYS.map((k, idx) =>
+                    k === '' ? <div key={idx} /> : (
+                      <motion.button
+                        key={idx}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => pressPin(k)}
+                        aria-label={k === 'del' ? 'Borrar' : k}
+                        style={{
+                          height: 54, borderRadius: 'var(--r-md)', border: '1px solid var(--line)',
+                          background: 'var(--card)', color: 'var(--ink)',
+                          fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 600,
+                          cursor: 'pointer', display: 'grid', placeItems: 'center',
+                          WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+                        }}
+                      >
+                        {k === 'del'
+                          ? <Icon name="x" size={20} />
+                          : k}
+                      </motion.button>
+                    )
+                  )}
                 </div>
+              </>
+            )}
+
+            {/* ── 5 · ¿Tienes código de invitación? ── */}
+            {step === 'invitacion' && (
+              <>
+                <div style={kickerStyle}>Paso 5 de 6 · Invitación</div>
+                <div id="onboarding-title" style={headingStyle}>¿Tienes código de invitación?</div>
+                <div style={paraStyle}>
+                  Si te invitaron, ingrésalo. Si no, lo saltas — puedes empezar igual.
+                </div>
+                <input
+                  type="text"
+                  value={invite}
+                  onChange={e => setInvite(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === 'Enter') next(); }}
+                  placeholder="Código (opcional)"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  style={{ ...inputStyle, textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-mono)' }}
+                />
+              </>
+            )}
+
+            {/* ── 6 · Listo ── */}
+            {step === 'listo' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={kickerStyle}>Listo</div>
+                <div id="onboarding-title" style={{ ...headingStyle, display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                  Todo en orden
+                  <span style={{ color: 'var(--blue)' }}><Icon name="check" size={30} /></span>
+                </div>
+                <div style={paraStyle}>
+                  Tu cuenta está lista. El dinero fluye — y ahora lo ves en calma.
+                </div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={finish} style={blockBtn}>
+                  Registrar mi primer movimiento <Icon name="arrow-right" size={18} />
+                </motion.button>
               </div>
-            </motion.div>
-          )}
-
-          {/* ── Paso 5: Shortcut iOS / canal Android ── */}
-          {step === 'shortcut' && (
-            <motion.div key="shortcut" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-
-              {IS_IOS ? (
-                <>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 44, marginBottom: 10 }}>📱</div>
-                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                      Activa el Shortcut
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
-                      Cada SMS bancario llegará solo a la app — sin tocar nada.
-                    </div>
-                  </div>
-
-                  {/* Asistente SMS interactivo (instalar → automatización → prueba en vivo) */}
-                  <div style={{ width: '100%' }}>
-                    <SmsSetupWizard userId={userId} accentColor={claseColor} />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-                    <motion.button whileTap={{ scale: 0.97 }} onClick={next}
-                      style={{ ...primaryBtn, background: claseColor }}>
-                      Continuar
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
-                      Lo configuro después
-                    </motion.button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 44, marginBottom: 10 }}>🔔</div>
-                    <div id="onboarding-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', marginBottom: 8 }}>
-                      Captura automática
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, margin: '0 auto' }}>
-                      En Android usamos notificaciones push. Descarga la app Finanzas Captura y configúrala desde Ajustes → Canales.
-                    </div>
-                  </div>
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={next}
-                    style={{ ...primaryBtn, background: claseColor, width: '100%' }}>
-                    Entendido, continuar
-                  </motion.button>
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={next} style={ghostBtn}>
-                    Lo configuro después
-                  </motion.button>
-                </>
-              )}
-            </motion.div>
-          )}
-
+            )}
+          </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Pie: Atrás · Saltar · Continuar */}
+      {step !== 'listo' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {stepIndex > 0 && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={back}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--muted)', fontSize: 'var(--text-sm)', fontWeight: 600,
+                fontFamily: 'var(--font-body)', padding: '8px 4px',
+              }}
+            >
+              Atrás
+            </motion.button>
+          )}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={skip}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', fontSize: 'var(--text-sm)', fontWeight: 600,
+              fontFamily: 'var(--font-body)', padding: '8px 4px',
+            }}
+          >
+            {stepIndex >= 4 ? 'Saltar paso' : 'Saltar'}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={next}
+            style={{
+              marginLeft: 'auto', background: 'var(--blue)', color: '#fff', fontWeight: 600,
+              padding: '13px 26px', borderRadius: 'var(--r-pill)', fontSize: 'var(--text-base)',
+              border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)',
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+            }}
+          >
+            Continuar <Icon name="arrow-right" size={18} />
+          </motion.button>
+        </div>
+      )}
     </motion.div>
   );
 }

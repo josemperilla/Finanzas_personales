@@ -8,7 +8,7 @@ import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
 import { TIMEZONE_OPTIONS, formatCOP } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
-import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
+import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { ImportarExtractoPorFoto } from '../components/ImportarExtractoPorFoto';
@@ -23,8 +23,8 @@ import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: 'auto',  label: 'Auto' },
   { value: 'light', label: 'Claro' },
+  { value: 'auto',  label: 'Sistema' },
   { value: 'dark',  label: 'Oscuro' },
 ];
 
@@ -60,6 +60,7 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   }, [cards, transactions]);
 
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
+  const [accessible, setAccessible] = useState(() => getAccessibleMode(userId));
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => getUserAvatar(userId));
   const [timezone, setTimezone] = useState(() => getUserTimezone(userId));
@@ -147,6 +148,12 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
     applyTheme(mode);
+  }
+
+  function handleAccessibleToggle() {
+    const next = !accessible;
+    setAccessible(next);
+    setAccessibleMode(userId, next);
   }
 
   // Admin: user management
@@ -498,6 +505,44 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
               <p style={{ margin: '8px 0 0', fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>
                 Auto sigue la preferencia del sistema.
               </p>
+
+              {/* Modo accesible */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-base)', color: 'var(--ink)', fontWeight: 500 }}>
+                      Modo accesible
+                    </div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', marginTop: 3 }}>
+                      Texto e íconos más grandes para mayor comodidad
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.92 }}
+                    onClick={handleAccessibleToggle}
+                    style={{
+                      flexShrink: 0,
+                      width: 50, height: 28, borderRadius: 999,
+                      background: accessible ? 'var(--blue-600)' : 'var(--line)',
+                      border: 'none', cursor: 'pointer', position: 'relative',
+                      transition: 'background 0.2s ease',
+                    }}
+                    aria-label="Toggle modo accesible"
+                  >
+                    <motion.span
+                      animate={{ x: accessible ? 24 : 4 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      style={{
+                        position: 'absolute', top: 4, left: 0,
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: 'white',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                      }}
+                    />
+                  </motion.button>
+                </div>
+              </div>
+
             </div>
 
           </Section>

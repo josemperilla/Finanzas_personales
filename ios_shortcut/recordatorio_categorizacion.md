@@ -33,7 +33,7 @@ Cuerpo JSON:
 }
 ```
 
-> Reemplaza `TU_APP.pages.dev` con tu URL de Cloudflare y `TU_USUARIO` con tu ID (jose, dani, etc.)
+> Reemplaza `TU_APP.pages.dev` con tu URL de Cloudflare y `TU_USUARIO` con tu ID (jose, new_user, etc.)
 
 ### 3. Acción: Obtener valor del diccionario
 

@@ -122,6 +122,6 @@ Reemplaza en todos los atajos:
 | Variable | Valor real |
 |----------|------------|
 | `TU_APP.pages.dev` | URL de Cloudflare (ej: `familia-finanzas.pages.dev`) |
-| `TU_USUARIO` | Tu ID de usuario (`jose`, `dani`, etc.) |
+| `TU_USUARIO` | Tu ID de usuario (`jose`, `new_user`, etc.) |
 
 La URL exacta la encuentras en Ajustes → Canales dentro de la app.

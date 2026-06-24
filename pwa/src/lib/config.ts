@@ -15,6 +15,11 @@ export const HAS_WEBHOOK_URL = WEBHOOK_URL.trim().length > 0;
 // (Si se regenera el atajo, también hay que actualizar ios_shortcut/SETUP.md a mano.)
 export const IOS_SHORTCUT_URL = 'https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858';
 
+// ⚠️ NO es la fuente de verdad. La categorización real la hace el backend vivo
+// `apps_script/webhook.gs:detectCategory()` (ese es el autoritativo: es lo que persiste).
+// Esta lista existe solo para render inmediato del UI (colores + picker) antes de fetchar.
+// Si agregas/quitas una categoría, actualiza también detectCategory() en webhook.gs y corre
+// `node scripts/check-category-drift.mjs` para verificar que no haya drift.
 export const CATEGORIES = [
   { name: 'Restaurantes',   color: '#f59e0b' },
   { name: 'Domicilios',     color: '#fb923c' },

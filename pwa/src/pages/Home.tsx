@@ -5,7 +5,6 @@ import { Transaction, isGasto, isIncomeTx, INCOME_CATEGORY, Card, getUnknownCard
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
 import { formatCOP, formatDateShort } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
-import { DonutChart } from '../components/DonutChart';
 import { CategorySheet } from '../components/CategorySheet';
 import { Blobs } from '../components/ui/Blobs';
 import { ConnectionNotice } from '../components/ui/ConnectionNotice';
@@ -13,6 +12,7 @@ import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
+import { Icon, categoryIcon } from '../components/ui/icons';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { RachaDisplay } from '../components/RachaDisplay';
@@ -22,6 +22,7 @@ import { getGamification } from '../lib/gamification';
 import { RetoWidget } from '../components/RetoWidget';
 import { SuenoCard } from '../components/SuenoCard';
 import { MetaMensualWidget } from '../components/MetaMensualWidget';
+import { getMeta } from '../lib/meta';
 import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
 import { getDesafioActual, getDesafioProgress, getDesafioCompletado } from '../lib/desafiosMensuales';
@@ -35,8 +36,7 @@ interface Props {
   onRetry?: () => void;
   onAdd: () => void;
   onViewAll: () => void;
-  onLogout?: () => void;
-  onSettings?: () => void;
+  onOpenMenu?: () => void;
   userId: string;
   gamificationKey?: number;
   cards?: Card[];
@@ -63,7 +63,7 @@ function buildDailyCumulative(txs: Transaction[], year: number, month: number, m
   return daily;
 }
 
-export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onLogout, onSettings, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
+export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onOpenMenu, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown }: Props) {
   const now = new Date();
   const [selectedOffset, setSelectedOffset] = useState(0);
   const [direction, setDirection] = useState(0);
@@ -126,6 +126,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [prevTx],
   );
   const diff = totalPrev > 0 ? ((totalMonth - totalPrev) / totalPrev) * 100 : 0;
+
+  const meta = useMemo(() => getMeta(userId), [userId]);
 
   const incomeMonth = useMemo(
     () => monthTx.filter(isIncomeTx).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
@@ -240,6 +242,14 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     if (Math.abs(dx) > dy && Math.abs(dx) > 44) navigate(dx < 0 ? 1 : -1);
   };
 
+  const firstName = (getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0];
+  const timeGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 18) return 'Buenas tardes';
+    return 'Buenas noches';
+  };
+
   return (
     <div style={{ fontFamily: 'var(--font-body)', paddingBottom: '100px', position: 'relative', overflow: 'hidden' }}>
       <Blobs variant="a" />
@@ -250,21 +260,23 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         animate={{ opacity: 1, y: 0 }}
         transition={quickEase}
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: 'max(20px, env(safe-area-inset-top)) 20px 0',
           marginBottom: 18, position: 'relative',
         }}
       >
-        <ProfileAvatar userId={userId} onLogout={onLogout} onSettings={onSettings} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {currentMonthStr.charAt(0).toUpperCase() + currentMonthStr.slice(1)}
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)', lineHeight: 1.2 }}>
+            {timeGreeting()},
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>
-            Hola, {(getUserNickname(userId) || getProfile(userId)?.name || userId).split(' ')[0]} 👋
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: 'var(--ink)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            {firstName}
           </div>
         </div>
-        <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
+          <ProfileAvatar userId={userId} onOpenMenu={onOpenMenu} />
+        </div>
       </motion.div>
 
       <AnimatePresence>
@@ -379,57 +391,76 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             touchAction: 'pan-y',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(-1)} disabled={selectedOffset <= -11}
-                style={{ background: 'none', border: 'none', cursor: selectedOffset <= -11 ? 'default' : 'pointer', color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(-1)} disabled={selectedOffset <= -11} aria-label="Mes anterior"
+                style={{ background: 'none', border: 'none', cursor: selectedOffset <= -11 ? 'default' : 'pointer', color: selectedOffset <= -11 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
                 ‹
               </motion.button>
               <motion.span key={selectedOffset} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={quickEase}
-                style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)', minWidth: 86, textAlign: 'center' }}>
-                {selectedOffset === 0 ? 'Gastos de ' + new Date().toLocaleString('es-CO', { month: 'long' }) : selMonthStr}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, color: 'var(--muted)', minWidth: 92, textAlign: 'center', textTransform: 'capitalize' }}>
+                {selectedOffset === 0 ? new Date().toLocaleString('es-CO', { month: 'long' }) : selMonthStr}
               </motion.span>
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0}
-                style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', display: 'flex', alignItems: 'center', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0} aria-label="Mes siguiente"
+                style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
                 ›
               </motion.button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
-                {loading ? '—' : formatCOP(animatedTotal)}
-              </span>
-              {!loading && totalPrev > 0 && selectedOffset === 0 && (
-                <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={softSpring}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 999, background: diff <= 0 ? 'var(--good-soft)' : '#fee2e2', color: diff <= 0 ? 'var(--good)' : '#b91c1c', fontSize: 11, fontWeight: 600 }}>
-                  {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}%
-                </motion.span>
-              )}
-            </div>
+            <motion.button whileTap={{ scale: 0.93 }} onClick={onViewAll}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--blue-700)', fontFamily: 'var(--font-body)', padding: '4px 0' }}>
+              Ver todo
+            </motion.button>
           </div>
 
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-              <Spinner />
-            </div>
-          ) : (
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.div
-                key={selectedOffset}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <DonutChart slices={byCategory} total={totalMonth} onSliceClick={setDrillCategory} />
-                {showSpendLine && (
-                  <DailySpendLine current={selCumulative} previous={compCumulative} daysInMonth={daysInSelMonth} />
-                )}
-              </motion.div>
-            </AnimatePresence>
+          <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 600 }}>Gastado este mes</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 46, lineHeight: 1, letterSpacing: '-.02em', margin: '8px 0 8px', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
+            {loading ? <Spinner /> : formatCOP(animatedTotal)}
+          </div>
+          {!loading && totalPrev > 0 && selectedOffset === 0 && (
+            <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={softSpring}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: diff <= 0 ? 'var(--good-soft)' : 'var(--danger-bg)', color: diff <= 0 ? 'var(--good)' : 'var(--danger)', fontSize: 11.5, fontWeight: 600 }}>
+              {diff <= 0 ? '↓' : '↑'} {Math.abs(diff).toFixed(0)}% vs mes anterior
+            </motion.span>
+          )}
+
+          {!loading && meta.activo && meta.monto > 0 && (
+            <>
+              <div style={{ height: 6, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 18 }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min((totalMonth / meta.monto) * 100, 100)}%` }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} style={{ height: '100%', background: 'linear-gradient(90deg, var(--blue), var(--blue-2))', borderRadius: 999 }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
+                <span><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{formatCOP(Math.max(meta.monto - totalMonth, 0))}</b> para tu meta</span>
+                <span><b style={{ color: 'var(--ink)', fontWeight: 600 }}>{Math.round((totalMonth / meta.monto) * 100)}%</b> de {formatCOP(meta.monto)}</span>
+              </div>
+            </>
           )}
         </motion.div>
+
+        {/* 1b. Categorías — barras calmadas */}
+        {!loading && byCategory.length > 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 18, padding: '4px 14px', marginBottom: 14, boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.05)' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 15, color: 'var(--ink)', padding: '12px 0 6px' }}>¿En qué se fue?</div>
+            {byCategory.slice(0, 7).map((c) => {
+              const col = getCategoryColor(c.category);
+              const pct = totalMonth > 0 ? Math.round((c.amount / totalMonth) * 100) : 0;
+              return (
+                <button key={c.category} onClick={() => setDrillCategory(c.category)} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--line)', width: '100%', textAlign: 'left', background: 'none', cursor: 'pointer' }}>
+                  <span style={{ color: col, display: 'inline-flex', justifySelf: 'center' }}><Icon name={categoryIcon(c.category)} size={18} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{c.category}</div>
+                    <div style={{ height: 4, background: 'var(--line)', borderRadius: 999, overflow: 'hidden', marginTop: 5 }}>
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct * 2.6, 100)}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }} style={{ height: '100%', background: col, borderRadius: 999 }} />
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{formatCOP(c.amount)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{pct}%</div>
+                  </div>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
 
         {/* 2. Desafío mensual — blue gradient */}
         {!loading && selectedOffset === 0 && desafioActual && desafioProgress && (
@@ -445,7 +476,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                   <span style={{ fontSize: 14 }}>{desafioActual.emoji}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 600 }}>Desafío activo</div>
+                  <div style={{ fontSize: 10, color: 'var(--orange-2)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700 }}>Reto activo</div>
                   <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: '#fff' }}>{desafioActual.titulo}</div>
                 </div>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13, color: '#fff', flexShrink: 0 }}>{desafioProgress.texto}</span>
@@ -462,32 +493,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
-        {/* 3. Balance compacto */}
-        {!loading && incomeMonth > 0 && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 18 }}>
-            <div style={{
-              background: 'var(--card)', border: '1px solid var(--line)',
-              borderRadius: 18, padding: '14px 18px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              boxShadow: '0 1px 2px rgba(16,18,28,.04)',
-            }}>
-              <div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 2 }}>Balance del mes</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 24, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1 }}>
-                  {formatCOP(animatedBalance)}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {balancePrev !== 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: balanceDiff >= 0 ? 'var(--good-soft)' : '#fee2e2', color: balanceDiff >= 0 ? 'var(--good)' : '#b91c1c', fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 999 }}>
-                    <span style={{ fontSize: 9 }}>{balanceDiff >= 0 ? '▲' : '▼'}</span> {Math.abs(balanceDiff).toFixed(1)}%
-                  </span>
-                )}
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>vs. mes anterior</div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+        {/* 3. Balance retirado del Home — ingresos/balance en desarrollo (viven en Insights) */}
 
         {/* 4. DailyStatusCard */}
         {!loading && selectedOffset === 0 && (
@@ -645,76 +651,36 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 }
 
-function ProfileAvatar({ userId, onLogout, onSettings }: { userId: string; onLogout?: () => void; onSettings?: () => void }) {
+function ProfileAvatar({ userId, onOpenMenu }: { userId: string; onOpenMenu?: () => void }) {
   const profile  = getProfile(userId);
   const customAvatar = getUserAvatar(userId);
   const displayName = getUserNickname(userId) || profile?.name || userId;
   const avatarSrc = customAvatar || profile?.avatar;
   const [failed, setFailed] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        onClick={() => setMenuOpen(v => !v)}
-        style={{
-          width: 42, height: 42, borderRadius: '50%',
-          background: (failed || !avatarSrc) ? 'var(--grad-brand)' : 'var(--card)',
-          border: '2px solid #fff',
-          boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', cursor: 'pointer', padding: 0,
-          color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
-        }}
-      >
-        {(failed || !avatarSrc) ? (
-          profile?.initial ?? userId.charAt(0).toUpperCase()
-        ) : (
-          <img src={avatarSrc} alt={displayName} onError={() => setFailed(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
-        )}
-      </motion.button>
-
-      <AnimatePresence>
-        {menuOpen && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }} onClick={() => setMenuOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: -6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: -6 }}
-              transition={quickEase}
-              style={{
-                position: 'absolute', top: 50, left: 0, zIndex: 51,
-                background: 'var(--card)', borderRadius: 14, overflow: 'hidden',
-                boxShadow: '0 8px 30px rgba(15,23,42,0.16)',
-                border: '1px solid var(--line)', minWidth: 160,
-              }}
-            >
-              <div style={{ padding: '12px 14px 8px', borderBottom: '1px solid var(--line)' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{displayName}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 1 }}>Sesión activa</div>
-              </div>
-              {onSettings && (
-                <button onClick={() => { setMenuOpen(false); onSettings(); }}
-                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', fontFamily: 'var(--font-body)' }}>
-                  Ajustes
-                </button>
-              )}
-              {onLogout && (
-                <button onClick={() => { setMenuOpen(false); onLogout(); }}
-                  style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: '#b91c1c', fontFamily: 'var(--font-body)' }}>
-                  Cerrar sesión
-                </button>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
+    <motion.button
+      whileTap={{ scale: 0.92 }}
+      onClick={onOpenMenu}
+      aria-label="Abrir menú"
+      style={{
+        flexShrink: 0,
+        width: 42, height: 42, borderRadius: '50%',
+        background: (failed || !avatarSrc) ? 'var(--grad-brand)' : 'var(--card)',
+        border: '2px solid #fff',
+        boxShadow: '0 8px 20px rgba(15,23,42,0.12)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', cursor: 'pointer', padding: 0,
+        color: 'var(--card)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16,
+      }}
+    >
+      {(failed || !avatarSrc) ? (
+        profile?.initial ?? userId.charAt(0).toUpperCase()
+      ) : (
+        <img src={avatarSrc} alt={displayName} onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+      )}
+    </motion.button>
   );
 }
 

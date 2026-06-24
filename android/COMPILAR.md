@@ -49,7 +49,7 @@ Una vez instalada:
    ```
    https://script.google.com/macros/s/.../exec?_secret=TU_SECRET
    ```
-3. Ingresa tu **Usuario** (`jose` o `dani`)
+3. Ingresa tu **Usuario** (el ID que te asignó el administrador)
 4. Toca **Guardar configuración**
 5. Toca **Conceder acceso a notificaciones** → busca "Captura de transacciones" → actívala
 6. Toca **Eximir de optimización de batería** → confirma
@@ -61,7 +61,7 @@ Una vez instalada:
 ## Verificar que funciona
 
 1. Haz una compra con cualquier banco soportado
-2. Abre el Google Sheet → pestaña "Jose" o "Dani"
+2. Abre el Google Sheet → busca la pestaña con tu nombre de usuario
 3. Debe aparecer una fila nueva con `Fuente = notification`
 
 Si aparece `Tipo = NO RECONOCIDO`: el parser no reconoció el texto de la notificación.

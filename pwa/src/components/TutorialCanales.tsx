@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
-import { SmsSetupWizard } from './SmsSetupWizard';
 
 type Platform = 'ios' | 'android';
 
@@ -28,27 +27,28 @@ const CARDS: Card[] = [
   {
     icon: '📱',
     titulo: 'SMS automático',
-    descripcion: 'Captura tus transacciones al instante cuando recibes un SMS de tu banco.',
+    descripcion: 'Cada vez que tu banco te envíe un SMS, la compra se registra sola. No tienes que editar nada dentro del atajo.',
     pasos: [
-      'Abre la app Atajos (Shortcuts) en tu iPhone',
-      'Busca el Shortcut "Finanzas SMS" y agrégalo',
-      'Activa la automatización: que se ejecute cuando recibes un SMS bancario',
-      'Listo — cada pago se registrará solo',
+      'Instala el atajo "Finanzas SMS" con el botón azul de aquí abajo',
+      'Crea una automatización en Atajos para que corra cuando llega un SMS bancario',
+      'La primera vez el atajo te pedirá tu ID (lo copias abajo) — solo una vez',
+      'Listo: cada pago se registra solo',
     ],
     iosPasos: [
-      'Toca "Instalar Shortcut" aquí abajo para agregar el atajo a tu iPhone',
-      'Abre Atajos → Automatización → + → Nueva Automatización → Mensaje',
-      'Escribe "$" en "contiene" — deja "De" en "Cualquiera"',
-      'Activa "Ejecutar inmediatamente" → desactiva "Preguntar antes de ejecutar"',
-      'Toca Siguiente → elige el Shortcut recién instalado → Listo',
+      'Toca el botón azul "Instalar Shortcut" (aquí abajo) y confirma con "Agregar atajo". Ya viene configurado: no pegas ni URL ni contraseña.',
+      'Abre la app Atajos → pestaña Automatización → toca + → Crear automatización personal → Mensaje',
+      'En "Mensaje contiene" escribe el signo $ y deja el remitente en "Cualquiera"',
+      'Activa "Ejecutar inmediatamente" y desactiva "Preguntar antes de ejecutar"',
+      'Toca Siguiente, elige el atajo "Finanzas SMS" y toca Listo',
+      'Cuando llegue tu primer SMS bancario, el atajo abrirá una ventanita pidiendo tu ID: pégalo (lo copias aquí abajo). No tienes que buscar ningún campo dentro del atajo.',
     ],
     androidPasos: [
       'Android no permite a apps de terceros leer SMS bancarios directamente',
       'Usa el canal de Notificaciones push (es el equivalente en Android)',
       'O importa tus movimientos manualmente con el canal de Extracto',
     ],
-    nota: 'Funciona con Bancolombia, Davivienda, Banco de Bogotá e Itaú',
-    iosNota: 'La primera vez que llegue un SMS bancario, el Shortcut te pedirá tu ID (te lo mostramos abajo). ¡Solo una vez! Funciona con cualquier banco.',
+    nota: 'Funciona con cualquier banco que te envíe SMS: reconoce los principales (Bancolombia, Davivienda, Bogotá, Itaú, AV Villas…) y usa IA para el resto.',
+    iosNota: 'No necesitas pegar ninguna URL ni contraseña: el atajo ya viene listo. Solo te pedirá tu ID la primera vez. Funciona con cualquier banco que envíe SMS.',
     androidNota: 'Para Android, el canal recomendado es Notificaciones push.',
   },
   {
@@ -114,7 +114,88 @@ function getNota(card: Card, platform: Platform | null): string | undefined {
   return card.androidNota ?? card.nota;
 }
 
-export function TutorialCanales({ userId, onClose, initialCard, onVerified }: Props) {
+function ShortcutSetup({ userId }: { userId: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function copyId() {
+    navigator.clipboard.writeText(userId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }
+
+  const stepLabel: React.CSSProperties = {
+    fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--blue-700, #1d4ed8)', marginBottom: 8,
+  };
+  const helper: React.CSSProperties = {
+    fontSize: 11, color: 'var(--muted)', lineHeight: 1.5, marginTop: 6,
+  };
+
+  return (
+    <div style={{
+      background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
+      borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      {/* Paso 1 — instalar el atajo */}
+      <div>
+        <div style={stepLabel}>1 · Instala el atajo</div>
+        <motion.a
+          href="https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858"
+          target="_blank"
+          rel="noopener noreferrer"
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            height: 46, background: 'var(--blue-700)', borderRadius: 12, textDecoration: 'none',
+            color: '#fff', fontSize: 'var(--text-base)', fontWeight: 700,
+            fontFamily: 'var(--font-body)',
+          }}
+        >
+          <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
+        </motion.a>
+        <div style={helper}>
+          Ya viene configurado. No tienes que pegar ninguna URL ni contraseña.
+        </div>
+      </div>
+
+      {/* Paso 2 — tu ID */}
+      <div>
+        <div style={stepLabel}>2 · Ten tu ID a la mano</div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'var(--card)', border: '1.5px solid var(--blue-300, #93c5fd)',
+          borderRadius: 10, padding: '10px 14px',
+        }}>
+          <span style={{
+            flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20,
+            color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.06em',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {userId}
+          </span>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={copyId}
+            style={{
+              flexShrink: 0,
+              background: copied ? '#10b981' : 'var(--blue-600)',
+              border: 'none', borderRadius: 7, padding: '4px 10px',
+              color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font-body)', transition: 'background 0.2s', whiteSpace: 'nowrap',
+            }}
+          >
+            {copied ? '✓ Copiado' : 'Copiar ID'}
+          </motion.button>
+        </div>
+        <div style={helper}>
+          El atajo te pedirá este ID en una ventanita la primera vez que llegue un SMS de tu banco. Solo una vez — queda guardado para siempre.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TutorialCanales({ userId, onClose, initialCard, onVerified: _onVerified }: Props) {
   const PLATFORM_KEY = `fm_tutorial_platform_${userId}`;
 
   const [platform, setPlatform] = useState<Platform | null>(() => {
@@ -274,17 +355,17 @@ export function TutorialCanales({ userId, onClose, initialCard, onVerified }: Pr
                     {card.descripcion}
                   </div>
                 </div>
-                {/* Asistente SMS interactivo (iOS + card SMS); el resto usa la lista de pasos */}
-                {platform === 'ios' && idx === 0 ? (
-                  <SmsSetupWizard userId={userId} onVerified={onVerified} />
-                ) : (
-                  <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {getPasos(card, platform).map((paso, i) => (
-                      <li key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
-                        {paso}
-                      </li>
-                    ))}
-                  </ol>
+                <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {getPasos(card, platform).map((paso, i) => (
+                    <li key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', lineHeight: 1.5 }}>
+                      {paso}
+                    </li>
+                  ))}
+                </ol>
+
+                {/* Setup del shortcut — solo iOS + card SMS */}
+                {platform === 'ios' && idx === 0 && (
+                  <ShortcutSetup userId={userId} />
                 )}
 
                 {getNota(card, platform) && (

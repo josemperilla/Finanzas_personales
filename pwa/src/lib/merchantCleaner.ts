@@ -1,7 +1,7 @@
 const NOISE_PATTERNS: RegExp[] = [
   /^(compra en|pago pse|pago en l[ií]nea|compra internet|pago en|compra|pago)\s+/i,
   /\b(bogot[aá]|medell[ií]n|cali|barranquilla|bucaramanga|pereira|armenia|manizales|cartagena)\b/gi,
-  /\*[a-z0-9_\-]+/gi,
+  /\*[a-z0-9_-]+/gi,
   /\b[0-9]{4,}\b/g,
   /\b\d{2}\/\d{2}(\/\d{2,4})?\b/g,
   /\s{2,}/g,

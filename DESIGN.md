@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-La PWA prioriza el registro cotidiano de gastos desde móvil, la lectura rápida del mes y la confianza en cada acción. La evolución conserva la identidad azul/naranja y evita animación decorativa que compita con los datos.
+La PWA prioriza el registro cotidiano de gastos desde móvil, la lectura rápida del mes y la confianza en cada acción. La evolución conserva la identidad azul/naranja y negro con grises para la versión oscura y evita animación decorativa que compita con los datos.
 
 ## Hallazgos
 

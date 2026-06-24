@@ -64,11 +64,10 @@ if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;  // ✓
 - **Error que produce:** build falla con `metadata-generation-failed` compilando pandas. Todo el código nuevo queda sin desplegar.
 
 ### 2.2 ¿Las variables de entorno están en el proyecto correcto?
-Hay dos proyectos de Cloudflare Pages (uno por rama):
-- **`finanzas-personales`** → rama `main` → versión de Dani (estable)
-- **`finanzas-abiertas`** → rama `feat/multi-user` → versión familia/amigos
+Hay un único proyecto de Cloudflare Pages:
+- **`finanzas-abiertas`** → rama `feat/multi-user` → producción
 
-Las variables `WEBHOOK_URL` y `WEBHOOK_SECRET` deben configurarse en **cada proyecto** por separado en Settings → Variables and Secrets.
+Las variables `WEBHOOK_URL` y `WEBHOOK_SECRET` se configuran en Settings → Variables and Secrets.
 - **Error que produce:** `WEBHOOK_URL not configured on server` aunque el usuario jure que las configuró.
 
 ### 2.3 ¿Las variables tienen el nombre correcto (sin prefijo VITE_)?
@@ -141,5 +140,5 @@ function detectBank(sms) {
 - [ ] Script Properties verificadas (5 propiedades, nombres exactos)
 - [ ] Pestañas del Sheet con nombres correctos (`Jose`, `Dani`)
 - [ ] No hay `requirements.txt` en la raíz del repo
-- [ ] Variables en Cloudflare Pages → proyecto correcto (`finanzas-personales` o `finanzas-abiertas`) → Variables and Secrets (sin `VITE_`)
+- [ ] Variables en Cloudflare Pages → proyecto `finanzas-abiertas` → Variables and Secrets (sin `VITE_`)
 - [ ] `testParsers()` pasa para todos los bancos en el editor de Apps Script
