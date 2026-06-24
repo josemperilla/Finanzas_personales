@@ -157,7 +157,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
   const dotColor = status === 'success' ? 'var(--good)'
     : status === 'error' ? '#ef4444'
     : isLocked ? 'var(--muted)'
-    : 'var(--blue)';
+    : 'var(--blue-600)';
 
   return (
     <motion.div
@@ -167,7 +167,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
       transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#0A0D13',
+        background: 'var(--surface)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'space-between',
         padding: 'max(56px, env(safe-area-inset-top)) 32px max(48px, env(safe-area-inset-bottom))',
@@ -183,10 +183,10 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         {/* Brand logo */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 36 }}>
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-            <circle cx="8" cy="11" r="8" fill="#2563EB" />
-            <circle cx="14" cy="11" r="8" fill="#EA580C" fillOpacity="0.85" />
+            <circle cx="8" cy="11" r="8" fill="var(--blue-600)" />
+            <circle cx="14" cy="11" r="8" fill="var(--orange)" fillOpacity="0.85" />
           </svg>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: '#fff', letterSpacing: '-0.01em' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--ink)', letterSpacing: '-0.01em' }}>
             Gestor
           </span>
         </div>
@@ -194,12 +194,12 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         <div style={{
           width: 82, height: 82, borderRadius: '50%',
           margin: '0 auto 18px',
-          background: avatarFailed ? '#1e3a8a' : '#1B212C',
-          border: '3px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
+          background: avatarFailed ? 'var(--blue-100)' : 'var(--card)',
+          border: '3px solid var(--line)',
+          boxShadow: 'var(--shadow-card)',
           overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
+          color: 'var(--blue-600)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28,
         }}>
           {avatarFailed ? (profile?.initial ?? userId.charAt(0).toUpperCase()) : (
             <img
@@ -210,10 +210,10 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
             />
           )}
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: '#F2F4F8', letterSpacing: '-0.01em', marginBottom: 5 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 5 }}>
           Hola, {displayName}
         </div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: '#697084' }}>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
           {isLocked ? `Bloqueado — ${lockSecondsLeft}s` : 'Ingresá tu PIN para continuar'}
         </div>
       </motion.div>
@@ -232,8 +232,8 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
               key={i}
               animate={{
                 scale: digits.length > i ? 1.12 : 1,
-                backgroundColor: digits.length > i ? dotColor : '#222A36',
-                borderColor: digits.length > i ? dotColor : '#222A36',
+                backgroundColor: digits.length > i ? dotColor : 'var(--line)',
+                borderColor: digits.length > i ? dotColor : 'var(--line)',
               }}
               transition={softSpring}
               style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--line)' }}
@@ -244,7 +244,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         <AnimatePresence mode="wait">
           {status === 'validating' && (
             <motion.div key="validating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={quickEase}
-              style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #222A36', borderTopColor: '#3B82F6', animation: 'spin 0.9s linear infinite' }}
+              style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }}
             />
           )}
           {status === 'error' && (
@@ -255,7 +255,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           )}
           {isLocked && status === 'idle' && (
             <motion.span key="locked" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={quickEase}
-              style={{ fontSize: 'var(--text-xs)', color: '#94a3b8', fontFamily: 'var(--font-body)' }}>
+              style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontFamily: 'var(--font-body)' }}>
               Espera {lockSecondsLeft}s para intentar de nuevo
             </motion.span>
           )}
@@ -278,10 +278,10 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
               disabled={isLocked || status !== 'idle'}
               style={{
                 height: 72, borderRadius: 9999,
-                background: key === '⌫' ? 'transparent' : '#1B212C',
-                border: 'none',
-                boxShadow: 'none',
-                color: isLocked ? '#697084' : key === '⌫' ? '#697084' : '#F2F4F8',
+                background: key === '⌫' ? 'transparent' : 'var(--card)',
+                border: key === '⌫' ? 'none' : '1.5px solid var(--line)',
+                boxShadow: key === '⌫' ? 'none' : 'var(--shadow-card)',
+                color: isLocked ? 'var(--muted)' : key === '⌫' ? 'var(--muted)' : 'var(--ink)',
                 fontFamily: key === '⌫' ? 'var(--font-body)' : 'var(--font-display)',
                 fontSize: key === '⌫' ? 22 : 28,
                 fontWeight: key === '⌫' ? 400 : 600,
@@ -307,8 +307,8 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           onClick={handleBioAuth}
           style={{
             width: 56, height: 56, borderRadius: '50%',
-            background: '#1B212C', border: '1.5px solid #222A36',
-            boxShadow: '0 1px 2px rgba(0,0,0,.3), 0 8px 22px rgba(0,0,0,.35)',
+            background: 'var(--card)', border: '1.5px solid var(--line)',
+            boxShadow: 'var(--shadow-card)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', fontSize: 26,
             WebkitTapHighlightColor: 'transparent',
@@ -319,7 +319,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         </motion.button>
       )}
       {bioLoading && (
-        <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid #222A36', borderTopColor: '#3B82F6', animation: 'spin 0.9s linear infinite' }} />
+        <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--line)', borderTopColor: 'var(--blue-600)', animation: 'spin 0.9s linear infinite' }} />
       )}
 
       {/* Biometric registration prompt — shown after first successful PIN */}
@@ -382,7 +382,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         onClick={onSwitchProfile}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: '#697084',
+          fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)',
           padding: '12px 16px', borderRadius: 8, minHeight: 'var(--touch-min)',
           WebkitTapHighlightColor: 'transparent',
         }}
