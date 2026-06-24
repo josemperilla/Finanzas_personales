@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction } from '../lib/api';
+import { Transaction, fetchAnalytics, AnalyticsData } from '../lib/api';
+import { HAS_WEBHOOK_URL } from '../lib/config';
 import { formatCOP } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
@@ -109,6 +110,13 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
   const [compareMode, setCompareMode] = useState(false);
   const [merchantView, setMerchantView] = useState<'amount' | 'count'>('amount');
   const [showHealthDetail, setShowHealthDetail] = useState(false);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analyticsDismissedInflation, setAnalyticsDismissedInflation] = useState(false);
+
+  useEffect(() => {
+    if (!HAS_WEBHOOK_URL || !userId) return;
+    fetchAnalytics(12).then(setAnalytics).catch(() => { /* silencioso: no romper la UI */ });
+  }, [userId]);
 
   const allStats = useMemo(() => computeStats(transactions, activeBank), [transactions, activeBank]);
   const last6 = allStats.slice(-6);
@@ -309,6 +317,41 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
           </motion.div>
         )}
 
+        {/* Inflation Signal Banner */}
+        <AnimatePresence>
+          {analytics?.inflationSignal?.detected && !analyticsDismissedInflation && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={quickEase}
+              style={{ background: 'linear-gradient(135deg, #fef3c7, #fde68a)', borderRadius: 'var(--r-xl)', padding: '14px 16px', marginBottom: 14, boxShadow: '0 2px 12px rgba(245,158,11,0.18)', border: '1px solid #fbbf24' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 3 }}>
+                    Alerta: tu gasto sube cada mes
+                  </div>
+                  <div style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>
+                    {analytics.inflationSignal.message}
+                  </div>
+                  {analytics.inflationSignal.totals.length > 0 && (
+                    <div style={{ display: 'flex', gap: 10, marginTop: 8, overflowX: 'auto' }}>
+                      {analytics.inflationSignal.months.map((m, i) => (
+                        <div key={m} style={{ textAlign: 'center', flexShrink: 0 }}>
+                          <div style={{ fontSize: 10, color: '#92400e', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                            {formatCOP(analytics.inflationSignal.totals[i] || 0)}
+                          </div>
+                          <div style={{ fontSize: 9.5, color: '#b45309' }}>{m.slice(5)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setAnalyticsDismissedInflation(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#b45309', padding: 0, flexShrink: 0, lineHeight: 1 }}>×</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Compare selector */}
         <AnimatePresence>
           {compareMode && (
@@ -463,6 +506,31 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
 
             <SubscripcionesWidget transactions={transactions} />
 
+            {/* Live subscriptions from backend */}
+            {analytics && analytics.subscriptions.length > 0 && (
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
+                  Suscripciones detectadas
+                </div>
+                {analytics.subscriptions.map((s, i) => (
+                  <div key={s.comercio} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.comercio}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                        {formatCOP(s.monthlyAvg)}/mes · {formatCOP(s.annualCost)}/año · {s.occurrences} cobros
+                      </div>
+                    </div>
+                    {s.cancelUrl && (
+                      <a href={s.cancelUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 11, color: 'var(--blue-700)', fontWeight: 600, textDecoration: 'none', padding: '4px 10px', border: '1px solid var(--blue-300)', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        Cancelar
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
             {/* Top merchants */}
             {displayStats.topMerchants.length > 0 && (
               <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
@@ -522,6 +590,36 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
                     );
                   })}
                 </AnimatePresence>
+              </motion.div>
+            )}
+
+            {/* By-Card breakdown from backend */}
+            {analytics && analytics.byCard.length > 0 && (
+              <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
+                  Por tarjeta (12 meses)
+                </div>
+                {analytics.byCard.map((c, i) => {
+                  const topCats = Object.entries(c.categories).sort(([,a],[,b]) => b - a).slice(0, 2);
+                  return (
+                    <div key={c.card} style={{ borderTop: i > 0 ? '1px solid var(--line)' : 'none', padding: '12px 0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{c.banco} ···{c.card.slice(-4)}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{c.count} tx · última: {c.lastActivity?.slice(0,10)}</div>
+                          {topCats.length > 0 && (
+                            <div style={{ fontSize: 10.5, color: 'var(--muted-2)', marginTop: 3 }}>
+                              {topCats.map(([cat, amt]) => `${cat} ${formatCOP(amt)}`).join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{formatCOP(c.total)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </motion.div>
             )}
 
@@ -613,6 +711,63 @@ export function Explorar({ transactions, loading, userId, onViewHistorial }: Pro
             <WeekdayChart transactions={transactions} />
           </motion.div>
         )}
+
+        {/* Hourly Heatmap from backend */}
+        {analytics && Object.keys(analytics.hourlyHeatmap).length > 0 && (() => {
+          const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+          const SLOTS = [
+            { label: 'Madrugada', hours: [0,1,2,3,4,5] },
+            { label: 'Mañana',    hours: [6,7,8,9,10,11] },
+            { label: 'Tarde',     hours: [12,13,14,15,16,17] },
+            { label: 'Noche',     hours: [18,19,20,21,22,23] },
+          ];
+          const hm = analytics.hourlyHeatmap;
+          // slot×day totals
+          const cells: number[][] = SLOTS.map(s =>
+            DAYS.map(d => s.hours.reduce((sum, h) => sum + ((hm[String(h)] || {})[d] || 0), 0))
+          );
+          const maxCell = Math.max(...cells.flat(), 1);
+          return (
+            <motion.div variants={riseItem} style={{ margin: '0 0 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-card)', overflow: 'hidden', padding: '18px 16px' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
+                Cuándo gastas más
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '72px repeat(7, 1fr)', gap: 3 }}>
+                <div />
+                {DAYS.map(d => (
+                  <div key={d} style={{ fontSize: 9.5, color: 'var(--muted)', textAlign: 'center', fontWeight: 600 }}>{d}</div>
+                ))}
+                {SLOTS.map((slot, si) => (
+                  <>
+                    <div key={slot.label} style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center', lineHeight: 1.2 }}>{slot.label}</div>
+                    {DAYS.map((d, di) => {
+                      const val = cells[si][di];
+                      const intensity = val / maxCell;
+                      const alpha = Math.round(intensity * 0.85 * 255).toString(16).padStart(2,'0');
+                      return (
+                        <div key={d}
+                          title={`${slot.label} ${d}: ${formatCOP(val)}`}
+                          style={{
+                            height: 28, borderRadius: 6,
+                            background: val > 0 ? `#6366f1${alpha}` : 'var(--line)',
+                            transition: 'background 0.2s',
+                          }}
+                        />
+                      );
+                    })}
+                  </>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Menos</span>
+                {[0.1, 0.35, 0.6, 0.85].map(a => (
+                  <div key={a} style={{ width: 16, height: 10, borderRadius: 3, background: `rgba(99,102,241,${a})` }} />
+                ))}
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Más</span>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Link al historial completo */}
         {onViewHistorial && (
