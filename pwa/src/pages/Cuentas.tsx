@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
-import { Card, Transaction, fetchCards, saveCard, deleteCard } from '../lib/api';
+import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription } from '../lib/api';
 import { attributeSpend, computeExencion, computeCupo, CardSpend, CupoStatus, ExencionStatus } from '../lib/cardOptimizer';
 import { getCardBenefits } from '../lib/cardCatalog';
+import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { createPortal } from 'react-dom';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Nequi', 'Daviplata', 'AV Villas', 'Occidente', 'Popular', 'dale', 'Rappi', 'Otro'];
@@ -408,6 +409,293 @@ function CardFormSheet({
   );
 }
 
+// ── Fixed Calendar ─────────────────────────────────────────────
+
+const STATUS_ICON: Record<string, string> = { paid: '✅', pending: '⏳', overdue: '⚠️' };
+const STATUS_LABEL: Record<string, string> = { paid: 'Pagado', pending: 'Pendiente', overdue: 'Vencido' };
+const STATUS_COLOR: Record<string, string> = { paid: '#15803d', pending: '#d97706', overdue: '#dc2626' };
+
+interface FixedFormState { nombre: string; monto: string; diaDelMes: string; categoria: string; }
+const emptyFixedForm = (): FixedFormState => ({ nombre: '', monto: '', diaDelMes: '1', categoria: 'Hogar' });
+
+function FixedPaymentForm({ onSave, onClose }: { onSave: (p: FixedPayment) => Promise<void>; onClose: () => void }) {
+  const [form, setForm] = useState<FixedFormState>(emptyFixedForm());
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const monto = Number(form.monto.replace(/\D/g, ''));
+    const dia = Number(form.diaDelMes);
+    if (!form.nombre.trim()) { setErr('Escribe un nombre'); return; }
+    if (!monto || monto <= 0) { setErr('Monto inválido'); return; }
+    if (!dia || dia < 1 || dia > 28) { setErr('Día debe ser 1-28'); return; }
+    setSaving(true);
+    try {
+      await onSave({ nombre: form.nombre.trim(), monto, diaDelMes: dia, categoria: form.categoria, tipo: 'manual' });
+      onClose();
+    } catch (e) {
+      setErr((e as Error).message || 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={softSpring}
+        style={{ width: '100%', maxWidth: 480, background: 'var(--card)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 16 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>Nuevo pago fijo</div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>✕</motion.button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Nombre
+            <input
+              value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
+              placeholder="Arriendo, Netflix, Gym…"
+              style={{ height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Monto aproximado
+            <input
+              value={form.monto} onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
+              placeholder="$0"
+              type="text" inputMode="numeric"
+              style={{ height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Día del mes (1-28)
+            <input
+              value={form.diaDelMes} onChange={e => setForm(p => ({ ...p, diaDelMes: e.target.value }))}
+              type="number" min="1" max="28"
+              style={{ height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Categoría
+            <select
+              value={form.categoria} onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))}
+              style={{ height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' }}
+            >
+              {CATEGORIES.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            </select>
+          </label>
+          {err && <div style={{ fontSize: 13, color: '#ef4444' }}>{err}</div>}
+          <motion.button
+            whileTap={{ scale: 0.97 }} type="submit" disabled={saving}
+            style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+          >
+            {saving ? 'Guardando…' : 'Guardar pago fijo'}
+          </motion.button>
+        </form>
+      </motion.div>
+    </motion.div>,
+    document.body
+  );
+}
+
+function FixedCalendarSection({ userId }: { userId: string }) {
+  const [data, setData] = useState<FixedCalendarData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [suggestions, setSuggestions] = useState<Subscription[]>([]);
+  const [detectingAuto, setDetectingAuto] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const d = await fetchFixedCalendar();
+      setData(d);
+      if (d.autoDetected?.length) setSuggestions(d.autoDetected);
+    } catch (_) {
+      // silently ignore — section is optional
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);
+
+  const handleSave = async (p: FixedPayment) => {
+    await saveFixedPayment(p);
+    await load();
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteFixedPayment(id);
+    setData(prev => prev ? { ...prev, payments: prev.payments.filter(p => p.id !== id) } : prev);
+  };
+
+  const handleDetect = async () => {
+    setDetectingAuto(true);
+    try {
+      const subs = await autoDetectFixed();
+      setSuggestions(subs);
+      setShowSuggestions(true);
+    } catch (_) {
+    } finally {
+      setDetectingAuto(false);
+    }
+  };
+
+  const handleAddSuggestion = async (sub: Subscription) => {
+    await saveFixedPayment({ nombre: sub.comercio, monto: sub.monthlyAvg, diaDelMes: 1, categoria: 'Suscripciones', tipo: 'auto-detected' });
+    setSuggestions(prev => prev.filter(s => s.comercio !== sub.comercio));
+    await load();
+  };
+
+  if (!HAS_WEBHOOK_URL) return null;
+  if (loading) return (
+    <div style={{ marginTop: 32 }}>
+      <div style={{ height: 18, borderRadius: 8, background: 'var(--surface)', width: 160, marginBottom: 12 }} />
+      {[1,2].map(i => <div key={i} style={{ height: 60, borderRadius: 14, background: 'var(--surface)', marginBottom: 8, animation: 'pulse 1.4s ease-in-out infinite' }} />)}
+    </div>
+  );
+
+  const hasPayments = data && data.payments.length > 0;
+  const monthLabel = data?.month ?? '';
+
+  return (
+    <div style={{ marginTop: 36 }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Pagos fijos
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>
+            {monthLabel ? `Mes ${monthLabel.split('-')[1]}/${monthLabel.split('-')[0]}` : 'Este mes'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={handleDetect}
+            disabled={detectingAuto}
+            title="Detectar recurrentes automáticamente"
+            style={{ height: 36, padding: '0 12px', borderRadius: 10, border: '1.5px solid var(--line)', background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)' }}
+          >
+            {detectingAuto ? '…' : '🔍 Detectar'}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowForm(true)}
+            style={{ height: 36, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+          >
+            + Agregar
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Summary bar */}
+      {data && hasPayments && (
+        <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Esperado</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{fmtCOP(data.totalExpected)}</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>Pagado</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d' }}>{fmtCOP(data.totalPaid)}</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: '#d97706', fontWeight: 600 }}>Pendiente</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#d97706' }}>{fmtCOP(data.totalPending)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment list */}
+      {hasPayments ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {data!.payments.map((p: FixedPaymentStatus) => (
+            <motion.div
+              key={p.id}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={quickEase}
+              style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}
+            >
+              <span style={{ fontSize: 22, flexShrink: 0 }}>{STATUS_ICON[p.status]}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Día {p.diaDelMes} · {p.categoria}
+                  {p.tipo === 'auto-detected' && <span style={{ marginLeft: 6, background: 'var(--blue-50)', color: 'var(--blue-600)', borderRadius: 6, padding: '1px 5px', fontSize: 11, fontWeight: 600 }}>Auto</span>}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>{fmtCOP(p.monto)}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLOR[p.status] }}>{STATUS_LABEL[p.status]}</div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => handleDelete(p.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 4, flexShrink: 0 }}
+                title="Eliminar"
+              >
+                ×
+              </motion.button>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '32px 16px', background: 'var(--surface)', borderRadius: 16 }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>📅</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 6 }}>Sin pagos fijos registrados</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+            Agrega arriendo, suscripciones, cuotas u otros pagos mensuales para hacer seguimiento automático.
+          </div>
+        </div>
+      )}
+
+      {/* Auto-detected suggestions */}
+      {suggestions.length > 0 && showSuggestions && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>
+            Detectados automáticamente — ¿agregar al calendario?
+          </div>
+          {suggestions.map(sub => (
+            <div key={sub.comercio} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{sub.comercio}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{fmtCOP(sub.monthlyAvg)}/mes · {sub.occurrences} veces</div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                onClick={() => handleAddSuggestion(sub)}
+                style={{ height: 32, padding: '0 12px', borderRadius: 10, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                + Agregar
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSuggestions(prev => prev.filter(s => s.comercio !== sub.comercio))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20 }}
+              >
+                ×
+              </motion.button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showForm && <FixedPaymentForm onSave={handleSave} onClose={() => setShowForm(false)} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -555,6 +843,9 @@ export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
           ))}
         </motion.div>
       )}
+
+      {/* Fixed Payment Calendar */}
+      <FixedCalendarSection userId={userId} />
 
       <AnimatePresence>
         {(showForm || editCard) && (
