@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { saveTransaction, parseVoice, ManualTransaction, Transaction } from '../lib/api';
-import { CATEGORIES } from '../lib/config';
+import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
@@ -175,12 +175,16 @@ export function Agregar({ onSaved, transactions, userId }: Props) {
     setSaveState('saving');
     let succeeded = false;
     try {
-      await saveTransaction(data);
+      const result = await saveTransaction(data);
       setForm(makeDefaultForm(userId));
       succeeded = true;
       setSaveState('success');
       showToast('Transacción guardada', true);
-      checkBudgetAlert(data.categoria, data.monto);
+      if (HAS_WEBHOOK_URL && result?.budgetAlert) {
+        setBudgetAlert({ cat: result.budgetAlert.category, pct: result.budgetAlert.pct / 100 });
+      } else {
+        checkBudgetAlert(data.categoria, data.monto);
+      }
       checkUnusualAlert(data.categoria);
       await new Promise(resolve => window.setTimeout(resolve, 650));
       await onSaved();

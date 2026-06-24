@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, changePin, updateProfile, getProfileFromServer } from '../lib/api';
+import { Transaction, changePin, updateProfile, getProfileFromServer, fetchCards, fetchCategoryBudgets, setCategoryBudget, deleteCategoryBudget, fetchRules, deleteRule } from '../lib/api';
+import type { Card, CategoryBudgetsData, AutoRule } from '../lib/api';
 import { AdminPanel } from '../components/AdminPanel';
 import { CategorizarModal } from '../components/CategorizarModal';
 import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
-import { TIMEZONE_OPTIONS } from '../lib/utils';
+import { TIMEZONE_OPTIONS, formatCOP } from '../lib/utils';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
@@ -17,7 +18,7 @@ import { resizeImageToAvatar } from '../lib/avatar';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { getLearnedMappings, removeLearnedMapping, clearLearnedMappings } from '../lib/merchantLearning';
 import type { LearnedMapping } from '../lib/merchantLearning';
-import { CATEGORIES } from '../lib/config';
+import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
@@ -45,13 +46,18 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
     () => localStorage.getItem('fm_default_bank') || 'Otro'
   );
 
+  const [cards, setCards] = useState<Card[]>([]);
   const availableBanks = useMemo(() => {
+    if (cards.length > 0) {
+      const banks = [...new Set(cards.map(c => c.banco).filter(Boolean))];
+      return banks.sort((a, b) => a.localeCompare(b, 'es')).concat('Otro');
+    }
     const seen = new Set<string>();
     for (const tx of transactions) {
-      if (tx.Banco && tx.Banco !== 'Otro') seen.add(tx.Banco);
+      if (tx.Banco && tx.Banco !== 'Otro') seen.add(tx.Banco.trim());
     }
     return [...seen].sort((a, b) => a.localeCompare(b, 'es')).concat('Otro');
-  }, [transactions]);
+  }, [cards, transactions]);
 
   const [theme, setTheme] = useState<ThemeMode>(getTheme);
   const [nickname, setNickname] = useState(() => getUserNickname(userId));
@@ -110,6 +116,12 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
       if (data.alertThreshold) setAlertThreshold(String(data.alertThreshold));
       if (data.weeklyDigest != null) setWeeklyDigest(data.weeklyDigest);
     }).catch(() => {}); // fire-and-forget, no token → skip silently
+    if (HAS_WEBHOOK_URL) {
+      fetchCards().then(setCards).catch(() => {});
+      setBudgetsLoading(true);
+      fetchCategoryBudgets().then(setServerBudgets).catch(() => {}).finally(() => setBudgetsLoading(false));
+      fetchRules().then(setServerRules).catch(() => {});
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -177,6 +189,45 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
   }
 
   const [showFotoImport, setShowFotoImport] = useState(false);
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [serverBudgets, setServerBudgets] = useState<CategoryBudgetsData | null>(null);
+  const [budgetsLoading, setBudgetsLoading] = useState(false);
+  const [addingBudget, setAddingBudget] = useState(false);
+  const [newBudgetCat, setNewBudgetCat] = useState('');
+  const [newBudgetAmt, setNewBudgetAmt] = useState('');
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [serverRules, setServerRules] = useState<AutoRule[] | null>(null);
+
+  async function handleDeleteServerBudget(cat: string) {
+    try {
+      await deleteCategoryBudget(currentMonth, cat);
+      setServerBudgets(prev => { if (!prev) return prev; const next = { ...prev }; delete next[cat]; return next; });
+    } catch { /* ignore */ }
+  }
+
+  async function handleSaveServerBudget() {
+    if (!newBudgetCat || !newBudgetAmt) return;
+    const amount = parseInt(newBudgetAmt, 10);
+    if (isNaN(amount) || amount <= 0) return;
+    setBudgetSaving(true);
+    try {
+      await setCategoryBudget(currentMonth, newBudgetCat, amount);
+      const updated = await fetchCategoryBudgets();
+      setServerBudgets(updated);
+      setAddingBudget(false);
+      setNewBudgetCat('');
+      setNewBudgetAmt('');
+    } catch { /* ignore */ }
+    finally { setBudgetSaving(false); }
+  }
+
+  async function handleDeleteServerRule(pattern: string) {
+    try {
+      await deleteRule(pattern);
+      setServerRules(prev => prev ? prev.filter(r => r.pattern !== pattern) : prev);
+    } catch { /* ignore */ }
+  }
 
   function handleBankChange(bank: string) {
     setDefaultBank(bank);
@@ -628,6 +679,123 @@ export function Settings({ userId, transactions, onClose, onProfilesChanged, onC
               </motion.button>
             </div>
           </Section>
+
+          {/* ── Presupuestos por categoría ── */}
+          {HAS_WEBHOOK_URL && (
+            <Section title="Presupuestos del mes">
+              <div style={{ paddingTop: 4, paddingBottom: 4 }}>
+                {budgetsLoading ? (
+                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>Cargando…</p>
+                ) : serverBudgets && Object.keys(serverBudgets).length > 0 ? (
+                  Object.entries(serverBudgets).map(([cat, data]) => {
+                    const pct = Math.min(data.pct, 100);
+                    const barColor = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22c55e';
+                    return (
+                      <div key={cat} style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{cat}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                              {formatCOP(data.spent)} / {formatCOP(data.budget)}
+                            </span>
+                            <motion.button
+                              whileTap={{ scale: 0.88 }}
+                              onClick={() => handleDeleteServerBudget(cat)}
+                              style={{ border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', padding: '2px 4px', fontSize: 13, lineHeight: 1 }}
+                              aria-label={`Eliminar presupuesto ${cat}`}
+                            >✕</motion.button>
+                          </div>
+                        </div>
+                        <div style={{ height: 5, background: 'var(--line)', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 999, transition: 'width 0.5s ease' }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: barColor, marginTop: 3, textAlign: 'right', fontWeight: 600 }}>{pct}%</div>
+                      </div>
+                    );
+                  })
+                ) : !budgetsLoading ? (
+                  <p style={{ margin: '14px 0', fontSize: 13, color: 'var(--muted)' }}>Sin presupuestos para {currentMonth}.</p>
+                ) : null}
+
+                <AnimatePresence>
+                  {addingBudget ? (
+                    <motion.div
+                      key="add-budget-form"
+                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                      transition={quickEase} style={{ overflow: 'hidden' }}
+                    >
+                      <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Categoría</div>
+                          <select
+                            value={newBudgetCat}
+                            onChange={e => setNewBudgetCat(e.target.value)}
+                            style={{ width: '100%', height: 42, padding: '0 10px', background: 'var(--surface)', border: '1.5px solid var(--line)', borderRadius: 10, color: 'var(--ink)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none' }}
+                          >
+                            <option value="">Seleccionar…</option>
+                            {CATEGORIES.filter(c => !serverBudgets || !serverBudgets[c.name]).map(c => (
+                              <option key={c.name} value={c.name}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Presupuesto mensual (COP)</div>
+                          <input
+                            type="number" value={newBudgetAmt} onChange={e => setNewBudgetAmt(e.target.value)}
+                            placeholder="400000"
+                            style={{ width: '100%', height: 42, padding: '0 12px', boxSizing: 'border-box', background: 'var(--surface)', border: '1.5px solid var(--line)', borderRadius: 10, color: 'var(--ink)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <motion.button whileTap={{ scale: 0.97 }} onClick={handleSaveServerBudget} disabled={budgetSaving || !newBudgetCat || !newBudgetAmt}
+                            style={{ flex: 1, height: 40, background: 'var(--blue-700)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: budgetSaving ? 0.6 : 1 }}>
+                            {budgetSaving ? 'Guardando…' : 'Guardar'}
+                          </motion.button>
+                          <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setAddingBudget(false); setNewBudgetCat(''); setNewBudgetAmt(''); }}
+                            style={{ padding: '0 14px', height: 40, border: '1.5px solid var(--line)', borderRadius: 10, background: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            Cancelar
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.button key="add-budget-btn" whileTap={{ scale: 0.97 }} onClick={() => setAddingBudget(true)}
+                      style={{ marginTop: 10, width: '100%', height: 38, border: '1.5px dashed var(--line)', borderRadius: 10, background: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                      + Agregar presupuesto
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Section>
+          )}
+
+          {/* ── Reglas de categorización (servidor) ── */}
+          {HAS_WEBHOOK_URL && serverRules && serverRules.length > 0 && (
+            <Section title={`Reglas aprendidas (${serverRules.length})`}>
+              <div style={{ padding: '4px 0' }}>
+                <p style={{ margin: '0 0 10px', fontSize: 11.5, color: 'var(--muted)' }}>
+                  Reglas automáticas creadas al recategorizar transacciones.
+                </p>
+                {serverRules.map((rule, i) => {
+                  const cat = CATEGORIES.find(c => c.name === rule.category);
+                  const color = cat?.color ?? 'var(--muted)';
+                  return (
+                    <div key={rule.pattern} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < serverRules.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rule.pattern}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          → <span style={{ padding: '1px 8px', borderRadius: 20, background: color + '22', color, fontSize: 12 }}>{rule.category}</span>
+                        </div>
+                      </div>
+                      <motion.button whileTap={{ scale: 0.88 }} onClick={() => handleDeleteServerRule(rule.pattern)}
+                        style={{ border: 'none', background: 'none', color: 'var(--muted)', fontSize: 16, cursor: 'pointer', padding: 6, flexShrink: 0 }}
+                        aria-label="Eliminar regla">🗑</motion.button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           {/* ── Orden de pestañas ── */}
           <Section title="Orden de pestañas">
