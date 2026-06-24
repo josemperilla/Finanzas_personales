@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
+import { SmsSetupWizard } from './SmsSetupWizard';
 
 type Platform = 'ios' | 'android';
 
@@ -114,88 +115,7 @@ function getNota(card: Card, platform: Platform | null): string | undefined {
   return card.androidNota ?? card.nota;
 }
 
-function ShortcutSetup({ userId }: { userId: string }) {
-  const [copied, setCopied] = useState(false);
-
-  function copyId() {
-    navigator.clipboard.writeText(userId).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
-  }
-
-  const stepLabel: React.CSSProperties = {
-    fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--blue-700, #1d4ed8)', marginBottom: 8,
-  };
-  const helper: React.CSSProperties = {
-    fontSize: 11, color: 'var(--muted)', lineHeight: 1.5, marginTop: 6,
-  };
-
-  return (
-    <div style={{
-      background: 'var(--blue-50, #eff6ff)', border: '1px solid var(--blue-200, #bfdbfe)',
-      borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16,
-    }}>
-      {/* Paso 1 — instalar el atajo */}
-      <div>
-        <div style={stepLabel}>1 · Instala el atajo</div>
-        <motion.a
-          href="https://www.icloud.com/shortcuts/57a54a9b81264b9eb74a676be144f858"
-          target="_blank"
-          rel="noopener noreferrer"
-          whileTap={{ scale: 0.97 }}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            height: 46, background: 'var(--blue-700)', borderRadius: 12, textDecoration: 'none',
-            color: '#fff', fontSize: 'var(--text-base)', fontWeight: 700,
-            fontFamily: 'var(--font-body)',
-          }}
-        >
-          <span style={{ fontSize: 18 }}>⬇</span> Instalar Shortcut en iOS
-        </motion.a>
-        <div style={helper}>
-          Ya viene configurado. No tienes que pegar ninguna URL ni contraseña.
-        </div>
-      </div>
-
-      {/* Paso 2 — tu ID */}
-      <div>
-        <div style={stepLabel}>2 · Ten tu ID a la mano</div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: 'var(--card)', border: '1.5px solid var(--blue-300, #93c5fd)',
-          borderRadius: 10, padding: '10px 14px',
-        }}>
-          <span style={{
-            flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20,
-            color: 'var(--blue-700, #1d4ed8)', letterSpacing: '0.06em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {userId}
-          </span>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={copyId}
-            style={{
-              flexShrink: 0,
-              background: copied ? '#10b981' : 'var(--blue-600)',
-              border: 'none', borderRadius: 7, padding: '4px 10px',
-              color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              fontFamily: 'var(--font-body)', transition: 'background 0.2s', whiteSpace: 'nowrap',
-            }}
-          >
-            {copied ? '✓ Copiado' : 'Copiar ID'}
-          </motion.button>
-        </div>
-        <div style={helper}>
-          El atajo te pedirá este ID en una ventanita la primera vez que llegue un SMS de tu banco. Solo una vez — queda guardado para siempre.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function TutorialCanales({ userId, onClose, initialCard, onVerified: _onVerified }: Props) {
+export function TutorialCanales({ userId, onClose, initialCard, onVerified }: Props) {
   const PLATFORM_KEY = `fm_tutorial_platform_${userId}`;
 
   const [platform, setPlatform] = useState<Platform | null>(() => {
@@ -365,7 +285,7 @@ export function TutorialCanales({ userId, onClose, initialCard, onVerified: _onV
 
                 {/* Setup del shortcut — solo iOS + card SMS */}
                 {platform === 'ios' && idx === 0 && (
-                  <ShortcutSetup userId={userId} />
+                  <SmsSetupWizard userId={userId} onVerified={onVerified} />
                 )}
 
                 {getNota(card, platform) && (
