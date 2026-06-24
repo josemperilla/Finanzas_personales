@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
-import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription } from '../lib/api';
+import { Card, Transaction, fetchCards, saveCard, deleteCard, fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, autoDetectFixed, FixedPayment, FixedPaymentStatus, FixedCalendarData, Subscription, fetchNetWorth, saveNetWorthEntry, deleteNetWorthEntry, NetWorthData, NetWorthEntry, fetchCashback, updateCashback, CashbackData } from '../lib/api';
 import { attributeSpend, computeExencion, computeCupo, CardSpend, CupoStatus, ExencionStatus } from '../lib/cardOptimizer';
 import { getCardBenefits } from '../lib/cardCatalog';
 import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
@@ -696,6 +696,395 @@ function FixedCalendarSection({ userId }: { userId: string }) {
   );
 }
 
+// ── Net Worth ──────────────────────────────────────────────────
+
+interface NwFormState { tipo: 'asset' | 'debt'; nombre: string; monto: string; tasaAnual: string; cuotaMensual: string; }
+const emptyNwForm = (tipo: 'asset' | 'debt'): NwFormState => ({ tipo, nombre: '', monto: '', tasaAnual: '', cuotaMensual: '' });
+
+function NetWorthForm({ tipo, onSave, onClose }: { tipo: 'asset' | 'debt'; onSave: (e: NetWorthEntry) => Promise<void>; onClose: () => void }) {
+  const [form, setForm] = useState<NwFormState>(emptyNwForm(tipo));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const isDebt = tipo === 'debt';
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const monto = Number(form.monto.replace(/\D/g, ''));
+    if (!form.nombre.trim()) { setErr('Escribe un nombre'); return; }
+    if (!monto || monto <= 0) { setErr('Monto inválido'); return; }
+    setSaving(true);
+    try {
+      const entry: NetWorthEntry = isDebt
+        ? { tipo, nombre: form.nombre.trim(), saldo: monto,
+            tasaAnual: form.tasaAnual ? Number(form.tasaAnual) : undefined,
+            cuotaMensual: form.cuotaMensual ? Number(form.cuotaMensual.replace(/\D/g, '')) : undefined }
+        : { tipo, nombre: form.nombre.trim(), valor: monto };
+      await onSave(entry);
+      onClose();
+    } catch (e) {
+      setErr((e as Error).message || 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = { height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' };
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={softSpring}
+        style={{ width: '100%', maxWidth: 480, background: 'var(--card)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 16 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>{isDebt ? 'Nueva deuda' : 'Nuevo activo'}</div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>✕</motion.button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Nombre
+            <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
+              placeholder={isDebt ? 'Crédito hipotecario, tarjeta…' : 'Ahorros, apartamento, carro…'} style={inputStyle} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            {isDebt ? 'Saldo pendiente' : 'Valor estimado'}
+            <input value={form.monto} onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
+              placeholder="$0" type="text" inputMode="numeric" style={inputStyle} />
+          </label>
+          {isDebt && (
+            <div style={{ display: 'flex', gap: 12 }}>
+              <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                Tasa anual %
+                <input value={form.tasaAnual} onChange={e => setForm(p => ({ ...p, tasaAnual: e.target.value }))}
+                  placeholder="opcional" type="number" step="0.1" style={inputStyle} />
+              </label>
+              <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                Cuota/mes
+                <input value={form.cuotaMensual} onChange={e => setForm(p => ({ ...p, cuotaMensual: e.target.value }))}
+                  placeholder="opcional" type="text" inputMode="numeric" style={inputStyle} />
+              </label>
+            </div>
+          )}
+          {err && <div style={{ fontSize: 13, color: '#ef4444' }}>{err}</div>}
+          <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={saving}
+            style={{ height: 50, borderRadius: 14, border: 'none', background: isDebt ? '#dc2626' : 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            {saving ? 'Guardando…' : isDebt ? 'Guardar deuda' : 'Guardar activo'}
+          </motion.button>
+        </form>
+      </motion.div>
+    </motion.div>,
+    document.body
+  );
+}
+
+function NetWorthSection({ userId }: { userId: string }) {
+  const [data, setData] = useState<NetWorthData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [formTipo, setFormTipo] = useState<'asset' | 'debt' | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setData(await fetchNetWorth()); } catch (_) {} finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);
+
+  const handleSave = async (entry: NetWorthEntry) => { await saveNetWorthEntry(entry); await load(); };
+  const handleDelete = async (tipo: 'asset' | 'debt', id: string) => {
+    await deleteNetWorthEntry(tipo, id);
+    setData(prev => prev ? {
+      ...prev,
+      assets: tipo === 'asset' ? prev.assets.filter(a => a.id !== id) : prev.assets,
+      debts: tipo === 'debt' ? prev.debts.filter(d => d.id !== id) : prev.debts,
+    } : prev);
+    load();
+  };
+
+  if (!HAS_WEBHOOK_URL) return null;
+  if (loading) return (
+    <div style={{ marginTop: 36 }}>
+      <div style={{ height: 18, borderRadius: 8, background: 'var(--surface)', width: 140, marginBottom: 12 }} />
+      <div style={{ height: 90, borderRadius: 16, background: 'var(--surface)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+    </div>
+  );
+
+  const nw = data?.netWorth ?? 0;
+  const hasEntries = data && (data.assets.length > 0 || data.debts.length > 0);
+
+  return (
+    <div style={{ marginTop: 36 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+        Patrimonio neto
+      </div>
+
+      {/* Hero number */}
+      <div style={{ background: 'var(--grad-brand)', borderRadius: 20, padding: '20px 22px', marginBottom: 14, color: '#fff', boxShadow: 'var(--shadow-blue)' }}>
+        <div style={{ fontSize: 13, opacity: 0.85, fontWeight: 600, marginBottom: 4 }}>Tu patrimonio neto</div>
+        <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.02em' }}>{fmtCOP(nw)}</div>
+        {data && hasEntries && (
+          <div style={{ display: 'flex', gap: 18, marginTop: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 600 }}>Activos</div>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{fmtCOP(data.totalAssets)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 600 }}>Deudas</div>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{fmtCOP(data.totalDebts)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Assets */}
+      {data && data.assets.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d', marginBottom: 8 }}>Activos</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {data.assets.map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px' }}>
+                <div style={{ flex: 1, fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{a.nombre}</div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#15803d' }}>{fmtCOP(a.valor || 0)}</div>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleDelete('asset', a.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 2 }}>×</motion.button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Debts */}
+      {data && data.debts.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 8 }}>Deudas</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {data.debts.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{d.nombre}</div>
+                  {(d.tasaAnual || d.cuotaMensual) && (
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {d.tasaAnual ? `${d.tasaAnual}% E.A.` : ''}{d.tasaAnual && d.cuotaMensual ? ' · ' : ''}{d.cuotaMensual ? `${fmtCOP(d.cuotaMensual)}/mes` : ''}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#dc2626' }}>{fmtCOP(d.saldo || 0)}</div>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => handleDelete('debt', d.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 2 }}>×</motion.button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasEntries && (
+        <div style={{ textAlign: 'center', padding: '20px 16px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+          Registra tus activos (ahorros, propiedades, inversiones) y deudas para ver tu patrimonio neto real.
+        </div>
+      )}
+
+      {/* Add buttons */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <motion.button whileTap={{ scale: 0.96 }} onClick={() => setFormTipo('asset')}
+          style={{ flex: 1, height: 42, borderRadius: 12, border: '1.5px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+          + Activo
+        </motion.button>
+        <motion.button whileTap={{ scale: 0.96 }} onClick={() => setFormTipo('debt')}
+          style={{ flex: 1, height: 42, borderRadius: 12, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#dc2626', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+          + Deuda
+        </motion.button>
+      </div>
+
+      <AnimatePresence>
+        {formTipo && <NetWorthForm tipo={formTipo} onSave={handleSave} onClose={() => setFormTipo(null)} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Cashback / Puntos ──────────────────────────────────────────
+
+interface CbFormState { card: string; banco: string; programa: string; puntos: string; tasaPuntosCOP: string; }
+
+function CashbackForm({ cards, initial, onSave, onClose }: {
+  cards: Card[];
+  initial?: { card: string; banco: string; programa: string; puntos: number; tasaPuntosCOP: number };
+  onSave: (card: string, banco: string, programa: string, puntos: number, tasa: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState<CbFormState>(() => initial
+    ? { card: initial.card, banco: initial.banco, programa: initial.programa, puntos: String(initial.puntos), tasaPuntosCOP: String(initial.tasaPuntosCOP) }
+    : { card: cards[0]?.ultimos4 || '', banco: cards[0]?.banco || '', programa: '', puntos: '', tasaPuntosCOP: '' });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const editing = !!initial;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const card = form.card.trim();
+    const puntos = Number(form.puntos.replace(/\D/g, ''));
+    const tasa = Number(form.tasaPuntosCOP.replace(/[^\d.]/g, ''));
+    if (!card) { setErr('Selecciona o escribe una tarjeta'); return; }
+    if (!form.programa.trim()) { setErr('Escribe el nombre del programa'); return; }
+    setSaving(true);
+    try {
+      await onSave(card, form.banco.trim(), form.programa.trim(), puntos, tasa);
+      onClose();
+    } catch (e) {
+      setErr((e as Error).message || 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = { height: 44, borderRadius: 12, border: '1.5px solid var(--line)', padding: '0 14px', fontSize: 15, background: 'var(--surface)', color: 'var(--ink)', fontFamily: 'var(--font-body)' };
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9990, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={softSpring}
+        style={{ width: '100%', maxWidth: 480, background: 'var(--card)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 16 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>{editing ? 'Editar programa' : 'Nuevo programa de puntos'}</div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>✕</motion.button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Tarjeta
+            {cards.length > 0 && !editing ? (
+              <select value={form.card} onChange={e => {
+                const c = cards.find(x => x.ultimos4 === e.target.value);
+                setForm(p => ({ ...p, card: e.target.value, banco: c?.banco || p.banco }));
+              }} style={inputStyle}>
+                {cards.map(c => <option key={c.id} value={c.ultimos4}>{c.banco} •••• {c.ultimos4}</option>)}
+              </select>
+            ) : (
+              <input value={form.card} onChange={e => setForm(p => ({ ...p, card: e.target.value }))}
+                placeholder="Últimos 4 dígitos" type="text" inputMode="numeric" maxLength={4} disabled={editing} style={{ ...inputStyle, opacity: editing ? 0.6 : 1 }} />
+            )}
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+            Programa
+            <input value={form.programa} onChange={e => setForm(p => ({ ...p, programa: e.target.value }))}
+              placeholder="LifeMiles, Puntos Colombia…" style={inputStyle} />
+          </label>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+              Puntos acumulados
+              <input value={form.puntos} onChange={e => setForm(p => ({ ...p, puntos: e.target.value }))}
+                placeholder="0" type="text" inputMode="numeric" style={inputStyle} />
+            </label>
+            <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+              COP por punto
+              <input value={form.tasaPuntosCOP} onChange={e => setForm(p => ({ ...p, tasaPuntosCOP: e.target.value }))}
+                placeholder="ej. 32" type="text" inputMode="decimal" style={inputStyle} />
+            </label>
+          </div>
+          {err && <div style={{ fontSize: 13, color: '#ef4444' }}>{err}</div>}
+          <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={saving}
+            style={{ height: 50, borderRadius: 14, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </motion.button>
+        </form>
+      </motion.div>
+    </motion.div>,
+    document.body
+  );
+}
+
+function CashbackSection({ cards }: { cards: Card[] }) {
+  const [data, setData] = useState<CashbackData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editKey, setEditKey] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setData(await fetchCashback()); } catch (_) {} finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);
+
+  const handleSave = async (card: string, banco: string, programa: string, puntos: number, tasa: number) => {
+    await updateCashback(card, banco, programa, puntos, tasa);
+    await load();
+  };
+
+  if (!HAS_WEBHOOK_URL) return null;
+  if (loading) return (
+    <div style={{ marginTop: 36 }}>
+      <div style={{ height: 18, borderRadius: 8, background: 'var(--surface)', width: 130, marginBottom: 12 }} />
+      <div style={{ height: 70, borderRadius: 16, background: 'var(--surface)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+    </div>
+  );
+
+  const entries = data ? Object.entries(data.cards) : [];
+  const editInitial = editKey && data ? { card: editKey, ...data.cards[editKey] } : undefined;
+
+  return (
+    <div style={{ marginTop: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Puntos y millas
+          </div>
+          {data && data.totalValueCOP > 0 && (
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{fmtCOP(data.totalValueCOP)} en valor</div>
+          )}
+        </div>
+        <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setEditKey(null); setShowForm(true); }}
+          style={{ height: 36, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--blue-700)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+          + Agregar
+        </motion.button>
+      </div>
+
+      {entries.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {entries.map(([key, c]) => (
+            <motion.button
+              key={key}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => { setEditKey(key); setShowForm(true); }}
+              style={{ textAlign: 'left', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--grad-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 18 }}>✦</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{c.programa}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.banco} •••• {key} · {c.puntos.toLocaleString('es-CO')} pts</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>{fmtCOP(c.valorEnCOP)}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>≈ valor</div>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '24px 16px', background: 'var(--surface)', borderRadius: 16 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>✦</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+            Registra los puntos o millas de tus tarjetas (LifeMiles, Puntos Colombia, etc.) para ver cuánto valen.
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showForm && <CashbackForm cards={cards} initial={editInitial} onSave={handleSave} onClose={() => { setShowForm(false); setEditKey(null); }} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
@@ -846,6 +1235,12 @@ export function Cuentas({ userId, transactions, initialCard, onBack }: Props) {
 
       {/* Fixed Payment Calendar */}
       <FixedCalendarSection userId={userId} />
+
+      {/* Net Worth */}
+      <NetWorthSection userId={userId} />
+
+      {/* Cashback / Points */}
+      <CashbackSection cards={cards} />
 
       <AnimatePresence>
         {(showForm || editCard) && (
