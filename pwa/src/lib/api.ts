@@ -578,3 +578,442 @@ export function getUnknownCards(
   }
   return unknown;
 }
+
+// ── Analytics (Cluster 1) ─────────────────────────────────────
+
+export interface TopMerchant {
+  comercio: string;
+  total: number;
+  count: number;
+  avgTicket: number;
+  categoria: string;
+}
+
+export interface CardAnalytics {
+  card: string;
+  banco: string;
+  total: number;
+  count: number;
+  lastActivity: string;
+  categories: Record<string, number>;
+}
+
+export interface HourlyHeatmap {
+  [hour: string]: Record<string, number>; // hour 0-23 → { Dom, Lun, Mar, Mié, Jue, Vie, Sáb }
+}
+
+export interface Subscription {
+  comercio: string;
+  monthlyAvg: number;
+  annualCost: number;
+  lastSeen: string;
+  occurrences: number;
+  cancelUrl?: string;
+}
+
+export interface InflationSignal {
+  detected: boolean;
+  months: string[];
+  totals: number[];
+  growthRatePct: number | null;
+  message: string | null;
+}
+
+export interface MultiYearMonth {
+  month: string;
+  total: number;
+  byCategory: Record<string, number>;
+}
+
+export interface AnalyticsData {
+  topMerchants: TopMerchant[];
+  byCard: CardAnalytics[];
+  hourlyHeatmap: HourlyHeatmap;
+  temporalMap: Array<{ hour: number; dow: number; avgAmount: number; count: number; topCategory: string }>;
+  subscriptions: Subscription[];
+  inflationSignal: InflationSignal;
+  multiYear: MultiYearMonth[];
+}
+
+export async function fetchAnalytics(months = 12): Promise<AnalyticsData> {
+  assertWebhookUrl();
+  const uid = _activeUserId || localStorage.getItem('fm_profile');
+  const params: Record<string, string> = { action: 'analytics', months: String(months) };
+  if (uid) params.userId = uid;
+  if (_token) params.token = _token;
+  const res = await fetch(secureUrl(WEBHOOK_URL, params));
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar analytics');
+  return json as AnalyticsData;
+}
+
+// ── Fixed Calendar (Cluster 2) ────────────────────────────────
+
+export interface FixedPayment {
+  id?: string;
+  nombre: string;
+  monto: number;
+  diaDelMes: number;
+  categoria: string;
+  activo?: boolean;
+  tipo?: 'manual' | 'auto-detected' | 'utility';
+}
+
+export interface FixedPaymentStatus extends FixedPayment {
+  id: string;
+  tipo: 'manual' | 'auto-detected' | 'utility';
+  status: 'pending' | 'paid' | 'overdue';
+  payDate: string;
+}
+
+export interface FixedCalendarData {
+  month: string;
+  payments: FixedPaymentStatus[];
+  totalExpected: number;
+  totalPaid: number;
+  totalPending: number;
+  autoDetected: Subscription[];
+}
+
+export async function fetchFixedCalendar(month?: string): Promise<FixedCalendarData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getFixedCalendar', ...(month ? { month } : {}) })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar calendario');
+  return json as FixedCalendarData;
+}
+
+export async function saveFixedPayment(payment: FixedPayment): Promise<string> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'saveFixedPayment', payment })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar pago fijo');
+  return json.id as string;
+}
+
+export async function deleteFixedPayment(id: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteFixedPayment', id })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar pago fijo');
+}
+
+export async function autoDetectFixed(): Promise<Subscription[]> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'autoDetectFixed' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al detectar recurrentes');
+  return (json.suggestions || []) as Subscription[];
+}
+
+// ── Rules Engine (Cluster 3) ──────────────────────────────────
+
+export interface AutoRule {
+  pattern: string;
+  category: string;
+  priority: number;
+  createdAt: string;
+}
+
+export async function fetchRules(): Promise<AutoRule[]> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getRules' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar reglas');
+  return (json.data || []) as AutoRule[];
+}
+
+export async function deleteRule(pattern: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteRule', pattern })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar regla');
+}
+
+// ── Category Budgets (Cluster 3) ──────────────────────────────
+
+export interface CategoryBudgetStatus {
+  budget: number;
+  spent: number;
+  pct: number;
+}
+
+export type CategoryBudgetsData = Record<string, CategoryBudgetStatus>;
+
+export async function fetchCategoryBudgets(month?: string): Promise<CategoryBudgetsData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getCategoryBudgets', ...(month ? { month } : {}) })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar presupuestos');
+  const { ok: _ok, ...data } = json;
+  return data as CategoryBudgetsData;
+}
+
+export async function setCategoryBudget(month: string, category: string, amount: number): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'setCategoryBudget', month, category, amount })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar presupuesto');
+}
+
+export async function deleteCategoryBudget(month: string, category: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteCategoryBudget', month, category })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar presupuesto');
+}
+
+// ── Net Worth (Cluster 3) ─────────────────────────────────────
+
+export interface NetWorthEntry {
+  id?: string;
+  tipo: 'asset' | 'debt';
+  nombre: string;
+  valor?: number;
+  saldo?: number;
+  tasaAnual?: number;
+  cuotaMensual?: number;
+  moneda?: string;
+  fecha?: string;
+}
+
+export interface NetWorthData {
+  assets: (NetWorthEntry & { id: string })[];
+  debts: (NetWorthEntry & { id: string })[];
+  netWorth: number;
+  totalAssets: number;
+  totalDebts: number;
+  lastUpdated: string;
+}
+
+export async function fetchNetWorth(): Promise<NetWorthData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getNetWorth' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar net worth');
+  return json as NetWorthData;
+}
+
+export async function saveNetWorthEntry(entry: NetWorthEntry): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'saveNetWorthEntry', ...entry })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar entrada');
+}
+
+export async function deleteNetWorthEntry(tipo: 'asset' | 'debt', id: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'deleteNetWorthEntry', tipo, id })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al eliminar entrada');
+}
+
+// ── Cashback Tracker (Cluster 3) ─────────────────────────────
+
+export interface CashbackCard {
+  banco: string;
+  programa: string;
+  puntos: number;
+  valorEnCOP: number;
+  tasaPuntosCOP: number;
+}
+
+export interface CashbackData {
+  cards: Record<string, CashbackCard>;
+  totalValueCOP: number;
+}
+
+export async function fetchCashback(): Promise<CashbackData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getCashback' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar cashback');
+  return { cards: json.cards || {}, totalValueCOP: json.totalValueCOP || 0 };
+}
+
+export async function updateCashback(
+  card: string, banco: string, programa: string,
+  puntos: number, tasaPuntosCOP: number,
+): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'updateCashback', card, banco, programa, puntos, tasaPuntosCOP })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al actualizar cashback');
+}
+
+// ── Mood Tracker (Cluster 4) ──────────────────────────────────
+
+export interface MoodEntry {
+  date: string;
+  mood: number;
+  note?: string;
+  spentThatWeek?: number;
+}
+
+export interface MoodHistoryData {
+  history: MoodEntry[];
+  correlation: {
+    lowMoodAvgSpend: number | null;
+    highMoodAvgSpend: number | null;
+    insight: string | null;
+  };
+}
+
+export async function saveMood(mood: number, note?: string): Promise<void> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'saveMood', mood, ...(note ? { note } : {}) })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al guardar mood');
+}
+
+export async function fetchMoodHistory(): Promise<MoodHistoryData> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getMoodHistory' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al cargar historial de mood');
+  return json as MoodHistoryData;
+}
+
+// ── AI Coach (Cluster 5) ──────────────────────────────────────
+
+export interface HealthReport {
+  periodo: string;
+  resumenEjecutivo: string;
+  seccion1_gastos: string;
+  seccion2_tendencias: string;
+  seccion3_recomendaciones: string[];
+  proyeccion6meses: string;
+  scoreGeneral: number;
+  generadoEn: string;
+}
+
+export interface CoachInsight {
+  insights: string[];
+  suggestedReto?: {
+    titulo: string;
+    tipo: string;
+    categorias: string[];
+    objetivo: number;
+    razon: string;
+  };
+}
+
+export interface RetoSuggestion {
+  titulo: string;
+  tipo: string;
+  categorias: string[];
+  objetivo: number;
+  razon: string;
+}
+
+export async function generateHealthReport(month?: string): Promise<HealthReport> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'generateHealthReport', ...(month ? { month } : {}) })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al generar reporte');
+  return json.report as HealthReport;
+}
+
+export async function fetchSpendingCoach(months = 3): Promise<CoachInsight> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'spendingCoach', months })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al obtener coach');
+  return json as CoachInsight;
+}
+
+export async function fetchRetoSuggestion(): Promise<RetoSuggestion | null> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'getRetoSuggestion' })),
+  });
+  const json = await res.json();
+  if (!json.ok) return null;
+  return json.suggestedReto as RetoSuggestion | null;
+}
+
+export async function analyzeMoodSpending(): Promise<{ insight: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'analyzeMoodSpending' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error al analizar mood');
+  return { insight: json.insight || '' };
+}
