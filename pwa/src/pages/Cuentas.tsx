@@ -544,6 +544,7 @@ function FixedCalendarSection({ userId }: { userId: string }) {
       setSuggestions(subs);
       setShowSuggestions(true);
     } catch (_) {
+      // auto-detect is best-effort
     } finally {
       setDetectingAuto(false);
     }
@@ -788,7 +789,7 @@ function NetWorthSection({ userId }: { userId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setData(await fetchNetWorth()); } catch (_) {} finally { setLoading(false); }
+    try { setData(await fetchNetWorth()); } catch (_) { /* optional section */ } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);
@@ -1008,7 +1009,7 @@ function CashbackSection({ cards }: { cards: Card[] }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setData(await fetchCashback()); } catch (_) {} finally { setLoading(false); }
+    try { setData(await fetchCashback()); } catch (_) { /* optional section */ } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { if (HAS_WEBHOOK_URL) load(); else setLoading(false); }, [load]);

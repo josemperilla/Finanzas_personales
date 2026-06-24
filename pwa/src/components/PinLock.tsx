@@ -214,7 +214,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
           Hola, {displayName}
         </div>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--muted)' }}>
-          {isLocked ? `Bloqueado — ${lockSecondsLeft}s` : 'Ingresá tu PIN para continuar'}
+          {isLocked ? `Bloqueado — ${lockSecondsLeft}s` : 'Ingresa tu PIN para continuar'}
         </div>
       </motion.div>
 
