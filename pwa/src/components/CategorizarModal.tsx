@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory } from '../lib/api';
+import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { CATEGORIES } from '../lib/config';
 import { formatCOP } from '../lib/utils';
 import { cleanMerchant } from '../lib/merchantCleaner';
@@ -24,6 +25,8 @@ export function CategorizarModal({ transactions, onCategoryChange, onClose }: Pr
   const [index, setIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useOverlayA11y(true, onClose, sheetRef);
 
   const current = pending[index];
   const total = pending.length;
@@ -67,6 +70,10 @@ export function CategorizarModal({ transactions, onCategoryChange, onClose }: Pr
       }}
     >
       <motion.div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Categorizar pendientes"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -89,7 +96,7 @@ export function CategorizarModal({ transactions, onCategoryChange, onClose }: Pr
               {done ? 'Todo listo' : `${index + 1} de ${total}`}
             </div>
           </div>
-          <motion.button type="button" whileTap={{ scale: 0.9 }} onClick={onClose} style={{
+          <motion.button type="button" aria-label="Cerrar" whileTap={{ scale: 0.9 }} onClick={onClose} style={{
             background: 'var(--line)', border: 'none', borderRadius: '50%',
             width: 30, height: 30, cursor: 'pointer', color: 'var(--muted)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,

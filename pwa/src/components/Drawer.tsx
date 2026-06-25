@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
+import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { Icon, IconName } from './ui/icons';
 
 interface Props {
@@ -16,6 +18,9 @@ interface Props {
 
 /** Panel lateral del rediseño Corriente (se abre desde el avatar del topbar). */
 export function Drawer({ open, userId, onClose, onCuentas, onAsistente, onAjustes, onExportar, onUsuarios, onLogout }: Props) {
+  const panelRef = useRef<HTMLElement>(null);
+  useOverlayA11y(open, onClose, panelRef);
+
   const profile = getProfile(userId);
   const customAvatar = getUserAvatar(userId);
   const displayName = getUserNickname(userId) || getDisplayName(userId) || profile?.name || userId;
@@ -38,11 +43,15 @@ export function Drawer({ open, userId, onClose, onCuentas, onAsistente, onAjuste
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
+            aria-hidden="true"
             style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 'var(--z-overlay)' }}
           />
           <motion.aside
+            ref={panelRef}
             initial={{ x: '101%' }} animate={{ x: 0 }} exit={{ x: '101%' }}
             transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            role="dialog"
+            aria-modal="true"
             aria-label="Menú"
             style={{
               position: 'fixed', top: 0, right: 0, bottom: 0,

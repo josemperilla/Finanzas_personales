@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
+import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { formatCOP } from '../lib/utils';
 import { getCategoryColor } from '../lib/config';
 import { softSpring } from '../lib/motion';
@@ -104,7 +105,9 @@ function Confetti() {
 
 export function MonthRecapModal({ transactions, userId, onClose }: Props) {
   const recap = useRef(buildRecap(transactions)).current;
+  const panelRef = useRef<HTMLDivElement>(null);
   const hasData = recap.total > 0;
+  useOverlayA11y(true, onClose, panelRef);
 
   // Auto-dismiss after 12 s if user ignores it
   useEffect(() => {
@@ -128,6 +131,10 @@ export function MonthRecapModal({ transactions, userId, onClose }: Props) {
       }}
     >
       <motion.div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Resumen de ${monthCapitalized}`}
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
