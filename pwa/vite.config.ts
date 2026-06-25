@@ -9,6 +9,21 @@ export default defineConfig({
     css: true,
     globals: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Separa dependencias estables en chunks propios para mejorar el cache
+        // entre deploys: con registerType:'autoUpdate', un update de la app NO
+        // re-descarga react ni framer-motion (solo cambian los chunks de la app).
+        // OJO: forma de objeto a propósito — NO incluir pdfjs-dist aquí (se carga
+        // dinámicamente vía import() y debe quedar en su chunk lazy).
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'framer-motion': ['framer-motion'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
