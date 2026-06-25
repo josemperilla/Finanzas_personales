@@ -23,7 +23,17 @@ Surfaced by: plan-eng-review 2026-06-09 (Test Coverage Gap)
 
 ---
 
-## TODO: Alinear CategoryComparison a baseline de 3 meses
+## ✅ RESUELTO (2026-06-25): Alinear CategoryComparison a baseline de 3 meses
+
+**Implementado.** `getCategoryComparison(txs, monthsBack = 1)` ahora acepta `monthsBack`;
+con valor >1 usa el promedio de los meses previos con gasto (mismo criterio que
+`detectUnusualCategories`). `CategoryComparison.tsx` usa `monthsBack=3` con labels
+honestos ("Prom. 3m", "vs. promedio de los 3 meses previos"). Tests cubren el caso del
+mes anterior atípicamente bajo. Ver commit `feat(analytics): baseline de 3 meses`.
+
+---
+
+<details><summary>Contexto original</summary>
 
 `CategoryComparison` marca `anomaly: delta > 100%` comparando solo con el mes anterior.
 `detectUnusualCategories` usa promedio de los 3 meses anteriores. Ambos usan color naranja
@@ -38,6 +48,8 @@ y usar el promedio, igual que `detectUnusualCategories`. Coordinar con `Category
 **Riesgo:** Cambia el comportamiento visible de la comparativa MoM — evaluar antes de implementar.
 
 Surfaced by: plan-eng-review 2026-06-09 (Outside Voice finding 4)
+
+</details>
 
 ---
 
