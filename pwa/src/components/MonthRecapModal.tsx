@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
@@ -119,7 +120,7 @@ export function MonthRecapModal({ transactions, userId, onClose }: Props) {
 
   const monthCapitalized = recap.monthLabel.charAt(0).toUpperCase() + recap.monthLabel.slice(1);
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -231,6 +232,7 @@ export function MonthRecapModal({ transactions, userId, onClose }: Props) {
           ¡A por este mes!
         </motion.button>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

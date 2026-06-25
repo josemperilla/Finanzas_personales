@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { riseItem, staggerContainer, quickEase, softSpring } from '../lib/motion';
 import { BADGES, getGamification } from '../lib/gamification';
@@ -107,7 +108,8 @@ export function BadgeGallery({ userId }: Props) {
         </div>
       ))}
 
-      {/* Badge detail bottom sheet */}
+      {/* Badge detail bottom sheet — portal: escapa del transform de la página */}
+      {createPortal(
       <AnimatePresence>
         {selectedBadge && selectedData && (
           <>
@@ -192,7 +194,9 @@ export function BadgeGallery({ userId }: Props) {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
+      )}
     </div>
   );
 }

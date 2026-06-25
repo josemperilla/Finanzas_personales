@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { saveTransaction, getToken } from '../lib/api';
 import { quickEase, softSpring } from '../lib/motion';
@@ -121,7 +122,7 @@ export function ImportarExtractoPorFoto({ userId, onClose, onImported }: Props) 
     });
   }
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -377,6 +378,7 @@ export function ImportarExtractoPorFoto({ userId, onClose, onImported }: Props) 
 
         </AnimatePresence>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
