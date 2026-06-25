@@ -26,6 +26,7 @@ import { getMeta } from '../lib/meta';
 import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
 import { getDesafioActual, getDesafioProgress, getDesafioCompletado } from '../lib/desafiosMensuales';
+import { PagosProximosCard } from '../components/PagosProximosCard';
 
 interface Props {
   transactions: Transaction[];
@@ -511,6 +512,16 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
         {!loading && selectedOffset === 0 && (
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <MetaMensualWidget monthTx={monthTx} userId={userId} />
+          </motion.div>
+        )}
+
+        {/* Pagos próximos — 7-day upcoming fixed payments */}
+        {!loading && selectedOffset === 0 && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
+            <PagosProximosCard
+              userId={userId}
+              onGoPagosFijos={() => onQuickNav?.('fixed')}
+            />
           </motion.div>
         )}
 
