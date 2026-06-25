@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction, isIncomeTx } from '../lib/api';
 import { addLearnedMapping, getLearnedMappings, removeLearnedMapping, clearLearnedMappings, LearnedMapping } from '../lib/merchantLearning';
@@ -756,7 +757,11 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
     { label: 'Descripción original', value: tx.Comercio !== cleanName ? tx.Comercio : undefined },
   ].filter(r => r.value);
 
-  return (
+  // Portal a document.body: la página se envuelve en <motion.main> con pageVariants
+  // (transformPerspective), que crea un containing block para position:fixed. Sin el
+  // portal, el sheet se posiciona relativo a la página (alta/scrolleada) y queda fuera
+  // de la pantalla; solo se ve el backdrop. (App.tsx usa el mismo patrón para overlays.)
+  return createPortal(
     <>
       <motion.div onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={quickEase}
@@ -922,7 +927,8 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
           </>
         )}
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }
 
