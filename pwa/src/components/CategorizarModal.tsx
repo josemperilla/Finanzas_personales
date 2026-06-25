@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory } from '../lib/api';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
@@ -58,7 +59,7 @@ export function CategorizarModal({ transactions, onCategoryChange, onClose }: Pr
   const name = current ? (cleanMerchant(current.Comercio) || current.Tipo || '—') : '';
   const domain = current ? getMerchantDomain(name) : null;
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -214,6 +215,7 @@ export function CategorizarModal({ transactions, onCategoryChange, onClose }: Pr
           </AnimatePresence>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { quickEase, softSpring } from '../lib/motion';
 
@@ -134,7 +135,7 @@ export function QrScanner({ onScanned, onClose }: Props) {
     e.target.value = '';
   }
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -277,6 +278,7 @@ export function QrScanner({ onScanned, onClose }: Props) {
           El monto y la fecha se rellenarán automáticamente.
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

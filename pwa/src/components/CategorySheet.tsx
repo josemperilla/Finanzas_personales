@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { formatCOP, formatDateShort } from '../lib/utils';
@@ -110,7 +111,7 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
     boxShadow: 'var(--shadow-card)',
   };
 
-  return (
+  return createPortal(
     <>
       <motion.div
         onClick={onClose}
@@ -339,6 +340,7 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
           )}
         </div>
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { importTransactions, getToken } from '../lib/api';
 import { type ManualTransaction } from '../lib/api';
@@ -286,7 +287,7 @@ export function ImportarExtracto({ userId, onClose, showSkipButton }: Props) {
     awardBadge(userId, 'primer-pdf');
   }
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0, y: '4%' }}
       animate={{ opacity: 1, y: 0 }}
@@ -529,6 +530,7 @@ export function ImportarExtracto({ userId, onClose, showSkipButton }: Props) {
         )}
 
       </AnimatePresence>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
