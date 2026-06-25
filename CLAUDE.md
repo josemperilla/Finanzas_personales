@@ -36,9 +36,29 @@ npm run test     # vitest
 ```
 Detalle completo en `workflows/onboarding.md`.
 
-**Deploy (manual, sin CI todavía):**
-- PWA + functions: `wrangler deploy` (desde la raíz).
-- Backend: `cd apps_script && clasp push`.
+**Deploy — PROTOCOLO CANÓNICO (leer antes de mergear o "deployar"):**
+
+La PWA + Cloudflare Functions se despliegan por **auto-deploy de git** en el proyecto
+Cloudflare Pages `finanzas-abiertas` (git-connected). **NO se usa `wrangler deploy` manual.**
+
+- **`main` es la ÚNICA rama de producción.** Todo push a `origin/main` dispara un build
+  de **Production** → `https://finanzas-abiertas.pages.dev`.
+- **Cualquier otra rama** (feature, `loop/*`, `fix/*`, PRs) dispara un deploy de **Preview**
+  con URL propia (`https://<hash>.finanzas-abiertas.pages.dev`), no público. Sirve para QA.
+- El **CI** (`.github/workflows/ci.yml`) corre lint + build + test en PRs y en push a `main`;
+  no deploya (de eso se encarga Cloudflare).
+- **Backend (Apps Script):** sí es manual → `cd apps_script && clasp push`. No está en git-deploy.
+
+**Guion para CADA sesión de Claude (siempre la misma rama a producción):**
+1. La fuente de verdad es **`origin/main`**, NO el `main` local (este clon está divergido;
+   nunca pushear `main` local ni trabajar sobre él).
+2. Empezar: `git fetch origin && git switch -c <rama> origin/main`.
+3. Hacer cambios en la feature branch, `git push -u origin <rama>` → genera Preview para QA.
+4. Abrir PR **contra `main`** (`gh pr create --base main`). Esperar CI verde.
+5. Mergear el PR a `main` (squash). El merge a `main` es lo que **entra en producción**
+   automáticamente. No hay otro paso de deploy para la PWA.
+6. Si tocaste `apps_script/webhook.gs`: además `cd apps_script && clasp push`.
+7. Nunca crear nuevos proyectos Cloudflare ni cambiar la rama de producción del proyecto.
 
 **Antes de tocar algo:** revisa `workflows/` (SOPs) y declara `apps_script/webhook.gs`
 como fuente de verdad para parsing de bancos (`parseBanco*`) y categorización
