@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Transaction, fetchAnalytics, AnalyticsData } from '../lib/api';
+import { Transaction, fetchAnalytics, AnalyticsData, fetchCards, Card } from '../lib/api';
 import { HAS_WEBHOOK_URL } from '../lib/config';
 import { formatCOP } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
@@ -35,7 +35,21 @@ interface MonthStats {
   topByCount: { name: string; amount: number; count: number }[];
 }
 
-const BANKS = ['Todos', 'Bogotá', 'Itaú', 'Otro'];
+// Construye los chips de banco dinámicamente: unión de los bancos presentes en las
+// transacciones + los de los productos/tarjetas registradas, ordenados por gasto.
+// "Otro" solo aparece si hay transacciones con Banco vacío/desconocido.
+function buildBankList(txs: Transaction[], cards: Card[]): string[] {
+  const spend: Record<string, number> = {};
+  let hasBlank = false;
+  for (const tx of txs) {
+    if (!tx.Banco) { hasBlank = true; continue; }
+    spend[tx.Banco] = (spend[tx.Banco] || 0) + Number(tx['Monto (COP)'] || 0);
+  }
+  const set = new Set<string>(Object.keys(spend));
+  for (const c of cards) if (c.banco) set.add(c.banco);
+  const sorted = [...set].sort((a, b) => (spend[b] || 0) - (spend[a] || 0) || a.localeCompare(b));
+  return ['Todos', ...sorted, ...(hasBlank ? ['Otro'] : [])];
+}
 
 function getMonthKey(dateStr: string): string {
   return (dateStr || '').slice(0, 7);
@@ -56,7 +70,7 @@ function shortLabel(key: string): string {
 
 function computeStats(txs: Transaction[], bank: string): MonthStats[] {
   const filtered = bank === 'Todos' ? txs : txs.filter(tx => {
-    if (bank === 'Otro') return tx.Banco !== 'Bogotá' && tx.Banco !== 'Itaú';
+    if (bank === 'Otro') return !tx.Banco;
     return tx.Banco === bank;
   });
 
@@ -114,12 +128,15 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
   const [showHealthDetail, setShowHealthDetail] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [analyticsDismissedInflation, setAnalyticsDismissedInflation] = useState(false);
+  const [cards, setCards] = useState<Card[]>([]);
 
   useEffect(() => {
     if (!HAS_WEBHOOK_URL || !userId) return;
     fetchAnalytics(12).then(setAnalytics).catch(() => { /* silencioso: no romper la UI */ });
+    fetchCards().then(setCards).catch(() => { /* silencioso: chips caen a solo-transacciones */ });
   }, [userId]);
 
+  const bankList = useMemo(() => buildBankList(transactions, cards), [transactions, cards]);
   const allStats = useMemo(() => computeStats(transactions, activeBank), [transactions, activeBank]);
   const last6 = allStats.slice(-6);
 
@@ -203,7 +220,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
 
         {/* Bank filter chips */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          {BANKS.map(b => {
+          {bankList.map(b => {
             const active = b === activeBank;
             return (
               <motion.button
