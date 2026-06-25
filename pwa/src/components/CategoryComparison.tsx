@@ -24,7 +24,7 @@ function DeltaBadge({ delta }: { delta: number }) {
 }
 
 export function CategoryComparison({ transactions }: Props) {
-  const rows = useMemo(() => getCategoryComparison(transactions), [transactions]);
+  const rows = useMemo(() => getCategoryComparison(transactions, 3), [transactions]);
 
   if (rows.length === 0) {
     return (
@@ -35,19 +35,18 @@ export function CategoryComparison({ transactions }: Props) {
   }
 
   const now = new Date();
-  const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const monthLabel = (d: Date) => d.toLocaleDateString('es-CO', { month: 'short' });
 
   return (
     <div style={{ padding: '16px 18px 18px' }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>
-        Comparativa mes a mes
+        Comparativa vs. promedio (3m)
       </div>
 
       {/* Header row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 64px', gap: 4, padding: '6px 0', borderBottom: '1.5px solid var(--line)', marginBottom: 4 }}>
         <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Categoría</div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textAlign: 'right' }}>{monthLabel(prevDate)}</div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textAlign: 'right' }}>Prom. 3m</div>
         <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textAlign: 'right' }}>{monthLabel(now)}</div>
         <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textAlign: 'right' }}>Δ</div>
       </div>
@@ -90,7 +89,7 @@ export function CategoryComparison({ transactions }: Props) {
       ))}
       {rows.some(r => r.anomaly) && (
         <div style={{ fontSize: 11, color: '#7c2d12', marginTop: 8 }}>
-          ⚠️ = más del doble vs. mes anterior
+          ⚠️ = más del doble vs. promedio de los 3 meses previos
         </div>
       )}
     </div>

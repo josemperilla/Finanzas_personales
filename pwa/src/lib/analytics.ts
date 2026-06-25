@@ -69,26 +69,46 @@ export function detectUnusualCategories(txs: Transaction[]): Set<string> {
 
 export interface CategoryMonthDiff {
   category: string;
-  prev: number;
+  prev: number;    // baseline: con monthsBack=1 es el mes anterior; con >1 es el promedio
   current: number;
-  delta: number; // percentage change, e.g. 50 = +50%
-  anomaly: boolean; // > 100% increase
+  delta: number;   // percentage change, e.g. 50 = +50%
+  anomaly: boolean; // > 100% increase (current > 2× baseline)
 }
 
-export function getCategoryComparison(txs: Transaction[]): CategoryMonthDiff[] {
+// Compara el gasto del mes actual por categoría contra una línea base de los meses
+// previos. `monthsBack=1` (default) compara contra el mes anterior — comportamiento
+// histórico. `monthsBack=3` usa el promedio de los 3 meses previos (igual criterio que
+// detectUnusualCategories), lo que evita falsos positivos cuando el mes anterior fue
+// atípicamente bajo. El promedio se calcula sobre los meses en que la categoría tuvo
+// gasto (no sobre `monthsBack`), idéntico a detectUnusualCategories.
+export function getCategoryComparison(txs: Transaction[], monthsBack = 1): CategoryMonthDiff[] {
   const now = new Date();
   const curYear = now.getFullYear();
   const curMonth = now.getMonth();
-  const prevDate = new Date(curYear, curMonth - 1, 1);
 
   const curTotals = getCategoryTotals(getMonthTransactions(txs, curYear, curMonth));
-  const prevTotals = getCategoryTotals(getMonthTransactions(txs, prevDate.getFullYear(), prevDate.getMonth()));
 
-  const allCats = new Set([...Object.keys(curTotals), ...Object.keys(prevTotals)]);
+  // Totales por categoría de cada uno de los `monthsBack` meses previos.
+  const histTotals: Record<string, number[]> = {};
+  for (let i = 1; i <= monthsBack; i++) {
+    const d = new Date(curYear, curMonth - i, 1);
+    const hist = getCategoryTotals(getMonthTransactions(txs, d.getFullYear(), d.getMonth()));
+    for (const [cat, amt] of Object.entries(hist)) {
+      (histTotals[cat] ||= []).push(amt);
+    }
+  }
+
+  const baselineOf = (cat: string): number => {
+    const hist = histTotals[cat] || [];
+    if (hist.length === 0) return 0;
+    return hist.reduce((s, v) => s + v, 0) / hist.length;
+  };
+
+  const allCats = new Set([...Object.keys(curTotals), ...Object.keys(histTotals)]);
   const rows: CategoryMonthDiff[] = [];
 
   for (const cat of allCats) {
-    const prev = prevTotals[cat] || 0;
+    const prev = baselineOf(cat);
     const current = curTotals[cat] || 0;
     if (prev === 0 && current === 0) continue;
     const delta = prev > 0 ? ((current - prev) / prev) * 100 : (current > 0 ? 100 : 0);
