@@ -39,14 +39,21 @@ export async function onRequest(context) {
     return json({ ok: true, data: [] });
   }
 
+  // Las respuestas de lectura no deben cachearse: el usuario espera ver sus
+  // transacciones más recientes de inmediato (escritas vía SMS/Shortcut/PWA).
+  const NO_STORE = 'no-store, no-cache, must-revalidate';
+
   const jsonRelay = (res, text) => {
     try { JSON.parse(text); } catch (_) {
       return new Response(
         JSON.stringify({ ok: false, error: 'El servidor devolvió una respuesta inválida. Verifica la URL del webhook.' }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } },
+        { status: 502, headers: { 'Content-Type': 'application/json', 'Cache-Control': NO_STORE } },
       );
     }
-    return new Response(text, { status: res.status, headers: { 'Content-Type': 'application/json' } });
+    return new Response(text, {
+      status: res.status,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': NO_STORE },
+    });
   };
 
   try {
@@ -55,8 +62,12 @@ export async function onRequest(context) {
       const target   = new URL(WEBHOOK_URL);
       incoming.searchParams.forEach((v, k) => target.searchParams.set(k, v));
       if (WEBHOOK_SECRET) target.searchParams.set('_secret', WEBHOOK_SECRET);
+      // Cache-buster: con params estables (action+userId+token) la URL no cambia
+      // entre lecturas, así que Cloudflare podría servir transacciones viejas.
+      target.searchParams.set('_cb', Date.now().toString());
 
-      const res = await fetch(target.toString());
+      // cf.cacheTtl: 0 evita que Cloudflare cachee este subrequest a Apps Script.
+      const res = await fetch(target.toString(), { cf: { cacheTtl: 0, cacheEverything: false } });
       return jsonRelay(res, await res.text());
     }
 

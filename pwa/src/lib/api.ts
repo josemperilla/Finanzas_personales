@@ -105,7 +105,7 @@ export function fetchTransactions(): Promise<Transaction[]> {
   const extraParams: Record<string, string> = { action: 'transactions' };
   if (uid) extraParams.userId = uid;
   if (_token) extraParams.token = _token;
-  _inflightFetch = fetch(secureUrl(WEBHOOK_URL, extraParams))
+  _inflightFetch = fetch(secureUrl(WEBHOOK_URL, extraParams), { cache: 'no-store' })
     .then(res => res.json())
     .then(json => {
       if (!json.ok) throw new Error(json.error || 'Error al cargar transacciones');
