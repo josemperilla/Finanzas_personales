@@ -196,8 +196,12 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const recent = useMemo(
     () => [...monthTx]
       .sort((a, b) => {
-        const da = new Date((a.Fecha || a.Timestamp).replace(' ', 'T'));
-        const db = new Date((b.Fecha || b.Timestamp).replace(' ', 'T'));
+        // Ordena por captura (Timestamp), no por la Fecha que reporta el banco:
+        // algunos SMS (p. ej. Itaú) llegan con días de retraso y traen una fecha
+        // de transacción anterior. Sin esto, una transacción recién capturada
+        // queda enterrada bajo las de días previos y "desaparece" del feed.
+        const da = new Date((a.Timestamp || a.Fecha).replace(' ', 'T'));
+        const db = new Date((b.Timestamp || b.Fecha).replace(' ', 'T'));
         return db.getTime() - da.getTime();
       })
       .slice(0, 5),
