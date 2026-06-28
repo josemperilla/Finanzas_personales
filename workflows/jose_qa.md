@@ -26,8 +26,8 @@ ANTHROPIC_API_KEY
 - **Error que produce si falta:** `APP_PIN_jose no configurado en Script Properties`, `Unauthorized`, o `SHEET_ID no configurado`.
 
 ### 1.3 ¿Las pestañas del Sheet tienen el nombre correcto?
-- La pestaña del usuario Jose debe llamarse exactamente `Jose` (capital J).
-- La pestaña de Dani debe llamarse exactamente `Dani`.
+- `doPost`/`_validateUserId` **lowercasean** el `userId` antes de usarlo: la pestaña de cada usuario
+  debe llamarse **exactamente igual que su id en minúsculas** (p. ej. `jose`, `dani`). No usar mayúsculas.
 - **Error que produce si el nombre es incorrecto:** la app muestra 0 transacciones (retorno silencioso de `[]`).
 
 ### 1.4 ¿reverseTransaction tiene null check para el sheet?
@@ -59,15 +59,15 @@ if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;  // ✓
 
 ### 2.1 ¿Hay un `requirements.txt` en la raíz del repo?
 - Si existe `requirements.txt` en la raíz, Cloudflare detecta Python y ejecuta `pip install` en vez de `npm run build`.
-- Los requirements del backend van en `api/requirements.txt`.
-- Los requirements de herramientas van en `tools/requirements.txt`.
+- La capa Python quedó archivada: los requirements están en `archive/api/requirements.txt` y `archive/tools/requirements.txt`. **Nunca** en la raíz.
 - **Error que produce:** build falla con `metadata-generation-failed` compilando pandas. Todo el código nuevo queda sin desplegar.
 
 ### 2.2 ¿Las variables de entorno están en el proyecto correcto?
 Hay un único proyecto de Cloudflare Pages:
-- **`finanzas-abiertas`** → rama `feat/multi-user` → producción
+- **`finanzas-abiertas`** → rama `main` → producción
 
-Las variables `WEBHOOK_URL` y `WEBHOOK_SECRET` se configuran en Settings → Variables and Secrets.
+Las variables `WEBHOOK_URL`, `WEB_SECRET` (canal web / proxy) y `WEBHOOK_SECRET` (canal shortcut) se
+configuran en Settings → Variables and Secrets.
 - **Error que produce:** `WEBHOOK_URL not configured on server` aunque el usuario jure que las configuró.
 
 ### 2.3 ¿Las variables tienen el nombre correcto (sin prefijo VITE_)?
@@ -138,7 +138,7 @@ function detectBank(sms) {
 
 - [ ] Código de Apps Script copiado al editor online y redesplegado
 - [ ] Script Properties verificadas (5 propiedades, nombres exactos)
-- [ ] Pestañas del Sheet con nombres correctos (`Jose`, `Dani`)
+- [ ] Pestañas del Sheet con nombres correctos (`jose`, `dani` — minúsculas, igual que el `userId`)
 - [ ] No hay `requirements.txt` en la raíz del repo
 - [ ] Variables en Cloudflare Pages → proyecto `finanzas-abiertas` → Variables and Secrets (sin `VITE_`)
 - [ ] `testParsers()` pasa para todos los bancos en el editor de Apps Script

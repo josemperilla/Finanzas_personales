@@ -4,6 +4,75 @@
 > `archive/` (ver `archive/README.md`). Los TODOs que dependían de esa capa se marcan
 > `[ARCHIVADO]`. El backend vivo sigue siendo `apps_script/webhook.gs` + Google Sheets.
 
+## Roadmap de ingeniería — audit Founding Staff (2026-06-27)
+
+Priorización por leverage (valor / esfuerzo). Ítems nuevos surgidos de la auditoría documentada en
+`AGENTS.md` + `docs/ARCHITECTURE.md`. **Al resolver uno, márcalo ✅ con commit.**
+
+### P3 — Modelos Claude: centralizar en env + limpiar header obsoleto
+**(No es un bug:** verificado contra docs.claude.com el 2026-06-27 — `claude-opus-4-8`,
+`claude-sonnet-4-6` y `claude-haiku-4-5-20251001` son slugs vigentes y válidos; todos soportan
+visión y documentos. La afirmación anterior de que "no existen y harían 404" era **incorrecta**.)
+Lo que sí vale la pena, como refactor de menor prioridad:
+- **Centralizar el modelo en `env`** (no en el código). Hoy está *hardcodeado* en 4 sitios: `ocr.js`,
+  `extract-pdf.js`, `_callClaudeAI` (fallback) y las llamadas en `_spendingCoach`/`_generateHealthReport`.
+  Mover a `env.CLAUDE_*_MODEL` con fallback al slug actual (cumple `docs/CONVENTIONS.md`: "el modelo va en env").
+- **Quitar `anthropic-beta: pdfs-2024-09-25`** en `extract-pdf.js`: el soporte PDF ya es GA (la doc actual
+  no lo pide). Es peso muerto; no rompe nada dejarlo.
+- **Costo:** `ocr.js` usa Opus (tier más caro) para OCR de recibos. Considerar Sonnet/Haiku (ambos soportan
+  visión) para bajar costo — decisión de producto, evaluar precisión vs precio.
+
+### ✅ RESUELTO (2026-06-27): Drift en `workflows/jose_qa.md`
+`jose_qa.md` decía que los tabs del Sheet debían llamarse `Jose`/`Dani` (capital J) y citaba la rama
+`feat/multi-user`. Corregido: los tabs van en **minúsculas** (igual que el `userId`, que `doPost`/
+`_validateUserId` lowercasean) y prod es `main` → proyecto `finanzas-abiertas`. También se actualizó la
+referencia de `requirements.txt` (`api/`→`archive/api/`) y se agregó `WEB_SECRET` al listado de vars.
+El resto de la checklist sigue siendo válido.
+
+### P1 — Constant-time comparison en `_verifyPin` (security)
+Ya documentado abajo. Implementar `_timingSafeEqual(a,b)` y reemplazar el `===` del digest SHA-256.
+
+### P1 — Tests de integración para `webhook.gs` (28+ paths de seguridad sin cobertura)
+Ya documentado abajo. Harness que llame al endpoint GAS real con `WEBHOOK_SECRET` y verifique los
+contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergency…).
+
+### P2 — Hacer `check-category-drift.mjs` bloqueante en CI
+`.github/workflows/ci.yml` corre el drift con `continue-on-error: true` por el drift conocido de "Bre-B".
+**Cómo:** reconciliar "Bre-B" en `ALLOWED_CATEGORIES` ↔ `detectCategory` ↔ `CATEGORIES` (¿asignarla por
+keyword/campo `Tipo`, o quitarla del picker?) y quitar el `continue-on-error`.
+
+### P2 — Extraer helper `validateToken` compartido (DRY)
+`ocr.js`, `extract-pdf.js` y `shortcut-config.js` repiten el bloque "validar `token` contra GAS
+`validateToken` antes de actuar". **Cómo:** extraer a `functions/api/_auth.js` (`assertSession(env, token)`).
+
+### P3 — Modularizar `webhook.gs` (~3.5k LOC)
+Monolito con ~90 funciones. **Solo abordar si bloquea velocidad** (baja urgencia hoy). `clasp` permite
+varios `.gs` en el mismo proyecto. Corte por dominio: `auth.gs`, `parsers.gs` (`parseX`+`detectBank`+
+`detectCategory`), `sheet.gs` (`_getSheet`/`appendToSheet`/CRUD), `ai.gs`. Mantener `doGet`/`doPost`
+como dispatcher único.
+
+### P3 — Deuda de diseño (`DESIGN.md` §"Inconsistencias")
+Definir `--z-drawer`/`--z-modal`, migrar `zIndex:400` y `--z-drawer, 9999`; añadir `--scrim`; migrar hex
+de estado a tokens semánticos; aplicar `useOverlayA11y` a los sheets heredados restantes. Progresivo.
+
+### P3 — Cobertura de tests del PWA
+Ampliar `vitest` desde funciones puras (`lib/analytics`, parsers clientes, `subscriptions`,
+`gamification`, `healthScore`, `merchantCleaner`) hacia integración (guardar/filtrar/editar/perfil).
+
+---
+
+## Decisiones de arquitectura (vigentes)
+
+- **Backend = GAS + Sheets** (2026-06-05) para 10–15 usuarios. FastAPI/Postgres (`archive/`) se reactiva
+  solo ante los triggers de `archive/README.md`. **No migrar sin disparador.**
+- **Estado por dispositivo:** presupuestos/gamificación/learnings/net worth/cashback viven en
+  `localStorage` (no sincronizan entre dispositivos). Perfil + transacciones + presets sí sincronizan
+  (Script Properties / Sheets). Limitación aceptada.
+- **Sin router lib** en la PWA (tabs manuales con `useState`). Sin tests E2E.
+- **`webhook.gs` es un monolito**; su modularización es P3 (ver arriba).
+
+---
+
 ## TODO: Agregar framework de tests (vitest) al pwa
 
 **Estado (2026-06-21):** vitest YA está configurado (`pwa/vite.config.ts` +
