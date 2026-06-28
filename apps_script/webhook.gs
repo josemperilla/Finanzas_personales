@@ -919,12 +919,19 @@ function doPost(e) {
     }
     if (type === "saveFixedPayment") {
       var fp = payload.payment || {};
-      if (!fp.nombre || !fp.diaDelMes || !fp.monto) return jsonResponse({ ok: false, error: "nombre, diaDelMes y monto requeridos" });
+      // Las facturas de servicios ('utility') pueden no tener monto hasta consultarlo.
+      if (!fp.nombre || !fp.diaDelMes) return jsonResponse({ ok: false, error: "nombre y diaDelMes requeridos" });
+      if (fp.tipo !== "utility" && !fp.monto) return jsonResponse({ ok: false, error: "monto requerido" });
       return jsonResponse(_saveFixedPayment(userId, fp));
     }
     if (type === "deleteFixedPayment") {
       if (!payload.id) return jsonResponse({ ok: false, error: "id requerido" });
       return jsonResponse(_deleteFixedPayment(userId, payload.id));
+    }
+    // Consulta automática (scraping) de un pago tipo 'utility' por su número de cuenta.
+    if (type === "refreshFixedPayment") {
+      if (!payload.id) return jsonResponse({ ok: false, error: "id requerido" });
+      return jsonResponse(_refreshFixedPayment(userId, payload.id));
     }
     if (type === "autoDetectFixed") {
       var detected = _detectRecurring(_getTxnsRange(userId, 6));
@@ -3174,23 +3181,33 @@ function _getFixedCalendar(userId, month) {
   var daysInMonth = new Date(y, m+1, 0).getDate();
 
   var result = payments.filter(function(p){ return p.activo !== false; }).map(function(p) {
-    var payDate = month + '-' + String(p.diaDelMes).padStart(2,'0');
+    // Monto efectivo: el consultado por scraping si existe, si no el estimado.
+    var monto = Number(p.ultimoMonto != null ? p.ultimoMonto : p.monto) || 0;
+    // Fecha de pago: la fecha de vencimiento consultada (si cae en el mes), si no el día fijo.
+    var payDate = (p.ultimaFechaVencimiento && String(p.ultimaFechaVencimiento).slice(0,7) === month)
+      ? p.ultimaFechaVencimiento
+      : month + '-' + String(p.diaDelMes).padStart(2,'0');
     var status = 'pending';
     if (payDate < todayStr) {
       // Look for matching txn (same category, amount ±15%, within ±5 days)
-      var amtLow = p.monto * 0.85, amtHigh = p.monto * 1.15;
+      var amtLow = monto * 0.85, amtHigh = monto * 1.15;
       var dayStart = month + '-' + String(Math.max(1, p.diaDelMes-5)).padStart(2,'0');
       var dayEnd   = month + '-' + String(Math.min(daysInMonth, p.diaDelMes+5)).padStart(2,'0');
-      var match = monthTxns.find(function(t){
-        var monto = Number(t['Monto (COP)'])||0;
+      var match = monto > 0 && monthTxns.find(function(t){
+        var m = Number(t['Monto (COP)'])||0;
         var fecha = String(t.Fecha||'').slice(0,10);
         var catMatch = !p.categoria || t.Categoría === p.categoria;
-        return monto >= amtLow && monto <= amtHigh && fecha >= dayStart && fecha <= dayEnd && catMatch;
+        return m >= amtLow && m <= amtHigh && fecha >= dayStart && fecha <= dayEnd && catMatch;
       });
       status = match ? 'paid' : 'overdue';
     }
-    return { id: p.id, nombre: p.nombre, monto: p.monto, diaDelMes: p.diaDelMes,
-      categoria: p.categoria || 'Hogar', tipo: p.tipo || 'manual', status: status, payDate: payDate };
+    return { id: p.id, nombre: p.nombre, monto: monto, diaDelMes: p.diaDelMes,
+      categoria: p.categoria || 'Hogar', tipo: p.tipo || 'manual', status: status, payDate: payDate,
+      // Campos de servicio público (pasan a la PWA para el tab Facturas):
+      providerId: p.providerId || null, numeroCuenta: p.numeroCuenta || null, urlPago: p.urlPago || null,
+      ultimoMonto: (p.ultimoMonto != null ? p.ultimoMonto : null),
+      ultimaFechaVencimiento: p.ultimaFechaVencimiento || null,
+      ultimaConsulta: p.ultimaConsulta || null };
   });
 
   var totalExpected = result.reduce(function(s,p){ return s+p.monto; },0);
@@ -3206,15 +3223,79 @@ function _getFixedCalendar(userId, month) {
 function _saveFixedPayment(userId, fp) {
   var payments = _getFixedPayments(userId);
   var id = fp.id || Utilities.getUuid();
-  var entry = { id: id, nombre: fp.nombre, monto: Number(fp.monto)||0,
-    diaDelMes: Number(fp.diaDelMes)||1, categoria: fp.categoria || 'Hogar',
-    activo: fp.activo !== false, tipo: fp.tipo || 'manual', creadoEn: new Date().toISOString().slice(0,10) };
   var idx = payments.findIndex ? payments.findIndex(function(p){ return p.id === id; })
     : (function(){ for(var i=0;i<payments.length;i++){ if(payments[i].id===id) return i; } return -1; })();
   if (idx < 0 && payments.length >= 50) return { ok: false, error: 'Máximo 50 pagos fijos' };
+  var prev = idx >= 0 ? payments[idx] : {};
+
+  var entry = { id: id, nombre: fp.nombre, monto: Number(fp.monto)||0,
+    diaDelMes: Number(fp.diaDelMes)||1, categoria: fp.categoria || 'Hogar',
+    activo: fp.activo !== false, tipo: fp.tipo || 'manual',
+    creadoEn: prev.creadoEn || new Date().toISOString().slice(0,10) };
+
+  // Campos de servicio público ('utility'): vienen del form o se preservan del registro previo.
+  entry.providerId   = fp.providerId   !== undefined ? fp.providerId   : prev.providerId;
+  entry.numeroCuenta = fp.numeroCuenta !== undefined ? fp.numeroCuenta : prev.numeroCuenta;
+  entry.urlPago      = fp.urlPago      !== undefined ? fp.urlPago      : prev.urlPago;
+  // Estado de la última consulta automática: no viene del form, se conserva.
+  entry.ultimoMonto            = prev.ultimoMonto;
+  entry.ultimaFechaVencimiento = prev.ultimaFechaVencimiento;
+  entry.ultimaConsulta         = prev.ultimaConsulta;
+
   if (idx >= 0) payments[idx] = entry; else payments.push(entry);
   _saveFixedPayments(userId, payments);
   return { ok: true, id: id };
+}
+
+// ── Consulta automática (scraping) de una factura tipo 'utility' ──────
+// Usa el conector del proveedor (connectors_facturas.gs) para traer monto + vencimiento.
+// Si no hay conector o el portal falla, devuelve ok:false y la UI cae a entrada manual.
+function _refreshFixedPayment(userId, id) {
+  var payments = _getFixedPayments(userId);
+  var idx = -1;
+  for (var i = 0; i < payments.length; i++) { if (payments[i].id === id) { idx = i; break; } }
+  if (idx < 0) return { ok: false, error: 'Factura no encontrada' };
+  var p = payments[idx];
+  if (p.tipo !== 'utility' || !p.providerId) return { ok: false, error: 'Esta factura no admite consulta automática' };
+  if (!p.numeroCuenta) return { ok: false, error: 'Falta el número de cuenta' };
+
+  var res = consultarFactura(p.providerId, p.numeroCuenta); // connectors_facturas.gs
+  p.ultimaConsulta = new Date().toISOString();
+  if (!res || !res.ok) {
+    payments[idx] = p;
+    _saveFixedPayments(userId, payments);
+    return { ok: false, error: (res && res.error) || 'El portal no respondió' };
+  }
+  if (res.monto != null) { p.ultimoMonto = Number(res.monto) || 0; p.monto = p.ultimoMonto; }
+  if (res.fechaVencimiento) {
+    p.ultimaFechaVencimiento = res.fechaVencimiento;
+    var d = parseInt(String(res.fechaVencimiento).slice(8, 10), 10);
+    if (d >= 1 && d <= 28) p.diaDelMes = d; // mantener el día del mes en sync para la tarjeta de Home
+  }
+  payments[idx] = p;
+  _saveFixedPayments(userId, payments);
+
+  // Devolver el pago con estado recalculado (reconciliación) para refrescar la UI.
+  var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var cal = _getFixedCalendar(userId, month);
+  var updated = (cal.payments || []).filter(function(x){ return x.id === id; })[0] || p;
+  return { ok: true, payment: updated };
+}
+
+// Consulta semanal de todas las facturas 'utility' de todos los usuarios (trigger).
+function refreshAllFacturas() {
+  var users = _getAllowedUsers();
+  users.forEach(function(uid) {
+    try {
+      var payments = _getFixedPayments(uid);
+      payments.forEach(function(p) {
+        if (p.tipo === 'utility' && p.providerId && p.numeroCuenta) {
+          try { _refreshFixedPayment(uid, p.id); } catch(e) { Logger.log('Factura ' + p.id + ' (' + uid + '): ' + e); }
+          Utilities.sleep(800); // cortesía con los portales
+        }
+      });
+    } catch(e) { Logger.log('refreshAllFacturas ' + uid + ': ' + e); }
+  });
 }
 
 function _deleteFixedPayment(userId, id) {

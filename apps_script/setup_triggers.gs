@@ -46,6 +46,27 @@ function removeWeeklyBackupTrigger() {
 }
 
 /**
+ * Consulta automática semanal de facturas de servicios públicos ('utility').
+ * Ejecuta refreshAllFacturas() cada lunes a las 7am (Colombia), antes del digest.
+ */
+function setupWeeklyFacturasTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'refreshAllFacturas') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('refreshAllFacturas')
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY)
+    .atHour(7)
+    .inTimezone('America/Bogota')
+    .create();
+
+  Logger.log('✓ Trigger de facturas configurado: lunes 7am Colombia');
+}
+
+/**
  * Lista todos los triggers activos del proyecto (útil para verificar).
  */
 function listTriggers() {

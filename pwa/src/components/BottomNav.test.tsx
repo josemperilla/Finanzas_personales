@@ -9,8 +9,8 @@ describe('BottomNav', () => {
     render(<BottomNav active="home" onChange={tab => { selected = tab; }} />);
 
     expect(screen.getByRole('button', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
-    await user.click(screen.getByRole('button', { name: 'Progreso' }));
-    expect(selected).toBe('progreso');
+    await user.click(screen.getByRole('button', { name: 'Facturas' }));
+    expect(selected).toBe('facturas');
   });
 
   it('announces anomalies on the insights tab', () => {

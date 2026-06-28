@@ -10,6 +10,7 @@ interface Props {
   onClose: () => void;
   onCuentas: () => void;
   onAsistente: () => void;
+  onProgreso: () => void;
   onAjustes: () => void;
   onExportar: () => void;
   onUsuarios: () => void;
@@ -17,7 +18,7 @@ interface Props {
 }
 
 /** Panel lateral del rediseño Corriente (se abre desde el avatar del topbar). */
-export function Drawer({ open, userId, onClose, onCuentas, onAsistente, onAjustes, onExportar, onUsuarios, onLogout }: Props) {
+export function Drawer({ open, userId, onClose, onCuentas, onAsistente, onProgreso, onAjustes, onExportar, onUsuarios, onLogout }: Props) {
   const panelRef = useRef<HTMLElement>(null);
   useOverlayA11y(open, onClose, panelRef);
 
@@ -30,6 +31,7 @@ export function Drawer({ open, userId, onClose, onCuentas, onAsistente, onAjuste
   const items: { icon: IconName; label: string; action: () => void }[] = [
     { icon: 'credit-card', label: 'Cuentas', action: onCuentas },
     { icon: 'message', label: 'Asistente', action: onAsistente },
+    { icon: 'trophy', label: 'Progreso', action: onProgreso },
     { icon: 'settings', label: 'Ajustes', action: onAjustes },
     { icon: 'download', label: 'Exportar datos', action: onExportar },
     { icon: 'users', label: 'Administrar usuarios', action: onUsuarios },

@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { softSpring } from '../lib/motion';
 import { Icon, IconName } from './ui/icons';
 
-export type Tab = 'home' | 'progreso' | 'agregar' | 'misiones' | 'explorar' | 'historial' | 'chat' | 'cuentas';
+export type Tab = 'home' | 'progreso' | 'agregar' | 'misiones' | 'explorar' | 'historial' | 'chat' | 'cuentas' | 'facturas';
 
 interface Props {
   active: Tab;
@@ -17,7 +17,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'home',      label: 'Inicio',      icon: 'home' },
   { id: 'historial', label: 'Movimientos', icon: 'list' },
   { id: 'explorar',  label: 'Insights',    icon: 'bar-chart' },
-  { id: 'progreso',  label: 'Progreso',    icon: 'trophy' },
+  { id: 'facturas',  label: 'Facturas',    icon: 'receipt' },
 ];
 
 export function BottomNav({ active, onChange, accessibleMode = false, hasAnomaly }: Props) {
