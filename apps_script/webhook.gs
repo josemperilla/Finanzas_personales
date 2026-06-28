@@ -1335,8 +1335,6 @@ function handleChat(question, context) {
 // ── Veto rules — messages silently ignored, never written to Sheet ────────────
 // Add a regex per pattern you want to exclude.
 var VETO_RULES = [
-  // Itaú outbound transfer from savings account (e.g. rent payment)
-  /Se realizo\s+Transferencia\s+de tu\s+Cuenta de Ahorros/i,
   // AV Villas — login / security notifications (not transactions)
   /AVVillas\..*iniciado\s+sesion/i,
   /AVVillas\..*Audiovillas/i,
@@ -1644,7 +1642,8 @@ function parseItau(sms) {
     };
   }
 
-  var reDebit = /Se realizo un\s+(\w+)\s+de tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
+  // Acepta "un debito", "un retiro" y "una Transferencia" desde la cuenta.
+  var reDebit = /Se realizo una?\s+(\w+)\s+de tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
   var md = sms.match(reDebit);
   if (md) {
     return {
@@ -2667,6 +2666,7 @@ function testParsers() {
   var smsBogota       = "Banco de Bogota: Tu compra por 130,456 fue aprobada con Tarjeta Cr\u00e9dito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB DE BOGOTA ¿Dudas? Llama a la Servilinea";
   var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
   var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
+  var smsItauTransfer = "Se realizo una Transferencia de tu Cuenta de Ahorros ****8448 por $240,000 el 2026/06/27 18:30:00 ITAU Tel: 5818181 Bta o 018000512633 Nal";
   var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
   var smsDaviReversed = "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            .";
   var smsBancoPSE     = "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19. ¿Dudas? Llamanos al 6045109095. Estamos cerca";
@@ -2675,6 +2675,7 @@ function testParsers() {
   Logger.log("Bogotá:           " + JSON.stringify(parseBogota(smsBogota)));
   Logger.log("Itaú card:        " + JSON.stringify(parseItau(smsItauCard)));
   Logger.log("Itaú debit:       " + JSON.stringify(parseItau(smsItauDebit)));
+  Logger.log("Itaú transfer:    " + JSON.stringify(parseItau(smsItauTransfer)));
   Logger.log("Davivienda compra:" + JSON.stringify(parseDavivienda(smsDaviApproved)));
   Logger.log("Davivienda reversa:" + JSON.stringify(parseDavivienda(smsDaviReversed)));
   Logger.log("Bancolombia PSE:  " + JSON.stringify(parseBancolombia(smsBancoPSE)));
