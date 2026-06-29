@@ -38,6 +38,7 @@ const Explorar = lazy(() => import('./pages/Explorar').then(m => ({ default: m.E
 const Chat     = lazy(() => import('./pages/Chat').then(m => ({ default: m.Chat })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const Cuentas  = lazy(() => import('./pages/Cuentas').then(m => ({ default: m.Cuentas })));
+const Facturas = lazy(() => import('./pages/Facturas').then(m => ({ default: m.Facturas })));
 
 function PageFallback() {
   return (
@@ -391,6 +392,9 @@ export default function App() {
             {tab === 'progreso' && userId && (
               <Progreso userId={userId} transactions={transactions} />
             )}
+            {tab === 'facturas' && userId && (
+              <Facturas userId={userId} />
+            )}
             {tab === 'misiones' && userId && (
               <Misiones
                 transactions={transactions}
@@ -482,6 +486,7 @@ export default function App() {
           onClose={() => setDrawerOpen(false)}
           onCuentas={() => { setInitialUnknownCard(undefined); setTab('cuentas'); }}
           onAsistente={() => setTab('chat')}
+          onProgreso={() => setTab('progreso')}
           onAjustes={() => setShowSettings(true)}
           onExportar={() => exportToCSV(transactions)}
           onUsuarios={() => setShowSettings(true)}

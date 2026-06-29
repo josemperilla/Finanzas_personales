@@ -658,6 +658,14 @@ export interface FixedPayment {
   categoria: string;
   activo?: boolean;
   tipo?: 'manual' | 'auto-detected' | 'utility';
+  // ── Servicio público (tipo 'utility') ──────────────────────
+  providerId?: string;       // id del catálogo (providers.ts)
+  numeroCuenta?: string;     // cuenta/contrato para la consulta automática
+  urlPago?: string;          // deep-link al portal de pago
+  // Estado de la última consulta automática (scraping):
+  ultimoMonto?: number;
+  ultimaFechaVencimiento?: string; // YYYY-MM-DD
+  ultimaConsulta?: string;         // ISO; null si nunca se consultó
 }
 
 export interface FixedPaymentStatus extends FixedPayment {
@@ -709,6 +717,23 @@ export async function deleteFixedPayment(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'Error al eliminar pago fijo');
+}
+
+/**
+ * Dispara la consulta automática (scraping) de un pago tipo 'utility' y devuelve el pago
+ * actualizado con monto + fecha de vencimiento consultados. Si el portal no se deja
+ * consultar, el backend devuelve un error y la UI cae a entrada manual.
+ */
+export async function refreshFactura(id: string): Promise<{ ok: boolean; payment?: FixedPaymentStatus; error?: string }> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'refreshFixedPayment', id })),
+  });
+  const json = await res.json();
+  if (!json.ok) return { ok: false, error: json.error || 'No se pudo consultar' };
+  return { ok: true, payment: json.payment as FixedPaymentStatus };
 }
 
 export async function autoDetectFixed(): Promise<Subscription[]> {

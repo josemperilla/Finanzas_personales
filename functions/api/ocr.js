@@ -65,7 +65,9 @@ export async function onRequest(context) {
   const imageMediaType = ALLOWED_MEDIA_TYPES.includes(mediaType) ? mediaType : 'image/jpeg';
 
   const claudeBody = {
-    model: 'claude-opus-4-8',
+    // OCR de recibo = dato estructurado simple: Haiku lee igual de bien que Opus y cuesta ~25x menos.
+    // (Si la precisión bajara en recibos complejos, subir a 'claude-sonnet-4-6' sigue siendo ~10x más barato que Opus.)
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [
       {
