@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Finanzas — Captura de Facturas",
+  "version": "0.1.0",
+  "description": "Lee el monto y la fecha de vencimiento de tu factura en el portal del proveedor (tu sesión) y la envía a tu app de Finanzas.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://finanzas-abiertas.pages.dev/*"],
+  "action": { "default_popup": "popup.html", "default_title": "Capturar factura" },
+  "options_page": "options.html"
+}

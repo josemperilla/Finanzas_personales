@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, refreshFactura,
+  fetchFixedCalendar, saveFixedPayment, deleteFixedPayment, refreshFactura, issueExtToken,
   FixedPayment, FixedPaymentStatus, FixedCalendarData,
 } from '../lib/api';
 import { HAS_WEBHOOK_URL, CATEGORIES } from '../lib/config';
@@ -42,6 +42,18 @@ export function Facturas({ userId }: Props) {
   const [editing, setEditing] = useState<FixedPaymentStatus | null>(null);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [extOpen, setExtOpen] = useState(false);
+  const [extToken, setExtToken] = useState<string | null>(null);
+  const [extLoading, setExtLoading] = useState(false);
+
+  const openExt = useCallback(async () => {
+    setExtOpen(true);
+    if (extToken) return;
+    setExtLoading(true);
+    try { setExtToken(await issueExtToken()); }
+    catch { setExtToken(null); }
+    finally { setExtLoading(false); }
+  }, [extToken]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,7 +116,7 @@ export function Facturas({ userId }: Props) {
 
   return (
     <div className="app-page" style={pageStyle}>
-      <Header onAdd={() => { setEditing(null); setShowForm(true); }} />
+      <Header onAdd={() => { setEditing(null); setShowForm(true); }} onExt={openExt} />
 
       {loading ? (
         <div style={{ marginTop: 16 }}>
@@ -207,6 +219,10 @@ export function Facturas({ userId }: Props) {
       </AnimatePresence>
 
       <AnimatePresence>
+        {extOpen && <ExtModal token={extToken} loading={extLoading} onClose={() => setExtOpen(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {toast && (
           <motion.div
             key="toast"
@@ -222,7 +238,7 @@ export function Facturas({ userId }: Props) {
 }
 
 // ── Header ────────────────────────────────────────────────────
-function Header({ onAdd, disabled }: { onAdd: () => void; disabled?: boolean }) {
+function Header({ onAdd, onExt, disabled }: { onAdd: () => void; onExt?: () => void; disabled?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
       <div>
@@ -234,9 +250,16 @@ function Header({ onAdd, disabled }: { onAdd: () => void; disabled?: boolean }) 
         </h1>
       </div>
       {!disabled && (
-        <motion.button whileTap={{ scale: 0.93 }} onClick={onAdd} style={addBtnStyle}>
-          + Agregar
-        </motion.button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {onExt && (
+            <motion.button whileTap={{ scale: 0.93 }} onClick={onExt} style={ghostBtnStyle} title="Conectar extensión de navegador">
+              🧩 Extensión
+            </motion.button>
+          )}
+          <motion.button whileTap={{ scale: 0.93 }} onClick={onAdd} style={addBtnStyle}>
+            + Agregar
+          </motion.button>
+        </div>
       )}
     </div>
   );
@@ -426,6 +449,46 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Hint({ children }: { children: React.ReactNode }) {
   return <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400, lineHeight: 1.4 }}>{children}</span>;
+}
+
+function ExtModal({ token, loading, onClose }: { token: string | null; loading: boolean; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useOverlayA11y(true, onClose, panelRef);
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    if (!token) return;
+    navigator.clipboard?.writeText(token)
+      .then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1800); })
+      .catch(() => {});
+  };
+  return createPortal(
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={scrimStyle}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-label="Conectar extensión"
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={softSpring} style={sheetStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--ink)' }}>Conectar extensión</div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} aria-label="Cerrar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22 }}>✕</motion.button>
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.5, marginTop: 12 }}>
+          La extensión lee el monto y la fecha de tu factura en el portal del proveedor (tu sesión) y los envía aquí.
+          Instálala (carpeta <b>extension/</b>, modo desarrollador en Chrome), abre sus <b>Opciones</b> y pega este token:
+        </p>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <input readOnly value={loading ? 'Generando…' : (token || 'Error al generar')} onFocus={e => e.target.select()}
+            style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12.5 }} />
+          <motion.button whileTap={{ scale: 0.95 }} onClick={copy} disabled={!token} style={payBtnStyle}>
+            {copied ? '✓' : 'Copiar'}
+          </motion.button>
+        </div>
+        <p style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4, marginTop: 10 }}>
+          Primero agrega aquí la factura del proveedor (para que la extensión sepa a cuál corresponde).
+          Generar un token nuevo invalida el anterior.
+        </p>
+      </motion.div>
+    </motion.div>,
+    document.body
+  );
 }
 
 // ── Estilos (tokens CSS) ──────────────────────────────────────
