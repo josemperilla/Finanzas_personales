@@ -315,6 +315,21 @@ function _userFromToken(token) {
   cache.put("tok_" + token, uid, 21600); // refresco deslizante mientras este activo
   return uid;
 }
+// Token de larga duración para la extensión de navegador (persistente en Script
+// Properties, no expira como el de sesión). Rotación: emitir invalida el anterior.
+function _issueExtToken(userId) {
+  var props = PropertiesService.getScriptProperties();
+  var old = props.getProperty("EXT_TOKEN_" + userId);
+  if (old) props.deleteProperty("EXT_TOK_" + old);
+  var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+  props.setProperty("EXT_TOKEN_" + userId, token);
+  props.setProperty("EXT_TOK_" + token, String(userId));
+  return token;
+}
+function _userFromExtToken(token) {
+  if (!token) return null;
+  return PropertiesService.getScriptProperties().getProperty("EXT_TOK_" + token) || null;
+}
 // Resuelve el userId AUTENTICADO. Token valido -> ese usuario. Sin token pero
 // canal "shortcut" (dispositivo de confianza) -> se acepta el userId
 // auto-declarado. Canal "web" sin token -> null (no autenticado).
@@ -475,6 +490,16 @@ function doPost(e) {
       // Consumir la invitacion redimida (un solo uso).
       if (matchCode) { invMap[matchCode].used = true; invMap[matchCode].usedAt = nowMs; _saveInvites(invMap); }
       return jsonResponse({ ok: true, token: _issueToken(claimedUserId) });
+    }
+
+    // ── Ingesta de factura desde la extensión de navegador ───────────────
+    // Corre en la sesión autenticada del usuario en el portal; se autentica con
+    // su propio token de larga duración (no el de sesión). Por eso va antes del gate.
+    if (type === "ingestFactura") {
+      var extUid = _userFromExtToken(payload.extToken);
+      if (!extUid) return jsonResponse({ ok: false, error: "Token de extensión inválido" });
+      _validateUserId(extUid);
+      return jsonResponse(_ingestFactura(extUid, payload));
     }
 
     // -- A partir de aqui toda accion exige autenticacion real --
@@ -932,6 +957,10 @@ function doPost(e) {
     if (type === "refreshFixedPayment") {
       if (!payload.id) return jsonResponse({ ok: false, error: "id requerido" });
       return jsonResponse(_refreshFixedPayment(userId, payload.id));
+    }
+    // Emite el token de larga duración para emparejar la extensión de navegador.
+    if (type === "issueExtToken") {
+      return jsonResponse({ ok: true, extToken: _issueExtToken(userId) });
     }
     if (type === "autoDetectFixed") {
       var detected = _detectRecurring(_getTxnsRange(userId, 6));
@@ -3297,6 +3326,38 @@ function refreshAllFacturas() {
       });
     } catch(e) { Logger.log('refreshAllFacturas ' + uid + ': ' + e); }
   });
+}
+
+// Actualiza la factura (FixedPayment) de un proveedor con el monto + vencimiento que la
+// extensión de navegador leyó de la página del portal en la sesión del usuario.
+function _ingestFactura(userId, payload) {
+  var providerId = payload.providerId || "";
+  if (!providerId) return { ok: false, error: "providerId requerido" };
+  var monto = (payload.monto != null && payload.monto !== "") ? Number(payload.monto) : null;
+  var venc  = payload.fechaVencimiento || null; // 'YYYY-MM-DD'
+  if ((monto == null || isNaN(monto)) && !venc) return { ok: false, error: "Nada que actualizar" };
+
+  var payments = _getFixedPayments(userId);
+  var idx = -1;
+  for (var i = 0; i < payments.length; i++) {
+    if (payments[i].providerId !== providerId) continue;
+    // Si la extensión leyó el número de cuenta, exigir que coincida cuando ambos existen.
+    if (payload.numeroCuenta && payments[i].numeroCuenta && payments[i].numeroCuenta !== String(payload.numeroCuenta)) continue;
+    idx = i; break;
+  }
+  if (idx < 0) return { ok: false, error: "No hay una factura registrada para ese proveedor (agrégala primero en el app)" };
+
+  var p = payments[idx];
+  if (monto != null && !isNaN(monto)) { p.ultimoMonto = monto; p.monto = monto; }
+  if (venc) {
+    p.ultimaFechaVencimiento = venc;
+    var d = parseInt(String(venc).slice(8, 10), 10);
+    if (d >= 1 && d <= 28) p.diaDelMes = d;
+  }
+  p.ultimaConsulta = new Date().toISOString();
+  payments[idx] = p;
+  _saveFixedPayments(userId, payments);
+  return { ok: true, factura: { id: p.id, nombre: p.nombre, monto: p.monto, ultimaFechaVencimiento: p.ultimaFechaVencimiento || null } };
 }
 
 function _deleteFixedPayment(userId, id) {

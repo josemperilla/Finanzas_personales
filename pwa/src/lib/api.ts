@@ -736,6 +736,19 @@ export async function refreshFactura(id: string): Promise<{ ok: boolean; payment
   return { ok: true, payment: json.payment as FixedPaymentStatus };
 }
 
+/** Genera el token de larga duración para emparejar la extensión de navegador. */
+export async function issueExtToken(): Promise<string> {
+  assertWebhookUrl();
+  const res = await fetch(secureUrl(WEBHOOK_URL), {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(withUser({ type: 'issueExtToken' })),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'No se pudo generar el token');
+  return json.extToken as string;
+}
+
 export async function autoDetectFixed(): Promise<Subscription[]> {
   assertWebhookUrl();
   const res = await fetch(secureUrl(WEBHOOK_URL), {
