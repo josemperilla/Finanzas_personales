@@ -41,7 +41,7 @@ contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergenc
 **Cómo:** reconciliar "Bre-B" en `ALLOWED_CATEGORIES` ↔ `detectCategory` ↔ `CATEGORIES` (¿asignarla por
 keyword/campo `Tipo`, o quitarla del picker?) y quitar el `continue-on-error`.
 
-### P2 — Extraer helper `validateToken` compartido (DRY)
+### 🔄 P2 — Extraer helper `validateToken` compartido (DRY) — PR abierta: #33
 `ocr.js`, `extract-pdf.js` y `shortcut-config.js` repiten el bloque "validar `token` contra GAS
 `validateToken` antes de actuar". **Cómo:** extraer a `functions/api/_auth.js` (`assertSession(env, token)`).
 
