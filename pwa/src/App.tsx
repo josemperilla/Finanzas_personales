@@ -5,7 +5,7 @@ import { BottomNav, Tab } from './components/BottomNav';
 import FlowBackground from './components/FlowBackground';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, Card, getUnknownCards } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, saveCard, Card, getUnknownCards } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
@@ -18,6 +18,7 @@ import { TutorialCanales } from './components/TutorialCanales';
 import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { Drawer } from './components/Drawer';
+import { missingPersonalProducts } from './lib/personalProducts';
 import { Icon } from './components/ui/icons';
 import { exportToCSV } from './lib/export';
 import { BalanceWidget } from './components/BalanceWidget';
@@ -163,9 +164,15 @@ export default function App() {
   const loadCards = useCallback(async () => {
     try {
       const data = await fetchCards();
+      const missing = userId ? missingPersonalProducts(userId, data) : [];
+      if (missing.length > 0) {
+        await Promise.all(missing.map(card => saveCard(card)));
+        setCards([...data, ...missing]);
+        return;
+      }
       setCards(data);
     } catch { /* silently ignore card fetch errors */ }
-  }, []);
+  }, [userId]);
 
   const load = useCallback(async () => {
     setLoading(true);
