@@ -56,8 +56,9 @@ Definir `--z-drawer`/`--z-modal`, migrar `zIndex:400` y `--z-drawer, 9999`; aña
 de estado a tokens semánticos; aplicar `useOverlayA11y` a los sheets heredados restantes. Progresivo.
 
 ### P3 — Cobertura de tests del PWA
-Ampliar `vitest` desde funciones puras (`lib/analytics`, parsers clientes, `subscriptions`,
-`gamification`, `healthScore`, `merchantCleaner`) hacia integración (guardar/filtrar/editar/perfil).
+🔄 PR abierta: #38 (funciones puras: `lib/analytics`, `subscriptions`, `gamification`,
+`healthScore`, `merchantCleaner`, `api.ts`; 51→117 tests). Pendiente: la mitad de
+integración (guardar/filtrar/editar/perfil) sigue sin cubrir — queda para otra pasada.
 
 ---
 
