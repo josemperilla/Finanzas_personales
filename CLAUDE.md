@@ -14,9 +14,8 @@
 (`apps_script/webhook.gs`) → Google Sheets (un tab por usuario). `archive/` = capa Python legacy
 (no desplegada, recuperable bajo triggers).
 
-**Comandos:** `cd pwa && npm run dev|build|test|lint`. Deploy: automático al mergear a `main`
-(Cloudflare Pages git-connected, sin `wrangler deploy` manual); backend: `cd apps_script && clasp push`
-(manual). Gate de PR: `npm run lint && npm run build && npm run test`.
+**Comandos:** `cd pwa && npm run dev|build|test|lint`. Gate de PR: `npm run lint && npm run build && npm run test`.
+Deploy: ver comandos en `docs/ARCHITECTURE.md` §Deployment.
 
 **Ramas:** `main` = producción (push automático a Cloudflare). Todo desarrollo va en ramas `feat/*`/`fix/*`/etc. creadas desde `origin/main`. Ver [`workflows/branching.md`](./workflows/branching.md). **Nunca commitear directo en `main`.**
 

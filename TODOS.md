@@ -13,21 +13,14 @@ Priorización por leverage (valor / esfuerzo). Ítems nuevos surgidos de la audi
 **(No es un bug:** verificado contra docs.claude.com el 2026-06-27 — `claude-opus-4-8`,
 `claude-sonnet-4-6` y `claude-haiku-4-5-20251001` son slugs vigentes y válidos; todos soportan
 visión y documentos. La afirmación anterior de que "no existen y harían 404" era **incorrecta**.)
-Lo que sí vale la pena, como refactor de menor prioridad:
-- **Centralizar el modelo en `env`** (no en el código). Hoy está *hardcodeado* en 4 sitios: `ocr.js`,
-  `extract-pdf.js`, `_callClaudeAI` (fallback) y las llamadas en `_spendingCoach`/`_generateHealthReport`.
-  Mover a `env.CLAUDE_*_MODEL` con fallback al slug actual (cumple `docs/CONVENTIONS.md`: "el modelo va en env").
-- **Quitar `anthropic-beta: pdfs-2024-09-25`** en `extract-pdf.js`: el soporte PDF ya es GA (la doc actual
-  no lo pide). Es peso muerto; no rompe nada dejarlo.
-- **Costo:** `ocr.js` usa Opus (tier más caro) para OCR de recibos. Considerar Sonnet/Haiku (ambos soportan
-  visión) para bajar costo — decisión de producto, evaluar precisión vs precio.
+- ✅ **Centralizar el modelo en `env`** — hecho. Los 5 sitios (`ocr.js`, `extract-pdf.js`,
+  `_callClaudeAI` fallback, `_spendingCoach`, `_generateHealthReport`) ahora leen `env.CLAUDE_*_MODEL` /
+  Script Properties con fallback al slug actual (cumple `docs/CONVENTIONS.md`: "el modelo va en env").
+- ✅ **Quitar `anthropic-beta: pdfs-2024-09-25`** en `extract-pdf.js` — hecho (PDF es GA).
+- ✅ **Costo de `ocr.js`:** ya no usa Opus — se bajó a Haiku el 2026-06-28 (commit
+  "perf(ocr): bajar modelo de Opus a Haiku"), el tier más barato que sigue soportando visión.
 
-### ✅ RESUELTO (2026-06-27): Drift en `workflows/jose_qa.md`
-`jose_qa.md` decía que los tabs del Sheet debían llamarse `Jose`/`Dani` (capital J) y citaba la rama
-`feat/multi-user`. Corregido: los tabs van en **minúsculas** (igual que el `userId`, que `doPost`/
-`_validateUserId` lowercasean) y prod es `main` → proyecto `finanzas-abiertas`. También se actualizó la
-referencia de `requirements.txt` (`api/`→`archive/api/`) y se agregó `WEB_SECRET` al listado de vars.
-El resto de la checklist sigue siendo válido.
+### ✅ RESUELTO (2026-06-27) — `workflows/jose_qa.md` tenía drift (tabs en mayúscula, rama `feat/multi-user`, `requirements.txt` sin mover); corregido, ver commit `ecb1758`.
 
 ### P1 — Constant-time comparison en `_verifyPin` (security)
 🔄 PR abierta: #31. Ya documentado abajo. Implementar `_timingSafeEqual(a,b)` y reemplazar el `===` del digest SHA-256.
@@ -93,33 +86,7 @@ Surfaced by: plan-eng-review 2026-06-09 (Test Coverage Gap)
 
 ---
 
-## ✅ RESUELTO (2026-06-25): Alinear CategoryComparison a baseline de 3 meses
-
-**Implementado.** `getCategoryComparison(txs, monthsBack = 1)` ahora acepta `monthsBack`;
-con valor >1 usa el promedio de los meses previos con gasto (mismo criterio que
-`detectUnusualCategories`). `CategoryComparison.tsx` usa `monthsBack=3` con labels
-honestos ("Prom. 3m", "vs. promedio de los 3 meses previos"). Tests cubren el caso del
-mes anterior atípicamente bajo. Ver commit `feat(analytics): baseline de 3 meses`.
-
----
-
-<details><summary>Contexto original</summary>
-
-`CategoryComparison` marca `anomaly: delta > 100%` comparando solo con el mes anterior.
-`detectUnusualCategories` usa promedio de los 3 meses anteriores. Ambos usan color naranja
-(señal unificada de "gasto inusual"), pero el criterio de activación es distinto.
-
-**Por qué:** Para un usuario con gasto variable, el mes anterior puede ser atípicamente bajo,
-disparando falsos positivos en CategoryComparison. El baseline de 3 meses sería más robusto.
-
-**Cómo:** Modificar `getCategoryComparison()` en `lib/analytics.ts` para aceptar `monthsBack: number`
-y usar el promedio, igual que `detectUnusualCategories`. Coordinar con `CategoryComparison.tsx`.
-
-**Riesgo:** Cambia el comportamiento visible de la comparativa MoM — evaluar antes de implementar.
-
-Surfaced by: plan-eng-review 2026-06-09 (Outside Voice finding 4)
-
-</details>
+### ✅ RESUELTO (2026-06-25) — `CategoryComparison` comparaba solo contra el mes anterior (falsos positivos); `getCategoryComparison` ganó `monthsBack` y ahora usa baseline de 3 meses, ver commit `8294d7b`.
 
 ---
 

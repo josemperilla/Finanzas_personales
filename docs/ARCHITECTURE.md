@@ -40,11 +40,12 @@ Cada archivo exporta `onRequest(context)` con `{ request, env }`:
 Los 3 endpoints de IA repiten el patrón: validar `token` contra GAS `validateToken` **antes** de gastar
 la API de Anthropic. Modelos y `ANTHROPIC_API_KEY` viven en env (server-side).
 
-> **Modelos Claude:** los slugs `claude-opus-4-8` (`ocr.js`), `claude-sonnet-4-6` (`extract-pdf.js`) y
-> `claude-haiku-4-5-20251001` (fallback de `_callClaudeAI`) son **vigentes y válidos** (verificado contra
-> docs.claude.com 2026-06-27; todos soportan visión y documentos). Oportunidad menor: el modelo está
-> hardcodeado en 4 sitios y `extract-pdf.js` envía un `anthropic-beta: pdfs-*` ya obsoleto (PDF es GA).
-> Ver `TODOS.md` (P3).
+> **Modelos Claude:** `ocr.js` usa `claude-haiku-4-5-20251001` (bajado de Opus a Haiku el 2026-06-28),
+> `extract-pdf.js` usa `claude-sonnet-4-6` y el fallback de `_callClaudeAI` es también
+> `claude-haiku-4-5-20251001` — slugs **vigentes y válidos** (verificado contra docs.claude.com
+> 2026-06-27; todos soportan visión y documentos). Los 5 sitios que antes hardcodeaban el modelo ahora
+> lo leen de `env`/Script Properties con fallback al slug actual, y `extract-pdf.js` ya no envía el
+> `anthropic-beta: pdfs-*` obsoleto (PDF es GA). Ver `TODOS.md` (P3).
 
 ### 3. Backend — `apps_script/` (Google Apps Script)
 - **`webhook.gs`** (~3.5k LOC, ~90 funciones): webhook web app desplegado vía `clasp`. `doGet`
@@ -56,7 +57,7 @@ la API de Anthropic. Modelos y `ANTHROPIC_API_KEY` viven en env (server-side).
 - **`setup_triggers.gs`**: crea triggers time-based (backup semanal a Drive, refresh de facturas).
   Ejecutar cada función **una sola vez** desde el editor GAS.
 - **Deploy:** `appsscript.json` → `webapp.access: ANYONE_ANONYMOUS`, `executeAs: USER_DEPLOYING`.
-  Seguridad vía `_checkSecret` (query param `_secret`). `cd apps_script && clasp push`.
+  Seguridad vía `_checkSecret` (query param `_secret`). Comando de deploy: ver §Deployment abajo.
 
 ### 4. (No viva) `archive/` — capa Python legacy
 FastAPI (SQLAlchemy+Alembic) + tools Streamlit + suite pytest, intacta y recuperable. **Solo**
@@ -91,14 +92,19 @@ La escritura diaria (SMS) entra por `sms.js`→GAS, no por la PWA. La PWA lee y 
 - **Allowlist de categorías** en `updateCategoryInSheet` (anti formula-injection H-03).
 - **`_validateUserId`** no expone la lista de usuarios en errores.
 
-## Deployment (manual, sin CI de deploy)
+## Deployment
 
-- **PWA + functions:** `wrangler deploy` desde la raíz (sirve `pwa/dist/` + `functions/api/*`).
+> Fuente canónica de los comandos de deploy — el resto de docs (`CLAUDE.md`, `AGENTS.md`,
+> `docs/CONVENTIONS.md`) apuntan aquí en vez de repetir este bloque.
+
+- **PWA + functions:** automático al mergear a `main` (Cloudflare Pages **git-connected**; push a
+  `main` = deploy a producción, otras ramas = Preview). **No uses `wrangler deploy` manual.**
   Un solo proyecto: `finanzas-abiertas` (prod). Variables en el dashboard: `WEBHOOK_URL`,
   `WEB_SECRET`, `ANTHROPIC_API_KEY` (y `WEBHOOK_SECRET` para el canal shortcut).
-- **GAS:** `cd apps_script && clasp push`. **No toma efecto solo.**
+- **GAS:** `cd apps_script && clasp push`. **No toma efecto solo** (deploy manual tras cada cambio).
+- **No deployar ni pushear a `main` sin aprobación** (prod vivo = proyecto `finanzas-abiertas`).
 - **CI (`.github/workflows/ci.yml`):** lint+build+test del PWA + drift de categorías
-  (`continue-on-error: true` mientras exista drift de "Bre-B").
+  (`continue-on-error: true` mientras exista drift de "Bre-B"). No hace deploy — solo gate de PR.
 
 ## Fortalezas
 
@@ -111,9 +117,10 @@ La escritura diaria (SMS) entra por `sms.js`→GAS, no por la PWA. La PWA lee y 
 ## Debilidades / deuda técnica
 
 - **`webhook.gs` sin tests automatizados** (28+ paths de seguridad). Monolito ~3.5k LOC.
-- **Modelos Claude hardcodeados** en 4 sitios (`ocr.js`, `extract-pdf.js`, `_callClaudeAI` y sus callers) —
-  los slugs son válidos, pero deberían leerse de `env` (ver `TODOS.md` P3).
-- **Bloque `validateToken` triplicado** en los 3 Workers de IA (extracción pendiente).
+- ~~Modelos Claude hardcodeados en 4 sitios~~ — **resuelto**: ahora se leen de `env`/Script Properties
+  (ver `TODOS.md` P3).
+- ~~Bloque `validateToken` triplicado en los 3 Workers de IA~~ — **resuelto**: extraído a
+  `functions/api/_auth.js#assertSession`.
 - ~~Drift en `workflows/jose_qa.md`~~ — **corregido 2026-06-27** (tab names y branch actualizados).
 - Deuda de diseño (`DESIGN.md` §"Inconsistencias"): `--blue-*` es verde en claro, `--z-drawer`
   inexistente, scrims/hex hardcodeados.

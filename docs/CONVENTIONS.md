@@ -47,7 +47,7 @@ Reglas que **previenen drift**. Lee antes de escribir TS/GAS/CF. Detalle de arqu
 - Búsqueda por `Timestamp` con **tolerancia ±2s**. Montos: COL (`parseMonto`, punto=miles) vs US
   (`parseMontoUS`, coma=miles, punto=decimal). Bancolombia=US; Bogotá/Itaú=COL. Mezclar ×1000 el monto.
 - Categorías: persistir siempre dentro de `ALLOWED_CATEGORIES`. Nuevo parser → caso en `testParsers()`.
-- Deploy manual: **`cd apps_script && clasp push`** tras cada cambio (no toma efecto solo).
+- Deploy: manual, ver `docs/ARCHITECTURE.md` §Deployment.
 
 ## Cloudflare Pages Functions — `functions/api/`
 
@@ -79,4 +79,4 @@ Reglas que **previenen drift**. Lee antes de escribir TS/GAS/CF. Detalle de arqu
 - Commits **conventional** en español (`feat`, `fix`, `test`, `docs`, `a11y`, `perf`, `refactor`).
 - **Gate antes de PR:** `cd pwa && npm run lint && npm run build && npm run test`. Tras tocar categorías:
   `node scripts/check-category-drift.mjs`.
-- **No deployar/pushear `main` sin aprobación** (prod vivo = `finanzas-abiertas`).
+- Deploy y la regla de "no deploy sin aprobación": ver `docs/ARCHITECTURE.md` §Deployment.
