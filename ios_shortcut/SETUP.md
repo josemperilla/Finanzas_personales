@@ -105,7 +105,12 @@ Para bancos no listados: el servidor usa IA para parsear el SMS automáticamente
 
 ## Si la transacción no aparece
 
-- **El atajo está en Mis Atajos pero la Automatización no existe** → es el error #1. Vuelve al Paso 2.
+- **La URL dentro del atajo no coincide con el dominio actual** → error silencioso #1 si el proyecto
+  de Cloudflare fue renombrado. Abre el atajo para editarlo → acción "Obtener contenido de URL" →
+  verifica que sea **`https://finanzas-abiertas.pages.dev/api/sms`**. Si dice otra cosa (p. ej.
+  `finanzaspersonales`), reinstala el atajo desde el link del Paso 1 — las URLs hardcodeadas **no se
+  actualizan solas** tras un renombramiento.
+- **El atajo está en Mis Atajos pero la Automatización no existe** → es el error #2. Vuelve al Paso 2.
 - Confirma **"Ejecutar inmediatamente / Run Immediately"** activado y **"Preguntar antes / Run After
   Confirmation"** desactivado.
 - Si no puedes seleccionar el atajo (aparece en gris), ejecuta una vez cualquier atajo de la Galería

@@ -85,7 +85,16 @@ configuran en Settings → Variables and Secrets.
 - En Cloudflare Pages, agregar o cambiar variables de entorno **no toma efecto hasta el siguiente deployment**.
 - Después de cambiar variables, hacer push de cualquier commit para forzar un nuevo build.
 
----
+### 2.5 ¿Se renombró el proyecto de Cloudflare Pages?
+- Renombrar el proyecto (p. ej. `finanzaspersonales` → `finanzas-abiertas`) **cambia el dominio**
+  (`*.pages.dev`) y **rompe todos los iOS Shortcuts instalados**, porque la URL del proxy `/api/sms`
+  está **hardcodeada** dentro del archivo del atajo y no se actualiza sola.
+- **Síntoma:** la automatización de iOS "se ejecuta" sin error, pero ninguna transacción nueva llega
+  al Sheet (el POST va a una URL que ya no sirve la función → 404/405 silencioso).
+- **Fix:** regenerar/reinstalar el shortcut desde el link de iCloud (que tiene la URL nueva) y
+  actualizar toda referencia al dominio viejo en docs/código.
+- **Documento de referencia:** `ios_shortcut/SETUP.md` §"Si la transacción no aparece".
+
 
 ## 3. Frontend (PWA)
 
