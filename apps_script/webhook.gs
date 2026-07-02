@@ -1341,6 +1341,9 @@ function handleChat(question, context) {
     "Usa los datos m\u00e1s convenientes para responder con precisi\u00f3n. " +
     "Datos financieros del usuario (\u00faltimos 6 meses): " + JSON.stringify(context);
 
+  // Prompt caching (GA, sin beta header): el bloque system (instrucciones + contexto
+  // de 6 meses) es idéntico entre mensajes de la misma sesión de chat — cachearlo
+  // evita reprocesar esos tokens en cada pregunta nueva del usuario.
   var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
     method: "post",
     headers: {
@@ -1351,7 +1354,7 @@ function handleChat(question, context) {
     payload: JSON.stringify({
       model:      "claude-haiku-4-5-20251001",
       max_tokens: 1024,
-      system:     systemPrompt,
+      system:     [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
       messages:   [{ role: "user", content: question }]
     }),
     muteHttpExceptions: true
@@ -3498,11 +3501,14 @@ function _getCategoryStatus(userId, month) {
 function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
   var key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  // Modelo por defecto configurable vía Script Properties (ver docs/CONVENTIONS.md: "el modelo va en env");
+  // fallback al valor actual si CLAUDE_DEFAULT_MODEL no está seteado.
+  var defaultModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_DEFAULT_MODEL') || 'claude-haiku-4-5-20251001';
   var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
     method: 'post',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     payload: JSON.stringify({
-      model: model || 'claude-haiku-4-5-20251001',
+      model: model || defaultModel,
       max_tokens: maxTokens || 1024,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }]
@@ -3515,6 +3521,14 @@ function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
 }
 
 function _spendingCoach(userId, months) {
+  // Cache same-day result (CacheService pattern, ver _buildWidgetData) para que
+  // getRetoSuggestion no recompute vía Claude cuando ya corrió spendingCoach hoy.
+  var cache = CacheService.getScriptCache();
+  var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+  var cacheKey = 'coach_' + userId + '_' + (months || 3) + '_' + today;
+  var cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
   var txns = _getTxnsRange(userId, months || 3);
   // Aggregate data for Claude (deterministic computation)
   var byCat = {};
@@ -3534,11 +3548,15 @@ function _spendingCoach(userId, months) {
   var userMsg = 'Datos del usuario (últimos ' + months + ' meses): Total gastado: $' + Math.round(totalSpent).toLocaleString('es-CO') + '. Por categoría: ' + topCats + '. Suscripciones detectadas: ' + (subs || 'ninguna') + '.';
 
   try {
-    var rawText = _callClaudeAI(systemPrompt, userMsg, 800, 'claude-haiku-4-5-20251001');
+    // Modelo configurable vía Script Properties (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
+    var coachModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_COACH_MODEL') || 'claude-haiku-4-5-20251001';
+    var rawText = _callClaudeAI(systemPrompt, userMsg, 800, coachModel);
     var jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { ok: false, error: 'Claude no devolvió JSON válido' };
     var parsed = JSON.parse(jsonMatch[0]);
-    return { ok: true, insights: parsed.insights || [], suggestedReto: parsed.suggestedReto || null };
+    var result = { ok: true, insights: parsed.insights || [], suggestedReto: parsed.suggestedReto || null };
+    cache.put(cacheKey, JSON.stringify(result), 21600); // 6h (máx CacheService), sirve para el resto del día
+    return result;
   } catch(e) {
     return { ok: false, error: e.message };
   }
@@ -3576,7 +3594,10 @@ function _generateHealthReport(userId, month) {
   var userMsg = 'Mes: '+targetMonth+'. Total gastos: $'+Math.round(totalCurr).toLocaleString('es-CO')+'. Mes anterior: $'+Math.round(totalPrev).toLocaleString('es-CO')+'. Variación: '+(totalPrev?Math.round((totalCurr-totalPrev)/totalPrev*100)+'%':'N/A')+'. Por categoría: '+topCatsStr+'. Presupuestos: '+budgetStr+'. Suscripciones: '+(subs||'ninguna')+'.';
 
   try {
-    var rawText = _callClaudeAI(systemPrompt, userMsg, 2000, 'claude-sonnet-4-6');
+    // Modelo configurable vía Script Properties (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
+    // NOTA: se mantiene en Sonnet a propósito — bajar a Haiku es una decisión de producto pendiente (ver TODOS.md).
+    var reportModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_HEALTH_REPORT_MODEL') || 'claude-sonnet-4-6';
+    var rawText = _callClaudeAI(systemPrompt, userMsg, 2000, reportModel);
     var jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { ok: false, error: 'Claude no devolvió JSON válido' };
     var report = JSON.parse(jsonMatch[0]);

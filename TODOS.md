@@ -41,7 +41,7 @@ contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergenc
 + `a040e53`: está en `ALLOWED_CATEGORIES`, `CATEGORIES`, y se asigna por campo `Tipo` en
 `migrateCategories()`). El PR solo quita el `continue-on-error` de `ci.yml`.
 
-### P2 — Extraer helper `validateToken` compartido (DRY)
+### 🔄 P2 — Extraer helper `validateToken` compartido (DRY) — PR abierta: #33
 `ocr.js`, `extract-pdf.js` y `shortcut-config.js` repiten el bloque "validar `token` contra GAS
 `validateToken` antes de actuar". **Cómo:** extraer a `functions/api/_auth.js` (`assertSession(env, token)`).
 
