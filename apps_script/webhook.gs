@@ -1693,6 +1693,29 @@ function parseItau(sms) {
     };
   }
 
+  // Patrón 2b — débito Bre-B (formato abreviado con prefijo ITAU: y cuenta corta).
+  // "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504
+  //  por $ 1000.00 el 2026-07-01 a las 20:50:00."
+  // Diferencias vs patrón 2: prefijo "ITAU:", tildes ("se realizó"), cuenta abreviada
+  // (AHO/CTE sin ****), monto en formato US ("$ 1000.00" con decimales), fecha con
+  // guiones y separador "a las".
+  var reBreBDebit = /(?:ITAU:?\s*)?se\s+realiz[oó]\s+un\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)\s+a tu cuenta\s+(\w+)\s+(\d+)\s+a la llave\s+Bre-?B\s+\d+\s+por\s+\$\s*([\d,.]+)\s+el\s+(\d{4}[-\/]\d{2}[-\/]\d{2})\s+a las\s+(\d{2}:\d{2}:\d{2})/i;
+  var mbreb = sms.match(reBreBDebit);
+  if (mbreb) {
+    var acctType = /AHO/i.test(mbreb[2]) ? "Cuenta de Ahorros"
+                 : /CTE/i.test(mbreb[2]) ? "Cuenta Corriente"
+                 : "Cuenta " + mbreb[2];
+    return {
+      banco:    "Ita\u00fa",
+      tipo:     normalizeTipo(mbreb[1]),
+      comercio: "Bre-B",
+      tarjeta:  acctType + " ****" + mbreb[3],
+      monto:    parseMontoUS(mbreb[4]),
+      fecha:    parseFechaItau(mbreb[5], mbreb[6]),
+      reversal: false
+    };
+  }
+
   // Inbound: deposit / abono TO account ("a tu Cuenta")
   // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****8448 por $1,000 el 2026/06/14 06:27:00"
   var reCredit = /Se realizo\s+u?n?\s+(Deposito\s+en\s+Efectivo|Abono|Consignaci[o\u00f3]n|Ingreso)\s+a\s+tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
@@ -1714,7 +1737,8 @@ function parseItau(sms) {
 }
 
 function parseFechaItau(fechaStr, horaStr) {
-  var p  = fechaStr.split("/");
+  // Acepta tanto "2026/06/22" como "2026-06-22" (formatos legacy y Bre-B).
+  var p  = fechaStr.split(/[\/\-]/);
   var hp = horaStr.split(":");
   return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]),
                   parseInt(hp[0]), parseInt(hp[1]), parseInt(hp[2]));
@@ -1963,6 +1987,53 @@ function migrateCategories() {
   }
 
   return { ok: true, stats: statsAll };
+}
+
+// ── Reparar categorización mal migrada a "Restaurantes" ──────────────
+// migrateCategories() (arriba) defaulteaba a "Restaurantes" cualquier fila
+// "Comida" que detectCategory() no reconociera — en vez de "Otro". Eso dejó
+// transacciones no-restaurante (intereses, transferencias, comercios
+// genéricos) con Categoría="Restaurantes" en el Sheet. Esta función re-corre
+// detectCategory() (con userId, para respetar reglas/aprendizajes manuales)
+// sobre esas filas y corrige las que ya no clasifican como Restaurantes.
+// Ejecutar primero con dryRun=true (solo loguea, no escribe) y revisar el
+// resultado antes de correr con dryRun=false.
+function fixMisassignedRestaurantes(dryRun) {
+  var users = _getAllowedUsers();
+  var statsAll = {};
+
+  for (var u = 0; u < users.length; u++) {
+    var ref   = _getSheet(users[u]);
+    var sheet = ref.sheet;
+    if (!sheet) continue;
+
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var catCol      = hdrs.indexOf("Categoría");
+    var comercioCol = hdrs.indexOf("Comercio");
+    if (catCol < 0 || comercioCol < 0) continue;
+
+    var changes = [];
+    for (var i = 1; i < data.length; i++) {
+      var cat = String(data[i][catCol] || "").trim();
+      if (cat !== "Restaurantes") continue;
+
+      var comercio = String(data[i][comercioCol] || "").trim();
+      var redetected = comercio ? detectCategory(comercio, users[u]) : "Otro";
+      if (redetected !== "Restaurantes") {
+        changes.push({ row: i + 1, comercio: comercio, to: redetected });
+        if (!dryRun) sheet.getRange(i + 1, catCol + 1).setValue(redetected);
+      }
+    }
+    statsAll[users[u]] = changes;
+    Logger.log("fixMisassignedRestaurantes [" + users[u] + "] (dryRun=" + !!dryRun + "): "
+      + changes.length + " filas " + (dryRun ? "cambiarían" : "actualizadas") + ".");
+    changes.forEach(function(c) {
+      Logger.log("  fila " + c.row + ": \"" + c.comercio + "\" → " + c.to);
+    });
+  }
+
+  return { ok: true, dryRun: !!dryRun, stats: statsAll };
 }
 
 // ── Actualizar categoría de una fila existente ────────────────
@@ -2703,6 +2774,7 @@ function testParsers() {
   var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
   var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
   var smsItauTransfer = "Se realizo una Transferencia de tu Cuenta de Ahorros ****8448 por $240,000 el 2026/06/27 18:30:00 ITAU Tel: 5818181 Bta o 018000512633 Nal";
+  var smsItauBreB     = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504 por $ 1000.00 el 2026-07-01 a las 20:50:00.";
   var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
   var smsDaviReversed = "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            .";
   var smsBancoPSE     = "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19. ¿Dudas? Llamanos al 6045109095. Estamos cerca";
@@ -2712,6 +2784,7 @@ function testParsers() {
   Logger.log("Itaú card:        " + JSON.stringify(parseItau(smsItauCard)));
   Logger.log("Itaú debit:       " + JSON.stringify(parseItau(smsItauDebit)));
   Logger.log("Itaú transfer:    " + JSON.stringify(parseItau(smsItauTransfer)));
+  Logger.log("Itaú Bre-B débito:" + JSON.stringify(parseItau(smsItauBreB)));
   Logger.log("Davivienda compra:" + JSON.stringify(parseDavivienda(smsDaviApproved)));
   Logger.log("Davivienda reversa:" + JSON.stringify(parseDavivienda(smsDaviReversed)));
   Logger.log("Bancolombia PSE:  " + JSON.stringify(parseBancolombia(smsBancoPSE)));
