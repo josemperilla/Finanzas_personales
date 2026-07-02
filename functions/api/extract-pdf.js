@@ -2,6 +2,8 @@
 // usando Claude con soporte nativo de documentos (claude-sonnet-4-6).
 // Requiere: ANTHROPIC_API_KEY y WEBHOOK_URL en las variables de entorno de Cloudflare Pages.
 
+import { assertSession } from './_auth.js';
+
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 const MAX_PDF_B64_LENGTH = 14 * 1024 * 1024; // ~10 MB binarios en base64
 
@@ -26,22 +28,9 @@ export async function onRequest(context) {
 
   // Autenticación: token de sesión validado contra el webhook GAS.
   const token = typeof body.token === 'string' ? body.token : '';
-  if (!token) return json({ ok: false, error: 'No autorizado' }, 401);
-
-  const WEBHOOK_URL = env.WEBHOOK_URL || '';
-  const SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
-  if (!WEBHOOK_URL) return json({ ok: false, error: 'WEBHOOK_URL no configurado' }, 500);
-
-  try {
-    const authRes = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'validateToken', token, _secret: SECRET }),
-    });
-    const authData = await authRes.json().catch(() => ({}));
-    if (!authData?.ok) return json({ ok: false, error: 'No autorizado' }, 401);
-  } catch {
-    return json({ ok: false, error: 'No se pudo verificar la sesión' }, 502);
+  const session = await assertSession(env, token);
+  if (!session.ok) {
+    return json({ ok: false, error: session.error }, session.status);
   }
 
   const { pdf, bank } = body;
@@ -55,7 +44,8 @@ export async function onRequest(context) {
   const bankHint = typeof bank === 'string' && bank !== 'otro' ? ` El extracto es de ${bank}.` : '';
 
   const claudeBody = {
-    model: 'claude-sonnet-4-6',
+    // Modelo configurable vía env (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
+    model: env.CLAUDE_EXTRACT_PDF_MODEL || 'claude-sonnet-4-6',
     max_tokens: 4096,
     messages: [
       {
@@ -92,7 +82,6 @@ Reglas:
         'Content-Type': 'application/json',
         'x-api-key': API_KEY,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'pdfs-2024-09-25',
       },
       body: JSON.stringify(claudeBody),
     });

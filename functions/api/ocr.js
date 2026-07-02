@@ -2,6 +2,8 @@
 // usando Claude Vision (Anthropic API).
 // Requiere: ANTHROPIC_API_KEY en las variables de entorno de Cloudflare Pages.
 
+import { assertSession } from './_auth.js';
+
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 
 // Tipos de imagen aceptados por Claude Vision (y por nosotros).
@@ -32,26 +34,9 @@ export async function onRequest(context) {
   // API de Anthropic. El token se valida contra el webhook (Apps Script), que es
   // el único que conoce los tokens (viven en su CacheService).
   const token = typeof body.token === 'string' ? body.token : '';
-  if (!token) {
-    return json({ ok: false, error: 'No autorizado' }, 401);
-  }
-  const WEBHOOK_URL = env.WEBHOOK_URL || '';
-  if (!WEBHOOK_URL) {
-    return json({ ok: false, error: 'WEBHOOK_URL no configurado en Cloudflare' }, 500);
-  }
-  const SECRET = env.WEB_SECRET || env.WEBHOOK_SECRET || '';
-  try {
-    const authRes = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'validateToken', token, _secret: SECRET }),
-    });
-    const authData = await authRes.json().catch(() => ({}));
-    if (!authData || !authData.ok) {
-      return json({ ok: false, error: 'No autorizado' }, 401);
-    }
-  } catch {
-    return json({ ok: false, error: 'No se pudo verificar la sesión' }, 502);
+  const session = await assertSession(env, token);
+  if (!session.ok) {
+    return json({ ok: false, error: session.error }, session.status);
   }
 
   const { image, mediaType } = body;
@@ -67,7 +52,8 @@ export async function onRequest(context) {
   const claudeBody = {
     // OCR de recibo = dato estructurado simple: Haiku lee igual de bien que Opus y cuesta ~25x menos.
     // (Si la precisión bajara en recibos complejos, subir a 'claude-sonnet-4-6' sigue siendo ~10x más barato que Opus.)
-    model: 'claude-haiku-4-5-20251001',
+    // Modelo configurable vía env (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
+    model: env.CLAUDE_OCR_MODEL || 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [
       {
