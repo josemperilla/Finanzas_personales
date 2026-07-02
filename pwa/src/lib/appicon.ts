@@ -25,8 +25,8 @@ export function applyPersonalizedAppIcon(userId: string, displayName: string): v
 
 function drawBackground(ctx: CanvasRenderingContext2D) {
   const grad = ctx.createLinearGradient(0, 0, SIZE, SIZE);
-  grad.addColorStop(0, '#1e40af');  // blue-800
-  grad.addColorStop(1, '#2563eb');  // blue-600
+  grad.addColorStop(0, '#0a5640');  // brand-700 (verde marca)
+  grad.addColorStop(1, '#0E6B4D');  // brand-600 (verde marca)
   ctx.fillStyle = grad;
   // Rounded rect (iOS clips to rounded square anyway, but looks cleaner in preview)
   const r = 40;

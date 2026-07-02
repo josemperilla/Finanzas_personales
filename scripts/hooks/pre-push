@@ -1,0 +1,13 @@
+#!/bin/sh
+# Bloquea pushes directos a main. Todo cambio a main debe ir por PR.
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo ""
+    echo "  BLOQUEADO: no se puede pushear directo a 'main'."
+    echo "  Crea una rama de trabajo y abre un Pull Request."
+    echo "  Ver workflows/branching.md"
+    echo ""
+    exit 1
+  fi
+done
+exit 0

@@ -147,7 +147,7 @@ export function ChatInline({ transactions }: { transactions: Transaction[] }) {
           }}
           onFocus={e => {
             e.target.style.borderColor = 'var(--blue-600)';
-            e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)';
+            e.target.style.boxShadow = '0 0 0 3px rgba(14,107,77,0.1)';
           }}
           onBlur={e => {
             e.target.style.borderColor = 'var(--line)';

@@ -183,7 +183,7 @@ export function Chat({ transactions }: Props) {
               borderRadius: 12, color: 'var(--ink)', fontSize: 14,
               fontFamily: 'var(--font-body)', outline: 'none',
             }}
-            onFocus={e => { e.target.style.borderColor = 'var(--blue-600)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
+            onFocus={e => { e.target.style.borderColor = 'var(--blue-600)'; e.target.style.boxShadow = '0 0 0 3px rgba(14,107,77,0.1)'; }}
             onBlur={e => { e.target.style.borderColor = 'var(--line)'; e.target.style.boxShadow = 'none'; }}
           />
           <motion.button

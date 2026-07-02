@@ -102,7 +102,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
             whileTap={{ scale: 0.92 }}
             onClick={() => setShowForm(true)}
             style={{
-              background: 'var(--blue-600, #2563eb)', color: '#fff',
+              background: 'var(--blue-600, #0E6B4D)', color: '#fff',
               border: 'none', borderRadius: 12, padding: '8px 16px',
               fontSize: 14, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
@@ -132,7 +132,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
             whileTap={{ scale: 0.94 }}
             onClick={() => setShowForm(true)}
             style={{
-              background: 'var(--blue-600, #2563eb)', color: '#fff',
+              background: 'var(--blue-600, #0E6B4D)', color: '#fff',
               border: 'none', borderRadius: 14, padding: '14px 28px',
               fontSize: 16, fontWeight: 700, cursor: 'pointer',
             }}
@@ -207,8 +207,8 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
                       onClick={() => setForm(f => ({ ...f, emoji: e }))}
                       style={{
                         fontSize: 22, padding: '6px 8px', borderRadius: 10, cursor: 'pointer',
-                        border: form.emoji === e ? '2px solid var(--blue-600, #2563eb)' : '2px solid transparent',
-                        background: form.emoji === e ? 'rgba(37,99,235,0.1)' : 'var(--bg)',
+                        border: form.emoji === e ? '2px solid var(--blue-600, #0E6B4D)' : '2px solid transparent',
+                        background: form.emoji === e ? 'rgba(14,107,77,0.1)' : 'var(--bg)',
                       }}
                     >
                       {e}
@@ -299,7 +299,7 @@ export function SuenosPage({ transactions, userId, onNewBadge }: Props) {
                   onClick={handleCrear}
                   style={{
                     flex: 2, padding: '13px', fontSize: 15, fontWeight: 700,
-                    background: 'var(--blue-600, #2563eb)', color: '#fff',
+                    background: 'var(--blue-600, #0E6B4D)', color: '#fff',
                     border: 'none', borderRadius: 12, cursor: 'pointer',
                   }}
                 >

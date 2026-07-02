@@ -322,7 +322,7 @@ export function SmsSetupWizard({ userId, accentColor = 'var(--blue-700)', onVeri
                     }}>
                       <div style={{
                         width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                        border: '2px solid rgba(37,99,235,0.3)', borderTopColor: 'var(--blue-600)',
+                        border: '2px solid rgba(14,107,77,0.3)', borderTopColor: 'var(--blue-600)',
                         animation: 'spin 0.7s linear infinite',
                       }} />
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--blue-700)', lineHeight: 1.4 }}>

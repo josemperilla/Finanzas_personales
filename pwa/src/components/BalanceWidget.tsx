@@ -154,10 +154,10 @@ export function BalanceWidget({ transactions, userId, onAdd, onClose }: Props) {
           <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
             <svg width="52" height="52" viewBox="0 0 52 52" style={{ transform: 'rotate(-90deg)' }}>
               <circle cx="26" cy="26" r="20" stroke="var(--line)" strokeWidth="4.5" fill="none" />
-              <circle cx="26" cy="26" r="20" stroke="#3b82f6" strokeWidth="4.5" fill="none"
+              <circle cx="26" cy="26" r="20" stroke="#13805C" strokeWidth="4.5" fill="none"
                 strokeDasharray={`${arcDash.toFixed(1)} ${CIRC}`} strokeLinecap="round" />
             </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#3b82f6' }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#13805C' }}>
               {Math.round(arcPct * 100)}%
             </div>
           </div>
@@ -190,9 +190,9 @@ export function BalanceWidget({ transactions, userId, onAdd, onClose }: Props) {
             width: '100%', height: 52, borderRadius: 16, border: 'none',
             fontSize: 15, fontWeight: 700, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            background: 'linear-gradient(135deg, var(--blue-700) 0%, var(--blue-800, #1d4ed8) 100%)',
+            background: 'linear-gradient(135deg, var(--blue-700) 0%, var(--blue-800, #0a5640) 100%)',
             color: '#fff',
-            boxShadow: '0 4px 16px rgba(37,99,235,0.35)',
+            boxShadow: '0 4px 16px rgba(14,107,77,0.35)',
             fontFamily: 'var(--font-body)',
             marginTop: 4, marginBottom: 24,
           }}

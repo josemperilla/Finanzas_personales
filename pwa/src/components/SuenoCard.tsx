@@ -139,7 +139,7 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
                   whileTap={{ scale: 0.9 }}
                   onClick={() => onAceptarReto(reto)}
                   style={{
-                    background: 'var(--blue-600, #2563eb)', color: '#fff',
+                    background: 'var(--blue-600, #0E6B4D)', color: '#fff',
                     border: 'none', borderRadius: 8, padding: '5px 10px',
                     fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
                   }}

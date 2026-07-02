@@ -16,17 +16,17 @@ import { Icon, categoryIcon } from '../components/ui/icons';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { RachaDisplay } from '../components/RachaDisplay';
-import { DailyGreeting } from '../components/DailyGreeting';
+import { RachaSheet } from '../components/RachaSheet';
 import { DailyStatusCard } from '../components/DailyStatusCard';
 import { getGamification } from '../lib/gamification';
 import { RetoWidget } from '../components/RetoWidget';
 import { SuenoCard } from '../components/SuenoCard';
-import { MetaMensualWidget } from '../components/MetaMensualWidget';
 import { getMeta } from '../lib/meta';
 import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
 import { getDesafioActual, getDesafioProgress, getDesafioCompletado } from '../lib/desafiosMensuales';
 import { PagosProximosCard } from '../components/PagosProximosCard';
+import { ProductCardFace } from '../components/ProductCardFace';
 
 interface Props {
   transactions: Transaction[];
@@ -71,6 +71,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const [direction, setDirection] = useState(0);
   const [drillCategory, setDrillCategory] = useState<string | null>(null);
   const [showRecap, setShowRecap] = useState(false);
+  const [rachaOpen, setRachaOpen] = useState(false);
   const [unknownBannerDismissed, setUnknownBannerDismissed] = useState(
     () => sessionStorage.getItem(`fm_unknown_cards_dismissed_${userId}`) === '1'
   );
@@ -160,13 +161,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   );
 
   const racha = useMemo(() => getGamification(userId).racha, [userId, gamificationKey]);
-
-  const rachaEnRiesgo = useMemo(() => {
-    const hora = new Date().getHours();
-    if (hora < 18) return false;
-    const hoy = new Date().toISOString().slice(0, 10);
-    return !transactions.some(tx => (tx.Fecha || tx.Timestamp || '').slice(0, 10) === hoy);
-  }, [transactions]);
 
   const desafioActual = useMemo(() => getDesafioActual(), []);
   const desafioProgress = useMemo(
@@ -280,7 +274,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RachaDisplay userId={userId} gamificationKey={gamificationKey} />
+          <RachaDisplay userId={userId} gamificationKey={gamificationKey} onPress={() => setRachaOpen(true)} />
           <ProfileAvatar userId={userId} onOpenMenu={onOpenMenu} />
         </div>
       </motion.div>
@@ -296,42 +290,12 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
 
-        {/* Saludo diario — aparece una vez por día */}
-        {!loading && selectedOffset === 0 && (
-          <DailyGreeting
-            userId={userId}
-            racha={racha}
-            retoActivo={primerRetoActivo ? { titulo: primerRetoActivo.reto.titulo } : null}
-          />
-        )}
-
-        {/* Alerta racha en riesgo — después de las 6pm sin transacciones de hoy */}
-        {!loading && selectedOffset === 0 && rachaEnRiesgo && racha > 0 && (
-          <motion.div variants={riseItem} transition={quickEase}>
-            <div style={{
-              background: '#fef3c7',
-              border: '1.5px solid #f59e0b',
-              borderRadius: 'var(--r-xl)',
-              padding: '10px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 14,
-            }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
-              <span style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
-                Tu racha de {racha} días se rompe hoy si no registras algo
-              </span>
-            </div>
-          </motion.div>
-        )}
-
         {/* Banner productos desconocidos */}
         {!loading && !unknownBannerDismissed && unknownCards.length > 0 && (
           <motion.div variants={riseItem} transition={quickEase}>
             <div style={{
-              background: 'rgba(37,99,235,0.07)',
-              border: '1.5px solid rgba(37,99,235,0.22)',
+              background: 'rgba(14,107,77,0.07)',
+              border: '1.5px solid rgba(14,107,77,0.22)',
               borderRadius: 'var(--r-xl)',
               padding: '12px 14px',
               display: 'flex', alignItems: 'center', gap: 10,
@@ -442,6 +406,87 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           )}
         </motion.div>
 
+        {/* Accesos rápidos a finanzas */}
+        {!loading && onQuickNav && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14, display: 'flex', gap: 8 }}>
+            {([
+              { dest: 'fixed' as const,    icon: 'repeat' as const,    label: 'Pagos fijos' },
+              { dest: 'networth' as const, icon: 'bar-chart' as const, label: 'Patrimonio' },
+              { dest: 'budgets' as const,  icon: 'receipt' as const,   label: 'Presupuestos' },
+            ]).map(item => (
+              <motion.button
+                key={item.dest}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onQuickNav(item.dest)}
+                style={{
+                  flex: 1, background: 'var(--card)', border: '1px solid var(--line)',
+                  borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-card)',
+                  padding: '14px 8px', display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+                  background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon name={item.icon} size={20} style={{ color: 'var(--blue-700)' }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', lineHeight: 1.2 }}>
+                  {item.label}
+                </span>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Últimas transacciones del mes */}
+        <motion.div variants={riseItem} transition={quickEase}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)', color: 'var(--ink)' }}>Movimientos</span>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={onViewAll} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--blue-700)',
+              padding: '8px 0', fontFamily: 'var(--font-body)',
+              minHeight: 'var(--touch-min)',
+            }}>
+              Ver todo
+            </motion.button>
+          </div>
+
+          {loading ? (
+            [1,2,3].map(i => <SkeletonCard key={i} />)
+          ) : recent.length === 0 ? (
+            <FriendlyEmptyState
+              title="Sin movimientos"
+              message={selectedOffset === 0
+                ? 'Agrega una transacción manual o conecta tus SMS para empezar a ver tu mes en vivo.'
+                : `No hay transacciones registradas en ${selMonthStr}.`}
+              actionLabel={selectedOffset === 0 ? 'Agregar transacción' : undefined}
+              onAction={selectedOffset === 0 ? onAdd : undefined}
+            />
+          ) : (
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={`txs-${selectedOffset}`}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                style={{ background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '4px 16px' }}
+              >
+                {recent.map((tx, i) => (
+                  <div key={i}>
+                    {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
+                    <TxRow tx={tx} highlighted={Boolean(highlightLatest && i === 0 && selectedOffset === 0)} />
+                  </div>
+                ))}
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </motion.div>
+
         {/* 1b. Categorías — barras calmadas */}
         {!loading && byCategory.length > 0 && (
           <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 18, padding: '4px 14px', marginBottom: 14, boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.05)' }}>
@@ -474,7 +519,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
             <div style={{
               background: desafioCompletadoHoy
                 ? 'linear-gradient(100deg, #15803d 0%, #16a34a 100%)'
-                : 'linear-gradient(100deg, var(--blue) 0%, #1d4fd0 100%)',
+                : 'linear-gradient(100deg, var(--blue) 0%, #0a5640 100%)',
               borderRadius: 20, padding: '16px 18px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -512,12 +557,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
-        {/* 5. Meta mensual */}
-        {!loading && selectedOffset === 0 && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
-            <MetaMensualWidget monthTx={monthTx} userId={userId} />
-          </motion.div>
-        )}
+        {/* Meta mensual: ahora vive consolidada dentro del hero "Gastado este mes" */}
 
         {/* Pagos próximos — 7-day upcoming fixed payments */}
         {!loading && selectedOffset === 0 && (
@@ -573,21 +613,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {cards.slice(0, 3).map(card => (
                     <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                        background: 'var(--blue-700)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>
-                          {card.banco.charAt(0)}
-                        </span>
-                      </div>
+                      <ProductCardFace card={card} compact />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {card.alias || card.banco}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                          {card.chasis} · **** {card.ultimos4}
+                          {card.chasis} · •••• {card.ultimos4}
                         </div>
                       </div>
                     </div>
@@ -603,86 +635,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           </motion.div>
         )}
 
-        {/* Accesos rápidos a finanzas */}
-        {!loading && onQuickNav && (
-          <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14, display: 'flex', gap: 8 }}>
-            {([
-              { dest: 'fixed' as const,    icon: 'repeat' as const,    label: 'Pagos fijos' },
-              { dest: 'networth' as const, icon: 'bar-chart' as const, label: 'Patrimonio' },
-              { dest: 'budgets' as const,  icon: 'receipt' as const,   label: 'Presupuestos' },
-            ]).map(item => (
-              <motion.button
-                key={item.dest}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onQuickNav(item.dest)}
-                style={{
-                  flex: 1, background: 'var(--card)', border: '1px solid var(--line)',
-                  borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-card)',
-                  padding: '14px 8px', display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', gap: 8, cursor: 'pointer', fontFamily: 'var(--font-body)',
-                }}
-              >
-                <div style={{
-                  width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-                  background: 'var(--blue-50)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icon name={item.icon} size={20} style={{ color: 'var(--blue-700)' }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', lineHeight: 1.2 }}>
-                  {item.label}
-                </span>
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
-
-        {/* Últimas 5 transacciones */}
-        <motion.div variants={riseItem} transition={quickEase}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)', color: 'var(--ink)' }}>Movimientos</span>
-            <motion.button whileTap={{ scale: 0.96 }} onClick={onViewAll} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--blue-700)',
-              padding: '8px 0', fontFamily: 'var(--font-body)',
-              minHeight: 'var(--touch-min)',
-            }}>
-              Ver todo
-            </motion.button>
-          </div>
-
-          {loading ? (
-            [1,2,3].map(i => <SkeletonCard key={i} />)
-          ) : recent.length === 0 ? (
-            <FriendlyEmptyState
-              title="Sin movimientos"
-              message={selectedOffset === 0
-                ? 'Agrega una transacción manual o conecta tus SMS para empezar a ver tu mes en vivo.'
-                : `No hay transacciones registradas en ${selMonthStr}.`}
-              actionLabel={selectedOffset === 0 ? 'Agregar transacción' : undefined}
-              onAction={selectedOffset === 0 ? onAdd : undefined}
-            />
-          ) : (
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.div
-                key={`txs-${selectedOffset}`}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                style={{ background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', padding: '4px 16px' }}
-              >
-                {recent.map((tx, i) => (
-                  <div key={i}>
-                    {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
-                    <TxRow tx={tx} highlighted={Boolean(highlightLatest && i === 0 && selectedOffset === 0)} />
-                  </div>
-                ))}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </motion.div>
+        {/* (Accesos rápidos y Movimientos movidos arriba del doblez, tras el hero) */}
       </motion.div>
 
       <AnimatePresence>
@@ -690,6 +643,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           <CategorySheet category={drillCategory} transactions={transactions} onClose={() => setDrillCategory(null)} />
         )}
       </AnimatePresence>
+
+      <RachaSheet open={rachaOpen} onClose={() => setRachaOpen(false)} userId={userId} racha={racha} />
 
       <AnimatePresence>
         {showRecap && (
@@ -742,7 +697,7 @@ function TxRow({ tx, highlighted }: { tx: Transaction; highlighted?: boolean }) 
 
   return (
     <motion.div
-      animate={{ backgroundColor: highlighted ? 'rgba(37,99,235,0.06)' : 'transparent', scale: highlighted ? 1.01 : 1 }}
+      animate={{ backgroundColor: highlighted ? 'rgba(14,107,77,0.06)' : 'transparent', scale: highlighted ? 1.01 : 1 }}
       transition={softSpring}
       style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderRadius: 14 }}
     >
@@ -773,7 +728,7 @@ function SkeletonCard() {
 
 function Spinner() {
   return (
-    <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: '#2563eb', animation: 'spin 0.9s linear infinite' }} />
+    <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: '#0E6B4D', animation: 'spin 0.9s linear infinite' }} />
   );
 }
 
@@ -800,10 +755,10 @@ function DailySpendLine({ current, previous, daysInMonth }: { current: number[];
         <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--ink)' }}>{formatCOP(lastVal)}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 52, display: 'block', overflow: 'visible' }}>
-        {areaFill && <path d={areaFill} fill="rgba(37,99,235,0.07)" />}
+        {areaFill && <path d={areaFill} fill="rgba(14,107,77,0.07)" />}
         {prevPath && previous.some(v => v > 0) && <path d={prevPath} fill="none" stroke="rgba(100,116,139,0.32)" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />}
-        {currPath && current.some(v => v > 0) && <path d={currPath} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
-        {lastVal > 0 && current.length > 1 && <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#2563eb" />}
+        {currPath && current.some(v => v > 0) && <path d={currPath} fill="none" stroke="#0E6B4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+        {lastVal > 0 && current.length > 1 && <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#0E6B4D" />}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
         {['1', String(Math.ceil(daysInMonth / 2)), String(daysInMonth)].map(label => (

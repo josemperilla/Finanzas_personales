@@ -118,7 +118,7 @@ function AnimatedAmount({ value, size = 15 }: { value: number; size?: number }) 
   );
 }
 
-const HEALTH_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e'];
+const HEALTH_COLORS = ['#ef4444', '#f59e0b', '#13805C', '#22c55e'];
 const HEALTH_LABELS = ['Crítico', 'Regular', 'Bien', 'Excelente'];
 
 export function Explorar({ transactions, loading, userId, onViewHistorial, onOpenChat }: Props) {

@@ -2,19 +2,20 @@ import { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction, isIncomeTx } from '../lib/api';
-import { addLearnedMapping, getLearnedMappings, removeLearnedMapping, clearLearnedMappings, LearnedMapping } from '../lib/merchantLearning';
+import { addLearnedMapping } from '../lib/merchantLearning';
 import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
-import { getCategoryColor, CATEGORIES } from '../lib/config';
+import { getCategoryColor, CATEGORIES, normalizeCategory } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
-import { Icon, categoryIcon } from '../components/ui/icons';
+import { Icon } from '../components/ui/icons';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { ImportarExtracto } from '../components/ImportarExtracto';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { exportToCSV } from '../lib/export';
 import { CalendarHeatmap } from '../components/CalendarHeatmap';
 import { addXP } from '../lib/gamification';
+import { matchesCategoryFilter } from '../lib/historialFilters';
 
 type DateRange = 'month' | '3m' | '6m' | 'year' | 'all';
 
@@ -133,12 +134,8 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
   const types = useMemo(() => ['Todos', ...Array.from(new Set(transactions.map(tx => tx.Tipo).filter(Boolean))).sort()], [transactions]);
 
   const filtered = useMemo(() => (
-    (activeFilter === 'Todas'
-      ? transactions
-      : activeFilter === 'Sin categorizar'
-        ? transactions.filter(tx => !tx.Categoría || tx.Categoría.trim() === '')
-        : transactions.filter(tx => tx.Categoría === activeFilter)
-    )
+    transactions
+      .filter(tx => matchesCategoryFilter(tx, activeFilter))
       .filter(tx => {
         if (dateFrom || dateTo) {
           const d = new Date(tx.Fecha || tx.Timestamp);
@@ -591,6 +588,7 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
   const color    = isIncome ? '#16a34a' : getCategoryColor(tx.Categoría || 'Otro');
   const name     = cleanMerchant(tx.Comercio) || (/bre-?b/i.test(tx.Tipo || '') ? 'Transferencia por Bre-B' : tx.Tipo);
   const domain   = getMerchantDomain(name);
+  const category = normalizeCategory(tx.Categoría || '');
   const startX   = useRef(0);
   const [offset, setOffset] = useState(0);
   const [deleting, setDeleting] = useState(false);
@@ -640,7 +638,7 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
             <p style={{ margin: 0, color: 'var(--ink)', fontSize: 'var(--text-base)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {name}
             </p>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 2 }}>
               <span style={{
                 padding: '1px 7px', borderRadius: 6,
                 background: 'var(--blue-50)', border: '1px solid var(--blue-100)',
@@ -649,6 +647,15 @@ function TxRow({ tx, onClick, onDelete }: { tx: Transaction; onClick: () => void
                 {tx.Banco}
               </span>
               <span style={{ color: 'var(--muted)', fontSize: 'var(--text-xs)' }}>{isIncome ? 'Ingreso' : tx.Tipo}</span>
+              {category && (
+                <span style={{
+                  padding: '1px 7px', borderRadius: 6,
+                  background: 'var(--surface)', border: '1px solid var(--line)',
+                  color: 'var(--muted)', fontSize: 'var(--text-2xs)', fontWeight: 500,
+                }}>
+                  {category}
+                </span>
+              )}
             </div>
             {tx.Nota && (
               <p style={{ margin: '3px 0 0', color: 'var(--muted)', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -911,7 +918,7 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
                   color: 'var(--ink)', fontSize: 13.5, fontFamily: 'var(--font-body)',
                   outline: 'none', resize: 'none', lineHeight: '1.5',
                 }}
-                onFocus={e => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = '#2563eb'; }}
+                onFocus={e => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = '#0E6B4D'; }}
                 onBlur={e => { (e.currentTarget as HTMLTextAreaElement).style.borderColor = 'var(--line)'; handleNotaSave(); }}
               />
             </div>
@@ -939,16 +946,5 @@ function SkeletonCard() {
       background: 'linear-gradient(90deg, var(--line) 25%, #e2e8f0 50%, var(--line) 75%)',
       backgroundSize: '200% 100%', animation: 'shimmer 1.8s ease-in-out infinite',
     }} />
-  );
-}
-
-function EmptyState({ onImport }: { onImport: () => void }) {
-  return (
-    <FriendlyEmptyState
-      title="Sin historial todavía"
-      message="Cuando entren transacciones desde SMS o manuales, aparecerán agrupadas por día aquí."
-      actionLabel="Importar extracto bancario"
-      onAction={onImport}
-    />
   );
 }

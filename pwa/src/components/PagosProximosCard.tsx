@@ -101,9 +101,9 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
         <div style={{
           width: 48, height: 48, borderRadius: 15, flexShrink: 0,
-          background: 'linear-gradient(150deg, var(--blue-2, #3b82f6), var(--blue, #2563eb))',
+          background: 'linear-gradient(150deg, var(--blue-2, #13805C), var(--blue, #0E6B4D))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 6px 16px rgba(37,99,235,.28)',
+          boxShadow: '0 6px 16px rgba(14,107,77,.28)',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d={CALENDAR_PATH} />
