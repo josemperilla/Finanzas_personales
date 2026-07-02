@@ -36,4 +36,32 @@ describe('cleanMerchant', () => {
     const largo = 'Comercio Con Un Nombre Extremadamente Largo Que Supera El Limite';
     expect(cleanMerchant(largo).length).toBeLessThanOrEqual(40);
   });
+
+  it('reconoce transferencias Bre-B con o sin guion', () => {
+    expect(cleanMerchant('Llave Bre-B 1015471504')).toBe('Transferencia por Bre-B');
+    expect(cleanMerchant('transferencia BREB natalia')).toBe('Transferencia por Bre-B');
+  });
+
+  it('elimina el prefijo Mercado Pago con distintos separadores', () => {
+    expect(cleanMerchant('MERCADOPAGO*Tienda Andina')).toBe('Tienda Andina');
+    expect(cleanMerchant('Mercado Pago Tienda Andina')).toBe('Tienda Andina');
+  });
+
+  it('elimina prefijos de agregador DLO/DL/Vault', () => {
+    expect(cleanMerchant('DLO*Restaurante Central')).toBe('Restaurante Central');
+    expect(cleanMerchant('DL*Cafe Andino')).toBe('Cafe Andino');
+    expect(cleanMerchant('VAULT*Tienda Norte')).toBe('Tienda Norte');
+  });
+
+  it('quita nombres de ciudad aunque no matcheen ninguna marca conocida', () => {
+    expect(cleanMerchant('TIENDA GENERICA MEDELLIN')).toBe('Tienda Generica');
+  });
+
+  it('respeta mayúsculas/minúsculas al aplicar title case', () => {
+    expect(cleanMerchant('cafe DEL BARRIO')).toBe('Cafe Del Barrio');
+  });
+
+  it('colapsa espacios múltiples dejados por la limpieza de ruido', () => {
+    expect(cleanMerchant('Tienda   Con    Espacios')).toBe('Tienda Con Espacios');
+  });
 });
