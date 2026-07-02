@@ -2007,11 +2007,27 @@ function migrateCategories() {
 // migrateCategories() (arriba) defaulteaba a "Restaurantes" cualquier fila
 // "Comida" que detectCategory() no reconociera — en vez de "Otro". Eso dejó
 // transacciones no-restaurante (intereses, transferencias, comercios
-// genéricos) con Categoría="Restaurantes" en el Sheet. Esta función re-corre
-// detectCategory() (con userId, para respetar reglas/aprendizajes manuales)
-// sobre esas filas y corrige las que ya no clasifican como Restaurantes.
-// Ejecutar primero con dryRun=true (solo loguea, no escribe) y revisar el
-// resultado antes de correr con dryRun=false.
+// genéricos) con Categoría="Restaurantes" en el Sheet.
+//
+// v1 de esta función re-corría detectCategory() sobre cada fila y movía
+// cualquier cosa que no reconociera a "Otro" — pero eso es demasiado
+// agresivo: detectCategory() tiene una lista de keywords limitada, así que
+// un restaurante real con un nombre poco común (ej. "Izakaya", "Mistral
+// Panadería") también se reclasificaba incorrectamente. "No reconocido" no
+// es lo mismo que "no es un restaurante".
+//
+// v2: solo reclasifica con confianza las filas donde el campo Tipo indica
+// que ni siquiera es una compra (intereses, transferencias, retiros) — un
+// consumo real en un restaurante siempre tiene Tipo="Compra", así que este
+// criterio nunca puede tocar un restaurante legítimo. Para filas Tipo=Compra
+// que detectCategory() no reconoce, NO se tocan — solo se listan para
+// revisión manual, porque distinguir "comercio real que falta en la lista
+// de keywords" de "comercio genérico que nunca debió ser Restaurantes"
+// requiere criterio humano.
+//
+// Ejecutar primero con dryRun=true (solo loguea, no escribe), revisar el
+// registro de ejecución (los cambios automáticos Y la lista para revisión
+// manual) y solo entonces correr con dryRun=false.
 function fixMisassignedRestaurantes(dryRun) {
   var users = _getAllowedUsers();
   var statsAll = {};
@@ -2025,25 +2041,47 @@ function fixMisassignedRestaurantes(dryRun) {
     var hdrs  = data[0];
     var catCol      = hdrs.indexOf("Categoría");
     var comercioCol = hdrs.indexOf("Comercio");
+    var tipoCol     = hdrs.indexOf("Tipo");
     if (catCol < 0 || comercioCol < 0) continue;
 
     var changes = [];
+    var review  = [];
     for (var i = 1; i < data.length; i++) {
       var cat = String(data[i][catCol] || "").trim();
       if (cat !== "Restaurantes") continue;
 
       var comercio = String(data[i][comercioCol] || "").trim();
+      var tipo     = tipoCol >= 0 ? String(data[i][tipoCol] || "").trim() : "";
+
+      // Señal fuerte y sin ambigüedad: si no es una Compra, no puede ser un
+      // consumo real en un restaurante.
+      if (tipo && tipo.toLowerCase() !== "compra") {
+        var newCat = /bre-?b/i.test(tipo) ? "Bre-B" : "Otro";
+        changes.push({ row: i + 1, comercio: comercio, tipo: tipo, to: newCat });
+        if (!dryRun) sheet.getRange(i + 1, catCol + 1).setValue(newCat);
+        continue;
+      }
+
+      // Es una Compra: solo reclasificar si detectCategory() reconoce el
+      // comercio en OTRA categoría específica. Si no lo reconoce (= "Otro"),
+      // se deja tal cual y se lista para que un humano decida.
       var redetected = comercio ? detectCategory(comercio, users[u]) : "Otro";
-      if (redetected !== "Restaurantes") {
-        changes.push({ row: i + 1, comercio: comercio, to: redetected });
+      if (redetected !== "Restaurantes" && redetected !== "Otro") {
+        changes.push({ row: i + 1, comercio: comercio, tipo: tipo, to: redetected });
         if (!dryRun) sheet.getRange(i + 1, catCol + 1).setValue(redetected);
+      } else if (redetected === "Otro") {
+        review.push({ row: i + 1, comercio: comercio, tipo: tipo });
       }
     }
-    statsAll[users[u]] = changes;
+    statsAll[users[u]] = { changes: changes.length, review: review.length };
     Logger.log("fixMisassignedRestaurantes [" + users[u] + "] (dryRun=" + !!dryRun + "): "
-      + changes.length + " filas " + (dryRun ? "cambiarían" : "actualizadas") + ".");
+      + changes.length + " filas " + (dryRun ? "cambiarían" : "actualizadas") + ", "
+      + review.length + " quedan para revisión manual (no se tocan).");
     changes.forEach(function(c) {
-      Logger.log("  fila " + c.row + ": \"" + c.comercio + "\" → " + c.to);
+      Logger.log("  cambio  fila " + c.row + " [" + c.tipo + "]: \"" + c.comercio + "\" → " + c.to);
+    });
+    review.forEach(function(r) {
+      Logger.log("  revisar fila " + r.row + " [" + r.tipo + "]: \"" + r.comercio + "\" (no reconocido, se deja como Restaurantes)");
     });
   }
 
