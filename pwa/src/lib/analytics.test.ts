@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { getCategoryTotals, detectUnusualCategories, getCategoryComparison } from './analytics';
+import {
+  getCategoryTotals,
+  detectUnusualCategories,
+  getCategoryComparison,
+  getMonthTransactions,
+  txMonth,
+  getWeekdayAverages,
+} from './analytics';
 import { Transaction } from './api';
 
 const now = new Date();
@@ -36,6 +43,46 @@ describe('getCategoryTotals', () => {
     expect(totals['Restaurantes']).toBe(80000);
     expect(totals['Ingreso']).toBeUndefined();
   });
+
+  it('agrupa como "Otro" las transacciones sin categoría', () => {
+    const txs = [tx({ Categoría: '', 'Monto (COP)': 15000 })];
+    expect(getCategoryTotals(txs)['Otro']).toBe(15000);
+  });
+
+  it('lista vacía → objeto vacío', () => {
+    expect(getCategoryTotals([])).toEqual({});
+  });
+});
+
+describe('txMonth', () => {
+  it('extrae año y mes de Fecha', () => {
+    const { year, month } = txMonth(tx({ Fecha: '2026-03-15T10:00:00' }));
+    expect(year).toBe(2026);
+    expect(month).toBe(2); // 0-indexed: marzo = 2
+  });
+
+  it('usa Timestamp si Fecha está vacía', () => {
+    const { year, month } = txMonth(tx({ Fecha: '', Timestamp: '2025-11-01T00:00:00' }));
+    expect(year).toBe(2025);
+    expect(month).toBe(10);
+  });
+});
+
+describe('getMonthTransactions', () => {
+  it('filtra solo las transacciones del año/mes pedido', () => {
+    const txs = [
+      tx({ Fecha: '2026-01-05T10:00:00' }),
+      tx({ Fecha: '2026-02-05T10:00:00' }),
+      tx({ Fecha: '2026-01-20T10:00:00' }),
+    ];
+    expect(getMonthTransactions(txs, 2026, 0)).toHaveLength(2);
+    expect(getMonthTransactions(txs, 2026, 1)).toHaveLength(1);
+  });
+
+  it('descarta fechas inválidas o vacías sin lanzar', () => {
+    const txs = [tx({ Fecha: '', Timestamp: '' }), tx({ Fecha: 'no-es-una-fecha' })];
+    expect(getMonthTransactions(txs, 2026, 0)).toHaveLength(0);
+  });
 });
 
 describe('detectUnusualCategories', () => {
@@ -63,6 +110,30 @@ describe('detectUnusualCategories', () => {
       tx({ Categoría: 'Restaurantes', 'Monto (COP)': 500000, Fecha: monthAgo(0) }),
     ];
     expect(detectUnusualCategories(txs).size).toBe(0);
+  });
+
+  it('lista vacía no lanza y no marca nada', () => {
+    expect(detectUnusualCategories([]).size).toBe(0);
+  });
+
+  it('no marca una categoría con gasto actual 0 aunque tenga historial', () => {
+    const txs = [
+      tx({ Categoría: 'Viajes', 'Monto (COP)': 100000, Fecha: monthAgo(1) }),
+      tx({ Categoría: 'Viajes', 'Monto (COP)': 100000, Fecha: monthAgo(2) }),
+      // sin transacciones de Viajes en el mes actual → curAmt es 0/ausente
+      tx({ Categoría: 'Mercado', 'Monto (COP)': 10000, Fecha: monthAgo(0) }),
+    ];
+    expect(detectUnusualCategories(txs).has('Viajes')).toBe(false);
+  });
+
+  it('categoría nueva sin historial previo no se marca (aunque el gasto actual sea alto)', () => {
+    const txs = [
+      tx({ Categoría: 'Software', 'Monto (COP)': 400000, Fecha: monthAgo(0) }),
+      // solo para satisfacer el mínimo de 2 meses de historia en OTRA categoría
+      tx({ Categoría: 'Mercado', 'Monto (COP)': 50000, Fecha: monthAgo(1) }),
+      tx({ Categoría: 'Mercado', 'Monto (COP)': 50000, Fecha: monthAgo(2) }),
+    ];
+    expect(detectUnusualCategories(txs).has('Software')).toBe(false);
   });
 });
 
@@ -118,5 +189,49 @@ describe('getCategoryComparison', () => {
     const row3 = getCategoryComparison(txs, 3).find(r => r.category === 'Restaurantes')!;
     expect(row3.prev).toBe(150000);
     expect(row3.anomaly).toBe(false);
+  });
+
+  it('categoría que desapareció (current=0, prev>0) se reporta con delta -100', () => {
+    const txs = [tx({ Categoría: 'Viajes', 'Monto (COP)': 500000, Fecha: monthAgo(1) })];
+    const row = getCategoryComparison(txs).find(r => r.category === 'Viajes')!;
+    expect(row.current).toBe(0);
+    expect(row.prev).toBe(500000);
+    expect(row.delta).toBe(-100);
+    expect(row.anomaly).toBe(false);
+  });
+
+  it('lista vacía → sin filas', () => {
+    expect(getCategoryComparison([])).toEqual([]);
+  });
+});
+
+describe('getWeekdayAverages', () => {
+  it('lista vacía → 7 días, todos en 0', () => {
+    const avgs = getWeekdayAverages([]);
+    expect(avgs).toHaveLength(7);
+    expect(avgs.every(d => d.avg === 0 && d.total === 0 && d.count === 0)).toBe(true);
+    expect(avgs.map(d => d.label)).toEqual(['L', 'M', 'M', 'J', 'V', 'S', 'D']);
+  });
+
+  it('ignora ingresos y solo promedia gastos', () => {
+    // Un jueves cualquiera del mes actual.
+    const thursday = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
+    while (thursday.getDay() !== 4) thursday.setDate(thursday.getDate() + 1);
+    const iso = thursday.toISOString();
+    const txs = [
+      tx({ Categoría: 'Mercado', 'Monto (COP)': 40000, Fecha: iso }),
+      tx({ Categoría: 'Ingreso', 'Monto (COP)': 999999, Fecha: iso }),
+    ];
+    const avgs = getWeekdayAverages(txs);
+    const jueves = avgs.find(d => d.dayIndex === 3)!; // 0=L..3=J
+    expect(jueves.total).toBe(40000);
+    expect(jueves.count).toBe(1);
+  });
+
+  it('excluye transacciones anteriores al corte de monthsBack', () => {
+    const old = new Date(now.getFullYear(), now.getMonth() - 5, 1, 12, 0, 0).toISOString();
+    const txs = [tx({ Categoría: 'Mercado', 'Monto (COP)': 40000, Fecha: old })];
+    const avgs = getWeekdayAverages(txs, 3); // solo últimos 3 meses
+    expect(avgs.every(d => d.total === 0)).toBe(true);
   });
 });
