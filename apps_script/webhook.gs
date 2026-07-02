@@ -2036,6 +2036,18 @@ function fixMisassignedRestaurantes(dryRun) {
   return { ok: true, dryRun: !!dryRun, stats: statsAll };
 }
 
+// El editor de Apps Script solo permite correr funciones sin argumentos desde
+// el botón "Run" — estos wrappers hacen que fixMisassignedRestaurantes() sea
+// ejecutable ahí sin tener que tocar código. Correr primero el dry-run,
+// revisar Ver > Registros, y solo luego correr el apply.
+function fixMisassignedRestaurantes_dryRun() {
+  return fixMisassignedRestaurantes(true);
+}
+
+function fixMisassignedRestaurantes_apply() {
+  return fixMisassignedRestaurantes(false);
+}
+
 // ── Actualizar categoría de una fila existente ────────────────
 var ALLOWED_CATEGORIES = ["Restaurantes","Domicilios","Mercado","Transporte","Hogar","Salud","Deporte","Compras","Suscripciones","Viajes","Software","Bre-B","Entretenimiento","Otro"];
 
