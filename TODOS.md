@@ -33,7 +33,7 @@ El resto de la checklist sigue siendo válido.
 Ya documentado abajo. Implementar `_timingSafeEqual(a,b)` y reemplazar el `===` del digest SHA-256.
 
 ### P1 — Tests de integración para `webhook.gs` (28+ paths de seguridad sin cobertura)
-Ya documentado abajo. Harness que llame al endpoint GAS real con `WEBHOOK_SECRET` y verifique los
+🔄 PR abierta: #35. Ya documentado abajo. Harness que llame al endpoint GAS real con `WEBHOOK_SECRET` y verifique los
 contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergency…).
 
 ### P2 — Hacer `check-category-drift.mjs` bloqueante en CI
@@ -186,6 +186,10 @@ integración, logging, hardening de inputs.
 ---
 
 ## P1 TODO: Tests de integración para flujo multi-usuario en GAS
+
+🔄 PR abierta: #35 (`scripts/test-webhook-security.mjs`). Ver README dentro del archivo:
+harness autoría + self-test contra mock local; NO corrido aún contra el deployment real
+(sin credenciales/red en el entorno donde se escribió).
 
 El código GAS (webhook.gs) no es testeable unitariamente en local (corre en la JVM de Apps
 Script). Los 28+ paths de seguridad críticos no tienen cobertura automatizada.
