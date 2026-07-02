@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 315" width="500" height="315">
+  <defs>
+    <linearGradient id="navy" x1="0%" y1="0%" x2="85%" y2="95%">
+      <stop offset="0%" stop-color="#0a1230"/>
+      <stop offset="48%" stop-color="#1d3c7d"/>
+      <stop offset="100%" stop-color="#0a1230"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="5%" y1="100%" x2="100%" y2="10%">
+      <stop offset="0%" stop-color="#c9701c"/>
+      <stop offset="55%" stop-color="#e89526"/>
+      <stop offset="100%" stop-color="#ffc247"/>
+    </linearGradient>
+    <linearGradient id="logo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffab2e"/>
+      <stop offset="100%" stop-color="#f3860f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="500" height="315" fill="url(#navy)"/>
+
+  <path d="M 0,182 C 150,258 305,150 500,140 L 500,315 L 0,315 Z" fill="url(#gold)"/>
+  <path d="M 0,182 C 150,258 305,150 500,140" fill="none" stroke="#cdc6b8" stroke-opacity="0.32" stroke-width="9"/>
+
+  <rect x="30" y="34" width="90" height="46" rx="12" fill="url(#logo)"/>
+  <text x="45" y="66" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-style="italic" font-size="25" fill="#0a1230">ita&#250;</text>
+
+  <text x="470" y="52" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="12" letter-spacing="3" fill="#e8c896">COLOMBIA</text>
+
+  <text x="30" y="248" font-family="Arial, Helvetica, sans-serif" font-weight="500" font-size="17" fill="#f4f2ee">Cuenta de Ahorros</text>
+  <g fill="#ffffff" fill-opacity="0.92">
+    <circle cx="35" cy="272" r="4"/>
+    <circle cx="49" cy="272" r="4"/>
+    <circle cx="63" cy="272" r="4"/>
+    <circle cx="77" cy="272" r="4"/>
+  </g>
+  <text x="92" y="281" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="27" fill="#ffffff">8448</text>
+
+  <text x="470" y="278" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="13" letter-spacing="1" fill="#ffffff">SALDO DISPONIBLE</text>
+</svg>
