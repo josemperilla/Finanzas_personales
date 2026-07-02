@@ -37,9 +37,9 @@ Ya documentado abajo. Harness que llame al endpoint GAS real con `WEBHOOK_SECRET
 contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergency…).
 
 ### P2 — Hacer `check-category-drift.mjs` bloqueante en CI
-`.github/workflows/ci.yml` corre el drift con `continue-on-error: true` por el drift conocido de "Bre-B".
-**Cómo:** reconciliar "Bre-B" en `ALLOWED_CATEGORIES` ↔ `detectCategory` ↔ `CATEGORIES` (¿asignarla por
-keyword/campo `Tipo`, o quitarla del picker?) y quitar el `continue-on-error`.
+🔄 PR abierta: #36. El drift de "Bre-B" ya estaba reconciliado en `main` (vía #30/`bebec3c`
++ `a040e53`: está en `ALLOWED_CATEGORIES`, `CATEGORIES`, y se asigna por campo `Tipo` en
+`migrateCategories()`). El PR solo quita el `continue-on-error` de `ci.yml`.
 
 ### P2 — Extraer helper `validateToken` compartido (DRY)
 `ocr.js`, `extract-pdf.js` y `shortcut-config.js` repiten el bloque "validar `token` contra GAS
