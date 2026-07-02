@@ -15,7 +15,10 @@ export function ProductCardFace({ card, compact = false }: Props) {
   const imageSrc = getProductImage(card);
 
   if (imageSrc) {
-    const needsLast4Overlay = isItau;
+    // La cuenta de ahorros Itaú ya trae los últimos 4 dígitos dibujados en el
+    // propio SVG — el overlay solo hace falta en la tarjeta de crédito, cuyo
+    // artwork no incluye un número real.
+    const needsLast4Overlay = isItau && !isSavings;
     return (
       <div style={{
         position: 'relative',
@@ -175,5 +178,6 @@ function getProductImage(card: Card): string | null {
   if (bank.includes('bogot') && last4 === '8645') return '/products/bogota-latam-8645.png';
   if (bank.includes('av villas') && last4 === '3403') return '/products/avvillas-lifemiles-3403.png';
   if (bank.includes('ita') && last4 === '8439') return '/products/itau-black-8439.png';
+  if (bank.includes('ita') && last4 === '8448') return '/products/itau-ahorros-8448.svg';
   return null;
 }
