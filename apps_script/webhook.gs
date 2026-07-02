@@ -193,13 +193,24 @@ function _hashPin(userId, pin) {
   return "sha256:" + salt + ":" + _computePinHash(userId, salt, pin);
 }
 
+// Compara dos strings en tiempo constante (evita filtrar por timing en qué carácter difieren).
+// Requiere longitudes iguales; una longitud distinta se trata como no-match sin comparar más
+// (la longitud de un digest SHA-256 hex es fija y pública, así que esto no agrega superficie nueva).
+function _timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // Verifica PIN contra el valor almacenado. Acepta formato hasheado Y texto plano (legado).
 function _verifyPin(userId, pin, stored) {
   if (!stored || !pin) return false;
   if (stored.indexOf("sha256:") === 0) {
     var parts = stored.split(":");
     if (parts.length !== 3) return false;
-    return _computePinHash(userId, parts[1], pin) === parts[2];
+    return _timingSafeEqual(_computePinHash(userId, parts[1], pin), parts[2]);
   }
   return pin === stored; // legado: texto plano
 }

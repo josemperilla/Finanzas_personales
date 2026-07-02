@@ -30,7 +30,7 @@ referencia de `requirements.txt` (`api/`→`archive/api/`) y se agregó `WEB_SEC
 El resto de la checklist sigue siendo válido.
 
 ### P1 — Constant-time comparison en `_verifyPin` (security)
-Ya documentado abajo. Implementar `_timingSafeEqual(a,b)` y reemplazar el `===` del digest SHA-256.
+🔄 PR abierta: #31. Ya documentado abajo. Implementar `_timingSafeEqual(a,b)` y reemplazar el `===` del digest SHA-256.
 
 ### P1 — Tests de integración para `webhook.gs` (28+ paths de seguridad sin cobertura)
 Ya documentado abajo. Harness que llame al endpoint GAS real con `WEBHOOK_SECRET` y verifique los
@@ -216,6 +216,8 @@ Surfaced by: /ship pre-landing review 2026-06-10 (Testing specialist + Red Team)
 ---
 
 ## P1 TODO: Constant-time comparison para validación de PIN hash
+
+🔄 PR abierta: #31.
 
 `_verifyPin` en webhook.gs usa `===` (JavaScript string equality) para comparar digests
 SHA-256. En V8/GAS esto hace short-circuit en el primer carácter diferente, creando un
