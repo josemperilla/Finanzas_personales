@@ -6,6 +6,8 @@ import { attributeSpend, computeExencion, computeCupo, CardSpend, CupoStatus, Ex
 import { getCardBenefits } from '../lib/cardCatalog';
 import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { createPortal } from 'react-dom';
+import { ProductCardFace } from '../components/ProductCardFace';
+import { missingPersonalProducts } from '../lib/personalProducts';
 
 const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Nequi', 'Daviplata', 'AV Villas', 'Occidente', 'Popular', 'dale', 'Rappi', 'Otro'];
 const CHASSIS_OPTIONS = ['Clásica', 'Oro', 'Platinum', 'Signature', 'Black', 'Infinite', 'World', 'Débito', 'Cuenta de Ahorros', 'Cuenta Corriente'];
@@ -47,33 +49,6 @@ function initForm(editCard?: Card, initial?: { banco: string; ultimos4: string }
     alias: '',
     cupo: '',
   };
-}
-
-function BankIcon({ banco }: { banco: string }) {
-  const colors: Record<string, string> = {
-    'Bogotá':     '#e53e3e',
-    'Itaú':       '#f97316',
-    'Davivienda': '#dc2626',
-    'Bancolombia':'#eab308',
-    'Nequi':      '#7c3aed',
-    'Daviplata':  '#dc2626',
-    'AV Villas':  '#2563eb',
-    'Occidente':  '#059669',
-    'Popular':    '#0891b2',
-    'dale':       '#7c3aed',
-    'Rappi':      '#ff6b35',
-  };
-  const color = colors[banco] || '#6366f1';
-  const initial = banco.charAt(0).toUpperCase();
-  return (
-    <div style={{
-      width: 44, height: 44, borderRadius: 14,
-      background: color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0, boxShadow: `0 2px 8px ${color}44`,
-    }}>
-      <span style={{ color: '#fff', fontWeight: 800, fontSize: 18, fontFamily: 'var(--font-body)' }}>{initial}</span>
-    </div>
-  );
 }
 
 function CupoBar({ cupo }: { cupo: CupoStatus }) {
@@ -152,13 +127,14 @@ function CardItem({ card, spend, onEdit, onDelete }: {
       variants={riseItem}
       style={{
         background: 'var(--card)', borderRadius: 18,
-        padding: '14px 16px', marginBottom: 10,
+        padding: 14, marginBottom: 14,
         boxShadow: 'var(--shadow-card)',
         border: '1px solid var(--line)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <BankIcon banco={card.banco} />
+      <ProductCardFace card={card} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 2 }}>
             {card.alias || card.banco}
@@ -171,7 +147,7 @@ function CardItem({ card, spend, onEdit, onDelete }: {
               {card.chasis || 'Sin chasis'}
             </span>
             <span style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>
-              **** {card.ultimos4}
+              •••• {card.ultimos4}
             </span>
           </div>
         </div>
@@ -1215,13 +1191,19 @@ export function Cuentas({ userId, transactions, initialCard, initialSection, onB
     setLoading(true);
     try {
       const data = await fetchCards();
+      const missing = missingPersonalProducts(userId, data);
+      if (missing.length > 0) {
+        await Promise.all(missing.map(card => saveCard(card)));
+        setCards([...data, ...missing]);
+        return;
+      }
       setCards(data);
     } catch (err) {
       setError((err as Error).message || 'Error al cargar');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => { reload(); }, [reload]);
 
