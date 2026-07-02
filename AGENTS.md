@@ -67,8 +67,8 @@ La PWA **nunca** toca el webhook directo en prod: pasa por `/api/proxy`, que esc
 cd pwa && npm run lint && npm run build && npm run test   # verde antes de cualquier PR
 node scripts/check-category-drift.mjs                      # tras tocar categorías
 ```
-- Cambios en `apps_script/`: `cd apps_script && clasp push` (deploy manual; NO toma efecto solo).
-- **No deployar ni pushear a `main` sin aprobación** (prod vivo = proyecto `finanzas-abiertas`).
+- Comandos de deploy (PWA/functions y GAS) y la regla de "no deploy sin aprobación": ver
+  `docs/ARCHITECTURE.md` §Deployment.
 
 ## Errores recurrentes (léelos para no repetirlos)
 
