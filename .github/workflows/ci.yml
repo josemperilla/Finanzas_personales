@@ -34,9 +34,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # Verifica que CATEGORIES (config.ts) y detectCategory (webhook.gs) estén alineadas.
-      # continue-on-error mientras exista el drift conocido de "Bre-B" (el UI la lista,
-      # webhook.gs no la asigna). Cambiar a blocking tras arreglarlo.
+      # Verifica que CATEGORIES (config.ts) y ALLOWED_CATEGORIES/detectCategory (webhook.gs)
+      # estén alineadas. El drift de "Bre-B" (asignada por el campo Tipo, no por
+      # detectCategory) ya está reconciliado — ver ALLOWED_CATEGORIES y migrateCategories()
+      # en webhook.gs — así que este check ahora bloquea el merge si hay drift nuevo.
       - name: Check category drift
         run: node scripts/check-category-drift.mjs
-        continue-on-error: true
