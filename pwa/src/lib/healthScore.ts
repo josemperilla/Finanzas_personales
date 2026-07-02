@@ -60,7 +60,7 @@ export function computeHealthScore(txs: Transaction[], userId: string): HealthSc
   let label: HealthScore['label'];
   let color: string;
   if (score >= 80) { label = 'Excelente'; color = '#16a34a'; }
-  else if (score >= 60) { label = 'Bien'; color = '#2563eb'; }
+  else if (score >= 60) { label = 'Bien'; color = '#0E6B4D'; }
   else if (score >= 40) { label = 'Regular'; color = '#d97706'; }
   else { label = 'Crítico'; color = '#dc2626'; }
 

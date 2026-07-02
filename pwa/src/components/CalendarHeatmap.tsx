@@ -11,7 +11,7 @@ interface Props {
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 function interpolateColor(t: number): string {
-  // t in [0,1]: 0 = --surface (#f6f8fc), 1 = --blue-700 (#1d4ed8)
+  // t in [0,1]: 0 = --surface (#f6f8fc), 1 = --blue-700 (#0a5640)
   // We read from CSS vars at runtime; fall back to hardcoded defaults
   if (t <= 0) return 'var(--surface)';
   const stops = [

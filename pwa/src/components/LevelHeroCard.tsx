@@ -54,7 +54,7 @@ export function LevelHeroCard({ userId }: Props) {
               width: 50, height: 50, borderRadius: 16,
               background: 'linear-gradient(145deg, var(--blue-2), var(--blue))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 16px rgba(37,99,235,.3)',
+              boxShadow: '0 6px 16px rgba(14,107,77,.3)',
             }}>
               <div style={{
                 width: 18, height: 18, border: '2.5px solid #fff',

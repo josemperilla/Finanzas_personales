@@ -617,7 +617,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                   aria-label="Alertas de gasto grande"
                   style={{
                     width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
-                    background: alertsEnabled ? 'var(--blue-600, #2563eb)' : 'var(--line)',
+                    background: alertsEnabled ? 'var(--blue-600, #0E6B4D)' : 'var(--line)',
                     position: 'relative', transition: 'background 0.25s',
                     flexShrink: 0, border: 'none',
                   }}
@@ -698,7 +698,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                     aria-label="Resumen semanal"
                     style={{
                       width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
-                      background: weeklyDigest ? 'var(--blue-600, #2563eb)' : 'var(--line)',
+                      background: weeklyDigest ? 'var(--blue-600, #0E6B4D)' : 'var(--line)',
                       position: 'relative', transition: 'background 0.25s',
                       flexShrink: 0, border: 'none',
                     }}
@@ -723,7 +723,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                 disabled={alertsSaving}
                 style={{
                   width: '100%', height: 44,
-                  background: alertsSaved ? 'var(--success, #16a34a)' : 'var(--blue-600, #2563eb)',
+                  background: alertsSaved ? 'var(--success, #16a34a)' : 'var(--blue-600, #0E6B4D)',
                   color: '#fff', border: 'none', borderRadius: 12, cursor: alertsSaving ? 'default' : 'pointer',
                   fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-body)',
                   transition: 'background 0.3s', opacity: alertsSaving ? 0.7 : 1,

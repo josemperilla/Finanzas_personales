@@ -117,7 +117,7 @@ export function WeeklyCashFlow({ transactions }: Props) {
           const barColor = isFuture
             ? 'var(--line)'
             : isMax && !isToday
-              ? 'var(--blue-600, #2563eb)'
+              ? 'var(--blue-600, #0E6B4D)'
               : 'var(--blue-200, #bfdbfe)';
 
           return (
@@ -159,7 +159,7 @@ export function WeeklyCashFlow({ transactions }: Props) {
                       height: '100%',
                       borderRadius: 3,
                       background: barColor,
-                      outline: isToday ? '2px solid var(--blue-500, #3b82f6)' : 'none',
+                      outline: isToday ? '2px solid var(--blue-500, #13805C)' : 'none',
                       outlineOffset: 1,
                     }} />
                   </motion.div>

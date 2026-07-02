@@ -423,7 +423,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
           onChange={e => handleComercioChange(e.target.value)}
           onFocus={e => {
             e.target.style.borderColor = 'var(--blue)';
-            e.target.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)';
+            e.target.style.boxShadow = '0 0 0 4px rgba(14,107,77,0.12)';
             if (suggestions.length > 0) setShowSugg(true);
           }}
           onBlur={e => {

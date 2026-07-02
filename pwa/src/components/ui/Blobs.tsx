@@ -15,7 +15,7 @@ const BLOB_SETS: Record<BlobVariant, BlobDef[]> = {
   ],
   b: [
     { t: -40, l: 200,  s: 200, c: 'radial-gradient(circle at 30% 30%, #fde3c4, #fb923c00)', anim: 'blobFloat2 8s ease-in-out infinite' },
-    { t: 420, l: -70,  s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #60a5fa00)', anim: 'blobFloat1 10s ease-in-out infinite' },
+    { t: 420, l: -70,  s: 220, c: 'radial-gradient(circle at 30% 30%, #dbeafe, #0E6B4D00)', anim: 'blobFloat1 10s ease-in-out infinite' },
   ],
   blue: [
     { t: -80, l: -60,  s: 300, c: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 70%)', anim: 'blobFloat1 8s ease-in-out infinite' },

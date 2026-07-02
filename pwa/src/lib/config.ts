@@ -27,7 +27,7 @@ export const CATEGORIES = [
   { name: 'Transporte',     color: '#06b6d4' },
   { name: 'Hogar',          color: '#f97316' },
   { name: 'Salud',          color: '#f43f5e' },
-  { name: 'Deporte',        color: '#3b82f6' },
+  { name: 'Deporte',        color: '#13805C' },
   { name: 'Compras',        color: '#ec4899' },
   { name: 'Suscripciones',  color: '#8b5cf6' },
   { name: 'Viajes',         color: '#14b8a6' },

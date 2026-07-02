@@ -18,7 +18,7 @@ const TIPO_LABEL: Record<string, string> = {
 
 function Confetti() {
   const pieces = Array.from({ length: 20 }, (_, i) => i);
-  const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
+  const colors = ['#f59e0b', '#10b981', '#13805C', '#ec4899', '#8b5cf6', '#ef4444'];
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', borderRadius: 'var(--r-xl)' }}>
       {pieces.map(i => (
