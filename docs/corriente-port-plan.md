@@ -7,7 +7,7 @@
 ## Objetivo y fuente de verdad
 
 - **Objetivo:** que cada pantalla del PWA coincida con el prototipo.
-- **Fuente de verdad visual:** `.tmp/propuesta_frontend/index.html` (prototipo aprobado) y la preview viva `https://corriente-skin.finanzas-abiertas.pages.dev`.
+- **Fuente de verdad visual:** `docs/design/propuesta_frontend/index.html` (prototipo aprobado) y la preview viva `https://corriente-skin.finanzas-abiertas.pages.dev`.
 - **Lenguaje del diseño:** ya está en el PWA. NO reinventar tokens.
 
 ## Estado actual (al iniciar)
@@ -50,7 +50,7 @@ Motion: --motion-fast 140 · --motion-base 220 · --motion-slow 360 · --ease-ou
 Para CADA pantalla:
 1. `cd pwa && npm run dev` y abrí la pantalla (con login PIN de dev si hace falta).
 2. Skill `/browse` → `screenshot` de la pantalla real.
-3. Compará contra la pantalla equivalente del prototipo (`.tmp/propuesta_frontend/index.html`, o abrí ese archivo en el browser y navega a la misma pantalla).
+3. Compará contra la pantalla equivalente del prototipo (`docs/design/propuesta_frontend/index.html`, o abrí ese archivo en el browser y navega a la misma pantalla).
 4. Anotá deltas (layout, color, espaciado, tipografía, motion) y corregilos.
 5. Repetí hasta match visual. Luego `npm run build && npm run test` verde.
 6. Recién ahí avanzá a la siguiente tarea.
@@ -126,7 +126,7 @@ Para CADA pantalla:
 **Archivo nuevo:** `pwa/src/components/ui/icons.tsx` — exportar componentes inline SVG (Lucide-style: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2.1"`, round caps/joins), stroke ~2.1.
 **Mapeo categoría→ícono:** Restaurantes=utensils, Domicilios=truck, Mercado=shopping-cart, Transporte=car, Hogar=home, Salud=heart-pulse, Deporte=dumbbell, Compras=shopping-bag, Suscripciones=repeat, Viajes=plane, Software=code, Bre-B=smartphone, Entretenimiento=film, Otro=more-horizontal. + fallbacks de comercio (store/receipt), nav (home/list/bar-chart/trophy), acciones (plus/check/search/arrow-right/chevron-down/mic/camera/file/qr), avatar options.
 **Uso:** reemplazar **todos los emojis** de categorías y comercios (en Home, Historial, Agregar, Insights, Progreso) por estos íconos.
-**Done cuando:** cero emojis en categorías/comercios, íconos Lucide consistentes, build verde. (El prototipo `.tmp/propuesta_frontend/index.html` tiene los paths SVG exactos en `const ICONS={...}` — copialos de ahí.)
+**Done cuando:** cero emojis en categorías/comercios, íconos Lucide consistentes, build verde. (El prototipo `docs/design/propuesta_frontend/index.html` tiene los paths SVG exactos en `const ICONS={...}` — copialos de ahí.)
 
 ### T9. Motion & 3D polish (la firma) `[GLM — verificar]`
 **Archivos:** `pwa/src/lib/motion.ts`, `App.tsx` (transiciones de screen), `Home.tsx` (parallax hero), `Cuentas.tsx` (3D).

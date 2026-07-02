@@ -235,3 +235,11 @@ function _timingSafeEqual(a, b) {
 Reemplazar `stored.split(":")[2] === _computePinHash(...)` con `_timingSafeEqual(...)`.
 
 Surfaced by: /ship pre-landing review 2026-06-10 (Security specialist)
+
+---
+
+## Notas de Loop 2 (limpieza de estructura, revisión manual pendiente)
+
+- `docs/corriente-port-plan.md` describe un plan de 9 tareas (T1–T9) para portar el prototipo "Corriente"; el estado real del código está parcial (Onboarding de 7 pasos y bottom-nav de 4 tabs + FAB ya existen, pero T7 — consolidar Progreso/Misiones/Sueños — no está hecho y la paleta oscura implementada `#34D399` no coincide con el "azul fosforescente `#00B4FF`" que pide el doc). No se movió a `docs/archive/` porque no está claramente resuelto — revisar y decidir si se actualiza o se archiva.
+- `docs/brainstorm_sms_automatico.md` está marcado explícitamente "Estado: Investigación / sin implementar" — sigue siendo un doc de trabajo vigente, no un histórico resuelto. Se dejó en su lugar; considerar enlazarlo desde algún índice si sigue siendo relevante.
+- `android/` podría ser redundante dado el movimiento del proyecto hacia Capacitor/iOS (`pwa/capacitor.config.ts`, `ios_shortcut/`), pero es una decisión de plataforma, no de limpieza — no se tocó el directorio. Revisar manualmente si se puede archivar/eliminar.
