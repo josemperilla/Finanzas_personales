@@ -1215,6 +1215,12 @@ function doPost(e) {
       return jsonResponse({ ok: true, reversed: true, found: removed });
     }
 
+    // Itaú manda dos SMS por una misma transferencia Bre-B (ver comentario en
+    // _isDuplicateItauSmsInRows) — sin este chequeo se duplicaría la transacción.
+    if (resolvedBank === "itau" && _isDuplicateItauSms(parsed, userId)) {
+      return jsonResponse({ ok: true, skipped: true, reason: "duplicate itau sms (doble notificación Bre-B)" });
+    }
+
     parsed.timestamp    = new Date();
     parsed.categoria    = parsed.income ? 'Ingreso' : detectCategory(parsed.comercio, userId);
     delete parsed.income;
@@ -2142,6 +2148,50 @@ function updateTransactionFields(timestamp, payload, userId) {
     }
   }
   throw new Error("Transacción no encontrada: " + timestamp);
+}
+
+// ── Deduplicación de SMS duplicados de Itaú (mismo evento, dos mensajes) ──
+// Itaú envía DOS SMS distintos para una misma transferencia Bre-B: uno
+// genérico ("Se realizo un debito de tu Cuenta de Ahorros ****XXXX...") y
+// otro específico de la llave Bre-B ("ITAU: se realizó un débito a tu
+// cuenta AHO XXXX a la llave Bre-B... por $ Y..."). Antes del fix de
+// parseItau() para Bre-B (#30) solo el primer formato se reconocía; ahora
+// ambos parsean con éxito y, sin este chequeo, cada transferencia Bre-B se
+// registraba dos veces (mismo monto, misma cuenta, segundos de diferencia).
+// Ventana de 3 min + mismo monto + misma cuenta: suficientemente ajustado
+// para no descartar compras reales idénticas hechas con minutos de diferencia.
+// Lógica pura (sin llamadas a Sheets) para poder testearla fuera de GAS.
+function _isDuplicateItauSmsInRows(parsed, rows, hdrs) {
+  var last4 = String(parsed.tarjeta || "").match(/(\d{4})\s*$/);
+  if (!last4 || !parsed.monto || !parsed.fecha) return false;
+
+  var bancoCol   = hdrs.indexOf("Banco");
+  var montoCol   = hdrs.indexOf("Monto (COP)");
+  var tarjetaCol = hdrs.indexOf("Tarjeta/Cuenta");
+  var fechaCol   = hdrs.indexOf("Fecha");
+  if (bancoCol < 0 || montoCol < 0 || tarjetaCol < 0 || fechaCol < 0) return false;
+
+  var windowMs = 3 * 60 * 1000;
+  // Las filas más recientes están al final — basta con mirar las últimas.
+  for (var i = rows.length - 1, seen = 0; i >= 1 && seen < 25; i--, seen++) {
+    var row = rows[i];
+    if (!/ita/i.test(String(row[bancoCol] || ""))) continue;
+    if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;
+    var rowLast4 = String(row[tarjetaCol] || "").match(/(\d{4})\s*$/);
+    if (!rowLast4 || rowLast4[1] !== last4[1]) continue;
+    var rowFecha = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
+    if (isNaN(rowFecha.getTime())) continue;
+    if (Math.abs(rowFecha.getTime() - parsed.fecha.getTime()) <= windowMs) return true;
+  }
+  return false;
+}
+
+function _isDuplicateItauSms(parsed, userId) {
+  var ref = _getSheet(userId);
+  if (!ref.sheet) return false;
+  var data = ref.sheet.getDataRange().getValues();
+  if (data.length <= 1) return false;
+  return _isDuplicateItauSmsInRows(parsed, data, data[0]);
 }
 
 // ── Google Sheets writer ──────────────────────────────────────
