@@ -811,7 +811,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
       {onOpenChat && (
         <div style={{
           position: 'sticky', left: 0, right: 0,
-          bottom: 'calc(76px + env(safe-area-inset-bottom))',
+          bottom: 'calc(90px + env(safe-area-inset-bottom))',
           margin: '4px 0 0', padding: '12px 20px',
           background: 'color-mix(in srgb, var(--surface) 90%, transparent)',
           backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',

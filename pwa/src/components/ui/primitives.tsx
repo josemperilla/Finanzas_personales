@@ -95,7 +95,7 @@ export function StatusToast({ message, tone = 'success' }: { message: string | n
           transition={quickEase}
           style={{
             position: 'fixed', left: 16, right: 16,
-            bottom: 'calc(92px + env(safe-area-inset-bottom))', zIndex: 'var(--z-toast)',
+            bottom: 'calc(106px + env(safe-area-inset-bottom))', zIndex: 'var(--z-toast)',
             maxWidth: 440, margin: '0 auto', padding: '13px 16px', borderRadius: 'var(--r-md)',
             background: colors[0], color: colors[1], boxShadow: 'var(--shadow-float)',
             fontSize: 13.5, fontWeight: 700, textAlign: 'center',

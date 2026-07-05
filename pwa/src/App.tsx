@@ -472,7 +472,7 @@ export default function App() {
           onClick={() => setTab('chat')}
           aria-label="Pregúntale a Fino"
           style={{
-            position: 'fixed', right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            position: 'fixed', right: 16, bottom: 'calc(110px + env(safe-area-inset-bottom))',
             width: 50, height: 50, borderRadius: '50%',
             background: 'var(--grad-brand)', color: '#fff',
             border: 'none', cursor: 'pointer',
@@ -577,7 +577,7 @@ export default function App() {
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             style={{
               position: 'fixed',
-              bottom: 'calc(100px + env(safe-area-inset-bottom))',
+              bottom: 'calc(114px + env(safe-area-inset-bottom))',
               left: '50%', transform: 'translateX(-50%)',
               zIndex: 9997,
               background: '#15803d',
@@ -603,7 +603,7 @@ export default function App() {
             exit={{ opacity: 0, y: 40 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             style={{
-              position: 'fixed', bottom: 'calc(80px + env(safe-area-inset-bottom))',
+              position: 'fixed', bottom: 'calc(94px + env(safe-area-inset-bottom))',
               left: '50%', transform: 'translateX(-50%)',
               zIndex: 9996, width: 'calc(100% - 48px)', maxWidth: 360,
               background: 'var(--ink)', borderRadius: 16,

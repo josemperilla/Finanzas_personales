@@ -538,7 +538,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             style={{
               position: 'fixed',
-              bottom: 'calc(80px + env(safe-area-inset-bottom))',
+              bottom: 'calc(94px + env(safe-area-inset-bottom))',
               left: '50%', transform: 'translateX(-50%)',
               zIndex: 9994,
               width: 'calc(100% - 48px)', maxWidth: 360,
