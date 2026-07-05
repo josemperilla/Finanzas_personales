@@ -753,7 +753,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
             initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: 0.98 }}
             transition={softSpring}
             style={{
-              position: 'fixed', bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              position: 'fixed', bottom: 'calc(90px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: `1px solid ${toast.ok ? '#86efac' : '#fca5a5'}`,
               color: toast.ok ? '#15803d' : '#b91c1c',
@@ -801,7 +801,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
             transition={{ ...softSpring, delay: 1.0 }}
             onClick={() => setUnusualAlert(null)}
             style={{
-              position: 'fixed', bottom: 'calc(160px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              position: 'fixed', bottom: 'calc(174px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: '1px solid #fde68a', color: '#92400e',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
@@ -820,7 +820,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
             transition={{ ...softSpring, delay: 0.8 }}
             onClick={() => setBudgetAlert(null)}
             style={{
-              position: 'fixed', bottom: 'calc(120px + env(safe-area-inset-bottom))', left: 16, right: 16,
+              position: 'fixed', bottom: 'calc(134px + env(safe-area-inset-bottom))', left: 16, right: 16,
               padding: '13px 16px', borderRadius: 12, background: 'var(--card)',
               border: '1px solid #fde68a', color: '#92400e',
               fontSize: 13.5, fontWeight: 600, textAlign: 'center', zIndex: 301, boxShadow: 'var(--shadow-float)',
