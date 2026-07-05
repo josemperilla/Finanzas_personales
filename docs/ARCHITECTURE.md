@@ -53,7 +53,10 @@ la API de Anthropic. Modelos y `ANTHROPIC_API_KEY` viven en env (server-side).
   auth, usuarios/invitaciones, transacciones, categorías, tarjetas, fixed payments, budgets, net worth,
   cashback, mood, IA). Ver `docs/DATA_MODEL.md` para el contrato completo.
 - **`connectors_facturas.gs`**: conectores de consulta de facturas (esqueletos; registry
-  `FACTURA_CONNECTORS`). Solo `acueducto-bogota` y `vanti` declarados (aún sin cablear).
+  `FACTURA_CONNECTORS`). Hoy el registry está **vacío** (`{}`) — la consulta automática desde el
+  backend no está cableada; la captura de facturas se hace con la **extensión del navegador**
+  (`extension/`), que extrae monto/fecha del portal y envía por `/api/proxy`. Ver
+  `docs/DATA_MODEL.md` §6 y `extension/README.md`.
 - **`setup_triggers.gs`**: crea triggers time-based (backup semanal a Drive, refresh de facturas).
   Ejecutar cada función **una sola vez** desde el editor GAS.
 - **Deploy:** `appsscript.json` → `webapp.access: ANYONE_ANONYMOUS`, `executeAs: USER_DEPLOYING`.
