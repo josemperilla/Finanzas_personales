@@ -49,3 +49,10 @@ export const popVariants = {
   animate: { opacity: 1, scale: 1, y: 0 },
   exit: { opacity: 0, scale: 0.98, y: 4 },
 };
+
+export const navHideTransition: Transition = {
+  type: 'spring',
+  stiffness: 300,
+  damping: 30,
+  mass: 1,
+};
