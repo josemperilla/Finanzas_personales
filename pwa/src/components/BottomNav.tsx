@@ -39,11 +39,22 @@ export function BottomNav({ active, onChange, accessibleMode = false, hasAnomaly
       rafId.current = requestAnimationFrame(() => {
         rafId.current = 0;
         const currentTop = el.scrollTop;
-        const delta = currentTop - lastScrollTop.current;
-        if (Math.abs(delta) > SCROLL_THRESHOLD) {
-          setNavVisible(delta < 0);
+        // El ancla (lastScrollTop) solo se mueve cuando se cruza el threshold —
+        // así un scroll lento y continuo (pocos px por frame) acumula delta en
+        // vez de resetearse cada frame, que nunca dispararía el hide/show.
+        if (currentTop <= 0) {
+          setNavVisible(true);
+          lastScrollTop.current = 0;
+          return;
         }
-        lastScrollTop.current = currentTop;
+        const delta = currentTop - lastScrollTop.current;
+        if (delta > SCROLL_THRESHOLD) {
+          setNavVisible(false);
+          lastScrollTop.current = currentTop;
+        } else if (delta < -SCROLL_THRESHOLD) {
+          setNavVisible(true);
+          lastScrollTop.current = currentTop;
+        }
       });
     };
 

@@ -12,6 +12,7 @@ import { pageVariants, quickEase, softSpring } from './lib/motion';
 import { getTheme, applyTheme, applyAccessibleMode, getAccessibleMode, applyColorScheme } from './lib/theme';
 import { applyLearnings } from './lib/merchantLearning';
 import { Profile, getDisplayName, getKnownProfiles, addKnownProfile, getKnownProfileIds } from './lib/profiles';
+import { STORAGE_KEYS } from './lib/storageKeys';
 import { applyPersonalizedAppIcon, resetAppIcon } from './lib/appicon';
 import { SetupPin } from './components/SetupPin';
 import { TutorialCanales } from './components/TutorialCanales';
@@ -65,7 +66,7 @@ export default function App() {
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string | null>(
-    () => localStorage.getItem('fm_profile')
+    () => localStorage.getItem(STORAGE_KEYS.activeProfile)
   );
   const [unlocked, setUnlocked] = useState(false);
   const [needsSetupPin, setNeedsSetupPin] = useState(false);
@@ -114,7 +115,7 @@ export default function App() {
 
   // Migración: sembrar perfil actual si no hay profiles conocidos
   useEffect(() => {
-    const current = localStorage.getItem('fm_profile');
+    const current = localStorage.getItem(STORAGE_KEYS.activeProfile);
     if (current && getKnownProfileIds().length === 0) addKnownProfile(current);
   }, []);
 
@@ -183,7 +184,7 @@ export default function App() {
       const processed = userId ? applyLearnings(data, userId) : data;
       setTransactions(processed);
       lastFetchRef.current = Date.now();
-      if (data.length === 0 && userId && !localStorage.getItem(`fm_tutorial_seen_${userId}`)) {
+      if (data.length === 0 && userId && !localStorage.getItem(STORAGE_KEYS.tutorialSeen(userId))) {
         setShowTutorial(true);
       }
       if (userId) {
@@ -259,7 +260,7 @@ export default function App() {
   }, [silentLoad, unlocked]);
 
   const handleSelectProfile = useCallback(async (id: string) => {
-    localStorage.setItem('fm_profile', id);
+    localStorage.setItem(STORAGE_KEYS.activeProfile, id);
     setUserId(id);
     try {
       const exists = await hasPin(id);
@@ -271,7 +272,7 @@ export default function App() {
     setShowRedeem(false);
     setInitialInviteCode('');
     setRedeemCode(code);
-    localStorage.setItem('fm_profile', newUserId);
+    localStorage.setItem(STORAGE_KEYS.activeProfile, newUserId);
     setUserId(newUserId);
     setOnboardDisplayName(displayName);
     try {
@@ -299,7 +300,7 @@ export default function App() {
     try {
       const result = await validatePin(pin, id);
       if (result.ok) {
-        localStorage.setItem('fm_profile', id);
+        localStorage.setItem(STORAGE_KEYS.activeProfile, id);
         sessionStorage.setItem(`fm_unlocked_${id}`, '1');
         try {
           addKnownProfile(id);
@@ -320,7 +321,7 @@ export default function App() {
   }, []);
 
   const handleSwitchProfile = useCallback(() => {
-    localStorage.removeItem('fm_profile');
+    localStorage.removeItem(STORAGE_KEYS.activeProfile);
     document.documentElement.dataset.mode = '';
     resetAppIcon();
     setUserId(null);
@@ -362,7 +363,7 @@ export default function App() {
       initial={false}
       animate={{ opacity: unlocked ? 1 : 0.88, y: unlocked ? 0 : 18 }}
       transition={softSpring}
-      style={{ minHeight: '100dvh', background: 'transparent', overflowY: 'auto' }}
+      style={{ height: '100dvh', background: 'transparent', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
     >
       <FlowBackground />
       <AnimatePresence mode="wait">
@@ -393,7 +394,8 @@ export default function App() {
                 onManageCards={() => { setInitialUnknownCard(undefined); setCuentasSection(undefined); setTab('cuentas'); }}
                 onRegisterUnknown={(banco, ultimos4) => { setInitialUnknownCard({ banco, ultimos4 }); setTab('cuentas'); }}
                 onQuickNav={(dest) => {
-                  if (dest === 'budgets') { setSettingsSection('budgets'); setShowSettings(true); }
+                  if (dest === 'facturas') { setTab('facturas'); }
+                  else if (dest === 'budgets') { setSettingsSection('budgets'); setShowSettings(true); }
                   else { setInitialUnknownCard(undefined); setCuentasSection(dest); setTab('cuentas'); }
                 }}
               />
