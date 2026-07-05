@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.3.0] — 2026-07-05
+
+### Features
+- **Recordatorios de vencimiento de Facturas**: `VencimientosUrgentes` — banner en Home que agrupa pagos fijos vencidos/por vencer, con notificaciones locales (Notification API del navegador) y toggle de activación en Ajustes (gesto explícito del usuario, nunca se pide permiso sin interacción).
+- **Extensión de navegador — extracción afinada por portal**: `popup.js` ahora usa keywords específicas por proveedor (Acueducto de Bogotá, Vanti, Enel Codensa, ETB) en vez de solo heurística genérica, y también captura el número de cuenta/contrato para hacer match fino en el backend cuando hay varias facturas del mismo proveedor.
+- **`pwa/src/lib/banks.ts`**: catálogo único de bancos como fuente de verdad (antes duplicado inline en `Cuentas.tsx`/`Historial.tsx`).
+- **`scripts/check-provider-drift.mjs`**: verifica que todo `providerId` de la extensión exista en el catálogo canónico (`pwa/src/lib/providers.ts`), mismo patrón que el check de categorías.
+
+### Fixes
+- **Barra de navegación inferior — hide/show al hacer scroll**: el contenedor de scroll no estaba realmente acotado en altura (`html`/`body`/`#root` usaban `min-height` en vez de `height` + `overflow:hidden`), así que quien scrolleaba de verdad era la ventana y el listener de la barra nunca se disparaba. Además, el umbral de dirección se reseteaba en cada frame, por lo que un scroll lento y continuo (trackpad) nunca ocultaba la barra. Ambos corregidos.
+- **Transacciones duplicadas de Bre-B (Itaú)**: Itaú envía dos SMS/notificaciones para una misma transferencia Bre-B (una genérica + una con la llave del destinatario); ahora se fusionan en una sola fila en vez de duplicarse, preservando siempre la llave del destinatario sin importar el orden de llegada. Incluye lock corto (`LockService`) contra condición de carrera entre las dos notificaciones casi simultáneas, y ventana de coincidencia angosta (90s) para no fusionar por error dos transferencias reales distintas del mismo monto.
+- **`weeklyBackupToDrive()`**: el respaldo semanal a Drive fallaba en silencio para todos los usuarios (buscaba la pestaña del Sheet por `userId` en minúsculas en vez del nombre capitalizado real). Corregido, y ahora reutiliza una sola conexión al spreadsheet en vez de reabrirlo por usuario.
+- **`PagosProximosCard`**: un pago que vence exactamente hoy se clasificaba mal como ya vencido (comparaba medianoche vs mediodía) y desaparecía del widget.
+- Botón "Guardar configuración" en Ajustes no cambiaba de color al confirmar éxito (un refactor de tokens CSS lo dejó apuntando a `--good`, idéntico a `--blue-600` en tema claro, en vez de `--success`).
+
+### Privacy
+- La llave/alias del destinatario de una transferencia Bre-B (dato del comercio, ahora más específico) se redacta antes de entrar a los prompts de IA (`_spendingCoach`, `_generateHealthReport`) — nunca se envía el teléfono/alias de otra persona a un proveedor de IA externo.
+
+### Infrastructure
+- `_callClaudeAI()` centraliza las 4 llamadas a Claude que antes duplicaban su propio `UrlFetchApp.fetch` (voz, chat, SMS fallback, coach/reporte); modelo y cuotas configurables vía Script Properties.
+- `CANONICAL_BANCO` normaliza el nombre de banco en toda transacción parseada (evita que el fallback de IA devuelva el nombre tal cual aparece en el SMS).
+
 ## [1.2.0] — 2026-06-23
 
 ### Features
