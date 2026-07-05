@@ -477,8 +477,15 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
         {loading ? (
           [1,2,3,4,5].map(i => <SkeletonCard key={i} />)
         ) : sortedKeys.length === 0 ? (
-          searchQuery
-            ? <FriendlyEmptyState title="Sin resultados" message={`No hay transacciones que coincidan con "${searchQuery}".`} />
+          activeFilterCount > 0
+            ? <FriendlyEmptyState
+                title="Sin resultados"
+                message={searchQuery
+                  ? `No hay transacciones que coincidan con "${searchQuery}".`
+                  : `No hay transacciones que coincidan con los filtros activos.`}
+                actionLabel="Limpiar filtros"
+                onAction={clearFilters}
+              />
             : <FriendlyEmptyState
                 title="Sin historial todavía"
                 message="Cuando entren transacciones desde SMS o manuales, aparecerán agrupadas por día aquí."
