@@ -13,7 +13,9 @@ export type IconName =
   | 'plus' | 'check' | 'search' | 'chevron-down' | 'arrow-right' | 'x'
   | 'mic' | 'camera' | 'file' | 'qr' | 'settings' | 'send'
   | 'trophy' | 'list' | 'bar-chart' | 'message'
-  | 'credit-card' | 'download' | 'users';
+  | 'credit-card' | 'download' | 'users'
+  // filled (nav activo estilo Instagram)
+  | 'home-filled' | 'list-filled' | 'bar-chart-filled' | 'receipt-filled';
 
 const PATHS: Record<IconName, string> = {
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
@@ -55,6 +57,11 @@ const PATHS: Record<IconName, string> = {
   'credit-card': '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  // Filled variants (nav activo estilo Instagram: fill=currentColor, stroke=none)
+  'home-filled': '<path fill="currentColor" d="M12.71 2.29a1 1 0 0 0-1.42 0l-9 9a1 1 0 0 0 0 1.42A1 1 0 0 0 3 13h1v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7h1a1 1 0 0 0 .71-1.71l-9-9Z"/>',
+  'list-filled': '<circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/><rect x="8" y="5" width="13" height="2" rx="1" fill="currentColor"/><rect x="8" y="11" width="13" height="2" rx="1" fill="currentColor"/><rect x="8" y="17" width="13" height="2" rx="1" fill="currentColor"/>',
+  'bar-chart-filled': '<rect x="5" y="14" width="3" height="7" rx="1.5" fill="currentColor"/><rect x="11" y="8" width="3" height="13" rx="1.5" fill="currentColor"/><rect x="17" y="2" width="3" height="19" rx="1.5" fill="currentColor"/>',
+  'receipt-filled': '<path fill="currentColor" d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/>',
 };
 
 const SVG_PROPS = {
@@ -66,7 +73,20 @@ const SVG_PROPS = {
   strokeLinejoin: 'round' as const,
 };
 
-export function Icon({ name, size = 18, style }: { name: IconName; size?: number; style?: CSSProperties }) {
+export function Icon({ name, size = 18, style, filled }: { name: IconName; size?: number; style?: CSSProperties; filled?: boolean }) {
+  if (filled) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="none"
+        style={style}
+        dangerouslySetInnerHTML={{ __html: PATHS[name] }}
+      />
+    );
+  }
   return (
     <svg
       width={size}

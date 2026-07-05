@@ -96,6 +96,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [highlightLatest, setHighlightLatest] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [cuentasSection, setCuentasSection] = useState<'fixed' | 'networth' | 'cashback' | undefined>(undefined);
@@ -357,6 +358,7 @@ export default function App() {
 
   return (
     <motion.div
+      ref={scrollContainerRef}
       initial={false}
       animate={{ opacity: unlocked ? 1 : 0.88, y: unlocked ? 0 : 18 }}
       transition={softSpring}
@@ -462,7 +464,7 @@ export default function App() {
       </AnimatePresence>
 
       {unlocked && userId && createPortal(
-        <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} />,
+        <BottomNav active={tab} onChange={setTab} accessibleMode={accessible} userId={userId} hasAnomaly={hasAnomaly && !dismissed} scrollRef={scrollContainerRef} />,
         document.body
       )}
 
