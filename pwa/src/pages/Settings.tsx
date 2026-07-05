@@ -7,6 +7,7 @@ import { CategorizarModal } from '../components/CategorizarModal';
 import { exportToCSV, exportToJSON } from '../lib/export';
 import { getProfile, getUserNickname, setUserNickname, getUserAvatar, setUserAvatar, getUserTimezone, setUserTimezone, getUserTabOrder, setUserTabOrder, ReorderableTab } from '../lib/profiles';
 import { TIMEZONE_OPTIONS, formatCOP } from '../lib/utils';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 import { quickEase, softSpring } from '../lib/motion';
 import { getTheme, applyTheme, type ThemeMode, getAccessibleMode, setAccessibleMode } from '../lib/theme';
 import { CoverturaMeter } from '../components/CoverturaMeter';
@@ -18,7 +19,8 @@ import { resizeImageToAvatar } from '../lib/avatar';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { getLearnedMappings, removeLearnedMapping, clearLearnedMappings } from '../lib/merchantLearning';
 import type { LearnedMapping } from '../lib/merchantLearning';
-import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
+import { getNotifEnabled as getNotifEnabledPref, setNotifEnabled as setNotifEnabledPref, requestNotifPermission, notifsDisponibles, needsPermissionPrompt } from '../lib/notifications';
+import { CATEGORIES, HAS_WEBHOOK_URL, BUDGET_WARNING_RATIO } from '../lib/config';
 import { BadgeGallery } from '../components/BadgeGallery';
 
 const ADMIN_USER = 'jose';
@@ -45,7 +47,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
   const budgetsRef = useRef<HTMLDivElement>(null);
 
   const [defaultBank, setDefaultBank] = useState(
-    () => localStorage.getItem('fm_default_bank') || 'Otro'
+    () => localStorage.getItem(STORAGE_KEYS.defaultBank) || 'Otro'
   );
 
   const [cards, setCards] = useState<Card[]>([]);
@@ -75,6 +77,10 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
   const [alertThreshold, setAlertThreshold] = useState('200000');
   const [weeklyDigest, setWeeklyDigest] = useState(false);
   const [alertsSaving, setAlertsSaving] = useState(false);
+
+  // Recordatorios locales de vencimiento (Notification API del navegador).
+  const [notifEnabled, setNotifEnabled] = useState(() => getNotifEnabledPref(userId));
+  const [notifPermError, setNotifPermError] = useState<string | null>(null);
   const [alertsSaved, setAlertsSaved] = useState(false);
 
   function handleRemoveLearning(rawMerchant: string) {
@@ -247,7 +253,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
 
   function handleBankChange(bank: string) {
     setDefaultBank(bank);
-    localStorage.setItem('fm_default_bank', bank);
+    localStorage.setItem(STORAGE_KEYS.defaultBank, bank);
   }
 
   async function handlePinChange() {
@@ -603,6 +609,63 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
           {/* ── Alertas ── */}
           <Section title="Alertas">
             <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+              {/* Recordatorios locales de vencimiento (Notification API del navegador) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: notifPermError ? 6 : 12, borderBottom: notifPermError ? 'none' : '1px solid var(--line)', marginBottom: notifPermError ? 0 : 12 }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                  <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>Recordatorios de vencimiento</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                    Te avisamos al abrir la app si una factura vence o ya venció.{!notifsDisponibles() ? ' Tu navegador no soporta notificaciones.' : ''}
+                  </div>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.88 }}
+                  onClick={async () => {
+                    const next = !notifEnabled;
+                    const available = notifsDisponibles();
+                    if (needsPermissionPrompt(next, available, available ? Notification.permission : undefined)) {
+                      const perm = await requestNotifPermission();
+                      if (perm !== 'granted') {
+                        // El navegador nunca vuelve a preguntar tras un rechazo — sin este
+                        // mensaje el switch parece no hacer nada, para siempre, sin explicación.
+                        setNotifPermError(
+                          perm === 'denied'
+                            ? 'Bloqueaste las notificaciones para esta app. Actívalas desde los ajustes de notificaciones de tu navegador/sistema.'
+                            : 'No se concedió el permiso de notificaciones.'
+                        );
+                        return;
+                      }
+                    }
+                    setNotifPermError(null);
+                    setNotifEnabled(next);
+                    setNotifEnabledPref(userId, next);
+                  }}
+                  role="switch"
+                  aria-checked={notifEnabled}
+                  aria-label="Recordatorios de vencimiento"
+                  style={{
+                    width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
+                    background: notifEnabled ? 'var(--blue-600)' : 'var(--line)',
+                    position: 'relative', transition: 'background 0.25s',
+                    flexShrink: 0, border: 'none',
+                  }}
+                >
+                  <motion.span
+                    animate={{ x: notifEnabled ? 20 : 2 }}
+                    transition={softSpring}
+                    style={{
+                      position: 'absolute', top: 3, left: 0, width: 20, height: 20,
+                      borderRadius: '50%', background: '#fff',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+                    }}
+                  />
+                </motion.button>
+              </div>
+              {notifPermError && (
+                <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--danger)', borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+                  {notifPermError}
+                </p>
+              )}
+
               {/* Toggle alertas de gasto */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
                 <div>
@@ -617,7 +680,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                   aria-label="Alertas de gasto grande"
                   style={{
                     width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
-                    background: alertsEnabled ? 'var(--blue-600, #0E6B4D)' : 'var(--line)',
+                    background: alertsEnabled ? 'var(--blue-600)' : 'var(--line)',
                     position: 'relative', transition: 'background 0.25s',
                     flexShrink: 0, border: 'none',
                   }}
@@ -698,7 +761,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                     aria-label="Resumen semanal"
                     style={{
                       width: 44, height: 26, borderRadius: 999, cursor: 'pointer',
-                      background: weeklyDigest ? 'var(--blue-600, #0E6B4D)' : 'var(--line)',
+                      background: weeklyDigest ? 'var(--blue-600)' : 'var(--line)',
                       position: 'relative', transition: 'background 0.25s',
                       flexShrink: 0, border: 'none',
                     }}
@@ -723,7 +786,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                 disabled={alertsSaving}
                 style={{
                   width: '100%', height: 44,
-                  background: alertsSaved ? 'var(--success, #16a34a)' : 'var(--blue-600, #0E6B4D)',
+                  background: alertsSaved ? 'var(--success)' : 'var(--blue-600)',
                   color: '#fff', border: 'none', borderRadius: 12, cursor: alertsSaving ? 'default' : 'pointer',
                   fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-body)',
                   transition: 'background 0.3s', opacity: alertsSaving ? 0.7 : 1,
@@ -744,7 +807,7 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
                 ) : serverBudgets && Object.keys(serverBudgets).length > 0 ? (
                   Object.entries(serverBudgets).map(([cat, data]) => {
                     const pct = Math.min(data.pct, 100);
-                    const barColor = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22c55e';
+                    const barColor = pct >= 100 ? '#ef4444' : pct >= BUDGET_WARNING_RATIO * 100 ? '#f59e0b' : '#22c55e';
                     return (
                       <div key={cat} style={{ padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
