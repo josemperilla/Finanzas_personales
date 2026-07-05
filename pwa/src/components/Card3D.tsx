@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { APP_LOCALE } from '../lib/utils';
 
 export type CardFranchise = 'visa-platinum' | 'mastercard-black' | 'generic';
 
@@ -138,7 +139,7 @@ export function Card3D({ banco, franchise, last4, alias, cupo, cuota, attributed
             />
           </div>
           {attributed !== undefined && (
-            <Row label="Atribuido este mes" value={attributed.toLocaleString('es-CO')} />
+            <Row label="Atribuido este mes" value={attributed.toLocaleString(APP_LOCALE)} />
           )}
           {exencionPct !== undefined && (
             <Row label={exencionLabel ?? 'Progreso exención'} value={`${exencionPct}%`} accent />

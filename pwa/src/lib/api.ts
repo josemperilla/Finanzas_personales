@@ -1,4 +1,5 @@
 import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
+import { STORAGE_KEYS } from './storageKeys';
 
 let _activeUserId: string | null = null;
 let _token: string | null = null;
@@ -101,7 +102,7 @@ export interface VoiceParsed {
 export function fetchTransactions(): Promise<Transaction[]> {
   assertWebhookUrl();
   if (_inflightFetch) return _inflightFetch;
-  const uid = _activeUserId || localStorage.getItem('fm_profile');
+  const uid = _activeUserId || localStorage.getItem(STORAGE_KEYS.activeProfile);
   const extraParams: Record<string, string> = { action: 'transactions' };
   if (uid) extraParams.userId = uid;
   if (_token) extraParams.token = _token;
@@ -174,7 +175,7 @@ export async function getLastSmsSeen(): Promise<number> {
 
 export async function validatePin(pin: string, userId?: string): Promise<{ ok: boolean; error?: string }> {
   assertWebhookUrl();
-  const uid = userId || _activeUserId || localStorage.getItem('fm_profile');
+  const uid = userId || _activeUserId || localStorage.getItem(STORAGE_KEYS.activeProfile);
   const body: Record<string, unknown> = { type: 'validatePin', pin };
   if (uid) body.userId = uid;
   const res = await fetch(secureUrl(WEBHOOK_URL), {
@@ -520,7 +521,7 @@ export interface Card {
 
 export function fetchCards(): Promise<Card[]> {
   assertWebhookUrl();
-  const uid = _activeUserId || localStorage.getItem('fm_profile');
+  const uid = _activeUserId || localStorage.getItem(STORAGE_KEYS.activeProfile);
   const extraParams: Record<string, string> = { action: 'cards' };
   if (uid) extraParams.userId = uid;
   if (_token) extraParams.token = _token;
@@ -638,7 +639,7 @@ export interface AnalyticsData {
 
 export async function fetchAnalytics(months = 12): Promise<AnalyticsData> {
   assertWebhookUrl();
-  const uid = _activeUserId || localStorage.getItem('fm_profile');
+  const uid = _activeUserId || localStorage.getItem(STORAGE_KEYS.activeProfile);
   const params: Record<string, string> = { action: 'analytics', months: String(months) };
   if (uid) params.userId = uid;
   if (_token) params.token = _token;

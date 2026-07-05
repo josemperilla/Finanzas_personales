@@ -1,17 +1,20 @@
+// Locale único para formateo de moneda/fecha en toda la PWA.
+export const APP_LOCALE = 'es-CO';
+
 export function formatCOP(amount: number): string {
-  return '$' + Math.round(amount).toLocaleString('es-CO');
+  return '$' + Math.round(amount).toLocaleString(APP_LOCALE);
 }
 
 export function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr.replace(' ', 'T'));
-  return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString(APP_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 export function formatDateShort(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr.replace(' ', 'T'));
-  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(APP_LOCALE, { day: 'numeric', month: 'short' });
 }
 
 export function getDateKey(dateStr: string): string {
@@ -21,11 +24,11 @@ export function getDateKey(dateStr: string): string {
 
 export function formatDateHeader(dateKey: string): string {
   const d = new Date(dateKey + 'T12:00:00');
-  return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString(APP_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 export function currentMonthLabel(): string {
-  return new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+  return new Date().toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase());
 }
 

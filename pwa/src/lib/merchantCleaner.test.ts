@@ -37,9 +37,14 @@ describe('cleanMerchant', () => {
     expect(cleanMerchant(largo).length).toBeLessThanOrEqual(40);
   });
 
-  it('reconoce transferencias Bre-B con o sin guion', () => {
-    expect(cleanMerchant('Llave Bre-B 1015471504')).toBe('Transferencia por Bre-B');
-    expect(cleanMerchant('transferencia BREB natalia')).toBe('Transferencia por Bre-B');
+  it('reconoce transferencias Bre-B con o sin guion y conserva la llave/destinatario', () => {
+    expect(cleanMerchant('Llave Bre-B 1015471504')).toBe('Transferencia por Bre-B · 1015471504');
+    expect(cleanMerchant('transferencia BREB natalia')).toBe('Transferencia por Bre-B · Natalia');
+    expect(cleanMerchant('Llave Bre-B @ramirez9237')).toBe('Transferencia por Bre-B · @Ramirez9237');
+  });
+
+  it('cae al genérico "Transferencia por Bre-B" cuando no hay llave/destinatario capturado', () => {
+    expect(cleanMerchant('Bre-B')).toBe('Transferencia por Bre-B');
   });
 
   it('elimina el prefijo Mercado Pago con distintos separadores', () => {

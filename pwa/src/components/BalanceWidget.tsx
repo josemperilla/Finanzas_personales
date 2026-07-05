@@ -4,6 +4,7 @@ import { Transaction } from '../lib/api';
 import { CATEGORIES, getCategoryColor } from '../lib/config';
 import { getRetos, computeProgress } from '../lib/retos';
 import { RetoWidget } from './RetoWidget';
+import { formatCOP as fmt, APP_LOCALE } from '../lib/utils';
 
 interface Props {
   transactions: Transaction[];
@@ -11,9 +12,6 @@ interface Props {
   onAdd: () => void;
   onClose: () => void;
 }
-
-const fmt = (n: number) =>
-  '$' + Math.round(n).toLocaleString('es-CO');
 
 function monthBounds(offset = 0) {
   const now = new Date();
@@ -76,7 +74,7 @@ export function BalanceWidget({ transactions, userId, onAdd, onClose }: Props) {
   const CIRC = 125.66; // 2π×20
   const arcDash = arcPct * CIRC;
 
-  const monthName = now.toLocaleString('es-CO', { month: 'long' });
+  const monthName = now.toLocaleString(APP_LOCALE, { month: 'long' });
 
   return (
     <motion.div
@@ -109,7 +107,7 @@ export function BalanceWidget({ transactions, userId, onAdd, onClose }: Props) {
         <div>
           <div style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--ink)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
             <span style={{ fontSize: 24, fontWeight: 600, verticalAlign: 'super', opacity: 0.5 }}>$</span>
-            {Math.round(thisTotal).toLocaleString('es-CO')}
+            {Math.round(thisTotal).toLocaleString(APP_LOCALE)}
           </div>
           {delta !== null && (
             <div style={{ marginTop: 10 }}>

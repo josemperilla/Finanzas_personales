@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Transaction } from '../lib/api';
 import { getCategoryComparison } from '../lib/analytics';
-import { formatCOP } from '../lib/utils';
+import { formatCOP, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor } from '../lib/config';
 
 interface Props {
@@ -35,7 +35,7 @@ export function CategoryComparison({ transactions }: Props) {
   }
 
   const now = new Date();
-  const monthLabel = (d: Date) => d.toLocaleDateString('es-CO', { month: 'short' });
+  const monthLabel = (d: Date) => d.toLocaleDateString(APP_LOCALE, { month: 'short' });
 
   return (
     <div style={{ padding: '16px 18px 18px' }}>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
-import { formatCOP, formatDateShort } from '../lib/utils';
+import { formatCOP, formatDateShort, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { quickEase, softSpring } from '../lib/motion';
@@ -95,7 +95,7 @@ export function CategorySheet({ category, transactions, onClose }: Props) {
       const total = catTxs
         .filter(tx => { const td = parseDate(tx); return td.getMonth() === m && td.getFullYear() === y; })
         .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
-      const label = d.toLocaleDateString('es-CO', { month: 'short' }).slice(0, 3);
+      const label = d.toLocaleDateString(APP_LOCALE, { month: 'short' }).slice(0, 3);
       const isCurrent = i === 5;
       return { label: label.charAt(0).toUpperCase() + label.slice(1), total, isCurrent };
     });

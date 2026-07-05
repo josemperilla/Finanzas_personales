@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
 import { SmsSetupWizard } from './SmsSetupWizard';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 type Platform = 'ios' | 'android';
 
@@ -145,7 +146,7 @@ export function TutorialCanales({ userId, onClose, initialCard, onVerified }: Pr
   }
 
   function dismiss() {
-    localStorage.setItem(`fm_tutorial_seen_${userId}`, '1');
+    localStorage.setItem(STORAGE_KEYS.tutorialSeen(userId), '1');
     onClose();
   }
 

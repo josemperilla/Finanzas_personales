@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { softSpring, quickEase } from '../lib/motion';
 import type { Sueno, RetoSugerido } from '../lib/suenos';
 import { calcularSueno } from '../lib/suenos';
-import { formatCOP } from '../lib/utils';
+import { formatCOP, APP_LOCALE } from '../lib/utils';
 import { useCountUp } from '../lib/useCountUp';
 
 interface Props {
@@ -48,7 +48,7 @@ export function SuenoCard({ sueno, retosParaSueno, onDelete, onAceptarReto, comp
           </div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
             {sueno.fechaObjetivo
-              ? `Meta · ${new Date(sueno.fechaObjetivo + 'T00:00:00').toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}`
+              ? `Meta · ${new Date(sueno.fechaObjetivo + 'T00:00:00').toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' })}`
               : calc.mesesRestantes >= 1
                 ? `${Math.ceil(calc.mesesRestantes)} ${Math.ceil(calc.mesesRestantes) === 1 ? 'mes' : 'meses'} restantes`
                 : `${calc.diasRestantes} días restantes`}

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, fetchAnalytics, AnalyticsData, fetchCards, Card } from '../lib/api';
 import { HAS_WEBHOOK_URL } from '../lib/config';
 import { formatCOP } from '../lib/utils';
-import { getCategoryColor, CATEGORIES } from '../lib/config';
+import { getCategoryColor, CATEGORIES, BUDGET_WARNING_RATIO } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { Icon } from '../components/ui/icons';
@@ -219,7 +219,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, color: 'var(--ink)', margin: '0 0 14px', letterSpacing: '-0.02em' }}>Insights</h1>
 
         {/* Bank filter chips */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none', touchAction: 'pan-x' }}>
           {bankList.map(b => {
             const active = b === activeBank;
             return (
@@ -652,7 +652,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
                   const spent = displayStats.byCategory.find(c => c.name === cat)?.amount ?? 0;
                   const pct = Math.min(spent / limit, 1);
                   const over = spent > limit;
-                  const barColor = over ? '#ef4444' : pct > 0.8 ? '#f59e0b' : 'var(--blue-600)';
+                  const barColor = over ? '#ef4444' : pct > BUDGET_WARNING_RATIO ? '#f59e0b' : 'var(--blue-600)';
                   return (
                     <div key={cat} style={{ marginBottom: 14 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>

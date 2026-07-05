@@ -1,4 +1,5 @@
 import { listUsers } from './api';
+import { STORAGE_KEYS } from './storageKeys';
 
 export interface Profile {
   id: string;
@@ -115,7 +116,7 @@ export function getKnownProfiles(): Profile[] {
 // Usa el array estático como fallback si el webhook falla.
 export async function fetchProfiles(): Promise<Profile[]> {
   try {
-    const adminId = localStorage.getItem('fm_profile') || 'jose';
+    const adminId = localStorage.getItem(STORAGE_KEYS.activeProfile) || 'jose';
     const ids = await listUsers(adminId);
     return ids.map(id => {
       const known = PROFILES.find(p => p.id === id);

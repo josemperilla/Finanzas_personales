@@ -1,12 +1,10 @@
 import { RetoProgress } from '../lib/retos';
 import { getCategoryColor } from '../lib/config';
+import { formatCOP as fmt } from '../lib/utils';
 
 interface Props {
   progress: RetoProgress;
 }
-
-const fmt = (n: number) =>
-  '$' + Math.round(n).toLocaleString('es-CO');
 
 function TargetChips({ reto }: { reto: RetoProgress['reto'] }) {
   const cats  = reto.categorias?.length ? reto.categorias : (reto.categoria ? [reto.categoria] : []);
