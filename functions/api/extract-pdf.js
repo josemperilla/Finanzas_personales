@@ -3,8 +3,8 @@
 // Requiere: ANTHROPIC_API_KEY y WEBHOOK_URL en las variables de entorno de Cloudflare Pages.
 
 import { assertSession } from './_auth.js';
+import { CLAUDE_API } from './_constants.js';
 
-const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 const MAX_PDF_B64_LENGTH = 14 * 1024 * 1024; // ~10 MB binarios en base64
 
 export async function onRequest(context) {
