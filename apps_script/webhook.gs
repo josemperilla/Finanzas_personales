@@ -19,6 +19,15 @@ var ADMIN_USER = "jose"; // can also be set in Script Properties as ADMIN_USER
 
 // ── Configuración global compartida ────────────────────────────
 var TIMEZONE = 'America/Bogota'; // usado en todos los Utilities.formatDate() del archivo
+
+// Tolerancia para matchear una fila por Timestamp (updateCategoryInSheet,
+// deleteTransactionFromSheet, updateTransactionFields). Timestamp ahora tiene
+// precisión de milisegundo (ver appendToSheet), así que esta ventana solo
+// necesita cubrir el redondeo de Google Sheets al convertir el string a un
+// valor de fecha interno — no debe acercarse al espaciado real entre
+// transacciones distintas (~300ms+ en importaciones en lote), o dos filas
+// vecinas podrían matchear entre sí y editarse/borrarse por error.
+var TIMESTAMP_MATCH_TOLERANCE_MS = 50;
 var SHEET_HEADERS = ["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"];
 var MAX_USERS = 10; // límite del plan de Sheets — migrar al backend FastAPI para levantarlo
 var MAX_USERS_ERROR = "Límite de " + MAX_USERS + " usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más.";
@@ -2242,7 +2251,7 @@ function updateCategoryInSheet(timestamp, categoria, userId) {
   for (var i = 1; i < data.length; i++) {
     var cell   = data[i][tsCol];
     var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
-    if (Math.abs(cellMs - targetMs) < 2000) {
+    if (Math.abs(cellMs - targetMs) < TIMESTAMP_MATCH_TOLERANCE_MS) {
       sheet.getRange(i + 1, catCol + 1).setValue(categoria);
       return comercioCol >= 0 ? String(data[i][comercioCol] || "") : null;
     }
@@ -2263,7 +2272,7 @@ function deleteTransactionFromSheet(timestamp, userId) {
   for (var i = 1; i < data.length; i++) {
     var cell   = data[i][tsCol];
     var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
-    if (Math.abs(cellMs - targetMs) < 2000) {
+    if (Math.abs(cellMs - targetMs) < TIMESTAMP_MATCH_TOLERANCE_MS) {
       sheet.deleteRow(i + 1);
       return;
     }
@@ -2284,7 +2293,7 @@ function updateTransactionFields(timestamp, payload, userId) {
   for (var i = 1; i < data.length; i++) {
     var cell   = data[i][tsCol];
     var cellMs = cell instanceof Date ? cell.getTime() : new Date(String(cell)).getTime();
-    if (Math.abs(cellMs - targetMs) < 2000) {
+    if (Math.abs(cellMs - targetMs) < TIMESTAMP_MATCH_TOLERANCE_MS) {
       var row  = i + 1;
       var cols = {
         banco:     hdrs.indexOf("Banco"),
@@ -2345,7 +2354,13 @@ function appendToSheet(data, userId) {
   var fecha = data.fecha ? Utilities.formatDate(data.fecha, TIMEZONE, "yyyy-MM-dd HH:mm:ss") : "";
 
   sheet.appendRow([
-    Utilities.formatDate(data.timestamp, TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
+    // Milisegundos: Timestamp es el identificador único de la fila (lo usan
+    // updateCategoryInSheet/deleteTransactionFromSheet/updateTransactionFields
+    // para saber cuál fila tocar). Con precisión de solo segundo, transacciones
+    // importadas en lote (extracto PDF/OCR, ~300ms entre cada una) podían
+    // compartir el mismo Timestamp — causando filas fantasma en el historial
+    // y riesgo real de editar/borrar la transacción vecina equivocada.
+    Utilities.formatDate(data.timestamp, TIMEZONE, "yyyy-MM-dd HH:mm:ss.SSS"),
     fecha,
     data.banco        || "",
     data.tipo         || "",
