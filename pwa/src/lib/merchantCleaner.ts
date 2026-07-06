@@ -10,7 +10,6 @@ const NOISE_PATTERNS: RegExp[] = [
 const BRAND_RULES: { pattern: RegExp; canonical: string }[] = [
   // Pagos genéricos sin comercio identificable
   { pattern: /^payu\s+pagosonline$/i, canonical: '' },
-  { pattern: /bre-?b/i, canonical: 'Transferencia por Bre-B' },
 
   // Apps de domicilios y transporte
   { pattern: /rappi/i, canonical: 'Rappi' },
@@ -106,6 +105,14 @@ export function cleanMerchant(raw: string | undefined | null): string {
   s = s.replace(/^(?:bold|vault|pyu|payu|dlo|dl|sumup)\*\s*/i, '').trim();
   // Mercado Pago: strip regardless of separator (*, space, or end-of-string)
   s = s.replace(/^mercado\s*pago[\s*]*/i, '').trim();
+
+  // Bre-B: preservar la llave/destinatario capturado por el backend en vez de
+  // colapsar todo a un genérico "Transferencia por Bre-B" sin info (el usuario
+  // necesita saber a quién le transfirió).
+  if (/bre-?b/i.test(s)) {
+    const key = s.replace(/.*bre-?b\s*[:-]?\s*/i, '').replace(/\s+/g, ' ').trim();
+    return key ? `Transferencia por Bre-B · ${toTitleCase(key)}` : 'Transferencia por Bre-B';
+  }
 
   // Brand normalization (run before noise stripping to preserve brand keywords)
   for (const { pattern, canonical } of BRAND_RULES) {

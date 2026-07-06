@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
-import { Transaction, isGasto, isIncomeTx, INCOME_CATEGORY, Card, getUnknownCards } from '../lib/api';
-import { getProfile, getUserNickname, getUserAvatar, getDisplayName } from '../lib/profiles';
-import { formatCOP, formatDateShort } from '../lib/utils';
+import { Transaction, isGasto, isIncomeTx, INCOME_CATEGORY, Card, getUnknownCards, fetchFixedCalendar, FixedPaymentStatus } from '../lib/api';
+import { getProfile, getUserNickname, getUserAvatar, getDisplayName, getUserTimezone } from '../lib/profiles';
+import { formatCOP, formatDateShort, todayInTZ, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { CategorySheet } from '../components/CategorySheet';
 import { Blobs } from '../components/ui/Blobs';
@@ -26,7 +26,12 @@ import { getSuenos, generarRetosParaSueno } from '../lib/suenos';
 import { getRetos, computeProgress } from '../lib/retos';
 import { getDesafioActual, getDesafioProgress, getDesafioCompletado } from '../lib/desafiosMensuales';
 import { PagosProximosCard } from '../components/PagosProximosCard';
+import { VencimientosUrgentes } from '../components/VencimientosUrgentes';
 import { ProductCardFace } from '../components/ProductCardFace';
+import { HAS_WEBHOOK_URL } from '../lib/config';
+import {
+  buildVencimientoNotifs, lanzarNotifs, getNotifEnabled, notifsDisponibles,
+} from '../lib/notifications';
 
 interface Props {
   transactions: Transaction[];
@@ -43,7 +48,7 @@ interface Props {
   cards?: Card[];
   onManageCards?: () => void;
   onRegisterUnknown?: (banco: string, ultimos4: string) => void;
-  onQuickNav?: (dest: 'fixed' | 'networth' | 'budgets') => void;
+  onQuickNav?: (dest: 'fixed' | 'networth' | 'budgets' | 'facturas') => void;
 }
 
 const slideVariants = {
@@ -51,19 +56,6 @@ const slideVariants = {
   center: { x: 0, opacity: 1 },
   exit: (dir: number) => ({ x: dir < 0 ? 64 : -64, opacity: 0 }),
 };
-
-function buildDailyCumulative(txs: Transaction[], year: number, month: number, maxDays: number): number[] {
-  const daily = new Array<number>(maxDays).fill(0);
-  for (const tx of txs.filter(isGasto)) {
-    const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
-    if (d.getMonth() === month && d.getFullYear() === year) {
-      const day = d.getDate() - 1;
-      if (day < maxDays) daily[day] += Number(tx['Monto (COP)'] || 0);
-    }
-  }
-  for (let i = 1; i < daily.length; i++) daily[i] += daily[i - 1];
-  return daily;
-}
 
 export function Home({ transactions, loading, error, missingConfig, highlightLatest, onRetry, onAdd, onViewAll, onOpenMenu, userId, gamificationKey, cards = [], onManageCards, onRegisterUnknown, onQuickNav }: Props) {
   const now = new Date();
@@ -81,6 +73,19 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [transactions, cards, loading]
   );
 
+  // Fetch ÚNICO del calendario de pagos fijos. Se comparte con VencimientosUrgentes y
+  // PagosProximosCard (vía props) y con el efecto de notificaciones (vía state), evitando
+  // 3 llamadas de red redundantes al abrir el Home. Solo se pide si hay webhook.
+  const [fixedPayments, setFixedPayments] = useState<FixedPaymentStatus[]>([]);
+  useEffect(() => {
+    if (!HAS_WEBHOOK_URL || loading) return;
+    let cancelled = false;
+    fetchFixedCalendar()
+      .then(data => { if (!cancelled) setFixedPayments(data.payments); })
+      .catch(() => { if (!cancelled) setFixedPayments([]); });
+    return () => { cancelled = true; };
+  }, [loading, userId]);
+
   useEffect(() => {
     if (loading) return;
     const now = new Date();
@@ -92,6 +97,24 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     setShowRecap(true);
   }, [loading, userId]);
 
+  // Recordatorios locales de vencimiento: al abrir el Home, si el permiso YA fue
+  // concedido y el toggle está activado, lanza las notifs pendientes (vencido/hoy/
+  // próximo). Reusa `fixedPayments` (el fetch único de arriba) en vez de llamar
+  // fetchFixedCalendar de nuevo. El dedup impide repetir la misma notif el mismo
+  // día. Limitación: solo al abrir la app.
+  //
+  // Importante: NO pide permiso acá (Notification.requestPermission() sin un gesto
+  // del usuario suele ser bloqueado/auto-denegado por el navegador, y quema para
+  // siempre la posibilidad de volver a preguntar). Pedir permiso es responsabilidad
+  // exclusiva del toggle en Settings (gesto explícito del usuario).
+  useEffect(() => {
+    if (!HAS_WEBHOOK_URL || loading) return;
+    if (!getNotifEnabled(userId)) return;
+    if (!notifsDisponibles() || Notification.permission !== 'granted') return;
+    const notifs = buildVencimientoNotifs(fixedPayments, { fechaRef: todayInTZ(getUserTimezone(userId)) });
+    if (notifs.length) lanzarNotifs(userId, notifs);
+  }, [loading, userId, fixedPayments]);
+
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -99,8 +122,8 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const selMonth = selDate.getMonth();
   const selYear = selDate.getFullYear();
 
-  const currentMonthStr = now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  const selMonthStr = selDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  const currentMonthStr = now.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
+  const selMonthStr = selDate.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
 
   const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
   const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
@@ -204,25 +227,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
   const animatedTotal = useCountUp(loading ? 0 : totalMonth);
 
-  const dayOfMonth = now.getDate();
-
-  const daysInSelMonth = new Date(selYear, selMonth + 1, 0).getDate();
-  const selDays = selectedOffset === 0 ? dayOfMonth : daysInSelMonth;
-  const compDate = new Date(selYear, selMonth - 1, 1);
-  const compChartMonth = compDate.getMonth();
-  const compChartYear = compDate.getFullYear();
-  const daysInCompMonth = new Date(compChartYear, compChartMonth + 1, 0).getDate();
-  const compDays = selectedOffset === 0 ? Math.min(dayOfMonth, daysInCompMonth) : daysInCompMonth;
-  const selCumulative = useMemo(
-    () => buildDailyCumulative(transactions, selYear, selMonth, selDays),
-    [transactions, selYear, selMonth, selDays],
-  );
-  const compCumulative = useMemo(
-    () => buildDailyCumulative(transactions, compChartYear, compChartMonth, compDays),
-    [transactions, compChartYear, compChartMonth, compDays],
-  );
-  const showSpendLine = !loading && (selCumulative.some(v => v > 0) || compCumulative.some(v => v > 0));
-
   const navigate = (delta: number) => {
     const next = Math.min(0, Math.max(-11, selectedOffset + delta));
     if (next !== selectedOffset) {
@@ -289,6 +293,11 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
       </AnimatePresence>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px', position: 'relative' }}>
+
+        {/* Banda de vencimientos urgentes (vencido / hoy / mañana) — solo si los hay */}
+        {!loading && selectedOffset === 0 && (
+          <VencimientosUrgentes userId={userId} payments={fixedPayments} onGoFacturas={() => onQuickNav?.('facturas')} />
+        )}
 
         {/* Banner productos desconocidos */}
         {!loading && !unknownBannerDismissed && unknownCards.length > 0 && (
@@ -369,7 +378,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
               </motion.button>
               <motion.span key={selectedOffset} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={quickEase}
                 style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, color: 'var(--muted)', minWidth: 92, textAlign: 'center', textTransform: 'capitalize' }}>
-                {selectedOffset === 0 ? new Date().toLocaleString('es-CO', { month: 'long' }) : selMonthStr}
+                {selectedOffset === 0 ? new Date().toLocaleString(APP_LOCALE, { month: 'long' }) : selMonthStr}
               </motion.span>
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => navigate(1)} disabled={selectedOffset >= 0} aria-label="Mes siguiente"
                 style={{ background: 'none', border: 'none', cursor: selectedOffset >= 0 ? 'default' : 'pointer', color: selectedOffset >= 0 ? 'rgba(100,116,139,0.28)' : 'var(--muted)', fontSize: 22, padding: '0 6px', lineHeight: 1, WebkitTapHighlightColor: 'transparent' }}>
@@ -564,6 +573,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
           <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
             <PagosProximosCard
               userId={userId}
+              payments={fixedPayments}
               onGoPagosFijos={() => onQuickNav?.('fixed')}
             />
           </motion.div>
@@ -729,42 +739,5 @@ function SkeletonCard() {
 function Spinner() {
   return (
     <div style={{ width: 28, height: 28, borderRadius: '50%', border: '2.5px solid var(--line)', borderTopColor: '#0E6B4D', animation: 'spin 0.9s linear infinite' }} />
-  );
-}
-
-function DailySpendLine({ current, previous, daysInMonth }: { current: number[]; previous: number[]; daysInMonth: number }) {
-  const W = 300; const H = 52; const PX = 2; const PY = 4;
-  const maxVal = Math.max(...current, ...previous, 1);
-  const toX = (i: number, len: number) => PX + (len <= 1 ? 0 : (i / (len - 1)) * (W - PX * 2));
-  const toY = (v: number) => H - PY - (v / maxVal) * (H - PY * 2);
-  const buildPath = (data: number[]) => {
-    if (data.length < 2) return '';
-    return data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i, data.length).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ');
-  };
-  const currPath = buildPath(current);
-  const prevPath = buildPath(previous);
-  const lastVal = current[current.length - 1] ?? 0;
-  const lastX = toX(current.length - 1, current.length);
-  const lastY = toY(lastVal);
-  const areaFill = currPath ? `${currPath} L ${lastX.toFixed(1)} ${H} L ${PX} ${H} Z` : '';
-
-  return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Acumulado del mes</span>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--ink)' }}>{formatCOP(lastVal)}</span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 52, display: 'block', overflow: 'visible' }}>
-        {areaFill && <path d={areaFill} fill="rgba(14,107,77,0.07)" />}
-        {prevPath && previous.some(v => v > 0) && <path d={prevPath} fill="none" stroke="rgba(100,116,139,0.32)" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />}
-        {currPath && current.some(v => v > 0) && <path d={currPath} fill="none" stroke="#0E6B4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
-        {lastVal > 0 && current.length > 1 && <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r="3" fill="#0E6B4D" />}
-      </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-        {['1', String(Math.ceil(daysInMonth / 2)), String(daysInMonth)].map(label => (
-          <span key={label} style={{ fontSize: 9, color: 'rgba(100,116,139,0.55)', fontFamily: 'var(--font-mono)' }}>{label}</span>
-        ))}
-      </div>
-    </div>
   );
 }

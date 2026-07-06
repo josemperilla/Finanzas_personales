@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND = 'https://finanzas-abiertas.pages.dev';
+// DEFAULT_BACKEND viene de config.js (cargado antes que este script — ver options.html).
 const $ = (id) => document.getElementById(id);
 
 chrome.storage.local.get(['extToken', 'backendUrl']).then((cfg) => {

@@ -5,6 +5,7 @@ import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { setMeta } from '../lib/meta';
 import { formatCOP } from '../lib/utils';
 import { Icon, type IconName } from './ui/icons';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 interface Props {
   userId: string;
@@ -88,7 +89,7 @@ export function Onboarding({ userId, initialDisplayName, onFinish }: Props) {
 
   function finish() {
     persist();
-    localStorage.setItem(`fm_tutorial_seen_${userId}`, '1');
+    localStorage.setItem(STORAGE_KEYS.tutorialSeen(userId), '1');
     onFinish();
   }
 

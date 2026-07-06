@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { listUsersData, createUser, deleteUser, disableUser, enableUser, resetUserPin, generateEmergencyPin, createInvite, listInvites, revokeInvite, Invite } from '../lib/api';
 import { getUserNickname } from '../lib/profiles';
 import { quickEase } from '../lib/motion';
+import { APP_LOCALE } from '../lib/utils';
 
 interface Props {
   adminId: string;
@@ -399,7 +400,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
                           {emergResult.code}
                         </div>
                         <div style={{ fontSize: 'var(--text-xs)', color: '#92400e', marginTop: 4 }}>
-                          Expira: {new Date(emergResult.expiresAt).toLocaleString('es-CO')}
+                          Expira: {new Date(emergResult.expiresAt).toLocaleString(APP_LOCALE)}
                         </div>
                         <button type="button" onClick={() => { setEmergResult(null); setActiveAction(null); }}
                           style={{ marginTop: 8, fontSize: 'var(--text-xs)', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)' }}>
@@ -462,7 +463,7 @@ export function AdminPanel({ adminId, onProfilesChanged }: Props) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--ink)' }}>{inv.displayName}</div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
-                {inv.code} · expira {new Date(inv.expiresAt).toLocaleDateString('es-CO')}
+                {inv.code} · expira {new Date(inv.expiresAt).toLocaleDateString(APP_LOCALE)}
               </div>
             </div>
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => copyInviteCode(inv.code)}

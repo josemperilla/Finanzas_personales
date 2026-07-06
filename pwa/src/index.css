@@ -107,6 +107,8 @@
 html, body {
   margin: 0;
   padding: 0;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--surface);
   color: var(--ink);
   font-family: var(--font-body);
@@ -125,6 +127,12 @@ button, input, select, textarea {
 
 button {
   -webkit-tap-highlight-color: transparent;
+  /* Sin esto, iOS Safari espera ~300ms para distinguir tap de doble-tap-zoom
+     antes de disparar click — en combinación con el gesture recognizer de
+     whileTap (framer-motion) el primer toque a veces no registra y hace
+     falta un segundo. Ya se había parcheado por archivo en PinLock/SetupPin/
+     Onboarding/numpad de Agregar; esto lo aplica a todos los <button> de una. */
+  touch-action: manipulation;
 }
 
 button:focus-visible,
@@ -142,7 +150,7 @@ textarea:focus-visible,
 }
 
 #root {
-  min-height: 100dvh;
+  height: 100dvh;
   position: relative;
   z-index: 1;
 }

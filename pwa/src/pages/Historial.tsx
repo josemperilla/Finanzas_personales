@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction, updateCategory, deleteTransaction, updateTransaction, ManualTransaction, isIncomeTx } from '../lib/api';
 import { addLearnedMapping } from '../lib/merchantLearning';
-import { formatCOP, formatDateHeader, getDateKey } from '../lib/utils';
+import { formatCOP, formatDateHeader, getDateKey, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor, CATEGORIES, normalizeCategory } from '../lib/config';
+import { BANKS } from '../lib/banks';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
@@ -236,7 +237,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
         </div>
 
         {/* Date range chips */}
-        <div style={{ overflowX: 'auto', display: 'flex', gap: 6, paddingBottom: 4, scrollbarWidth: 'none', marginBottom: 8 }}>
+        <div style={{ overflowX: 'auto', display: 'flex', gap: 6, paddingBottom: 4, scrollbarWidth: 'none', marginBottom: 8, touchAction: 'pan-x' }}>
           {DATE_CHIPS.map(({ label, value }) => {
             const isActive = value === dateRange;
             return (
@@ -354,7 +355,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
             >
               <div style={{ paddingBottom: 8 }}>
                 <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Banco</div>
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', touchAction: 'pan-x' }}>
                   {banks.map(b => (
                     <motion.button key={b} whileTap={{ scale: 0.94 }} onClick={() => setBankFilter(b)} style={{
                       flexShrink: 0, padding: '4px 11px', borderRadius: 999, fontSize: 12,
@@ -368,7 +369,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
               </div>
               <div style={{ paddingBottom: 8 }}>
                 <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Tipo</div>
-                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', touchAction: 'pan-x' }}>
                   {types.map(t => (
                     <motion.button key={t} whileTap={{ scale: 0.94 }} onClick={() => setTypeFilter(t)} style={{
                       flexShrink: 0, padding: '4px 11px', borderRadius: 999, fontSize: 12,
@@ -428,7 +429,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
         </AnimatePresence>
 
         {/* Category filter chips */}
-        <div style={{ overflowX: 'auto', display: 'flex', gap: 6, paddingBottom: 4, scrollbarWidth: 'none' }}>
+        <div style={{ overflowX: 'auto', display: 'flex', gap: 6, paddingBottom: 4, scrollbarWidth: 'none', touchAction: 'pan-x' }}>
           {filters.map(f => {
             const isActive = f === activeFilter;
             return (
@@ -459,7 +460,7 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
             const now = new Date();
             const y = now.getFullYear();
             const m = now.getMonth();
-            const monthLabel = now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+            const monthLabel = now.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
             return (
               <div style={{ background: 'var(--card)', borderRadius: 24, border: '1px solid var(--line)', padding: '16px 14px', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)' }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14, textTransform: 'capitalize' }}>
@@ -509,7 +510,12 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
                   </div>
                   <div style={{ background: 'var(--card)', borderRadius: 20, border: '1px solid var(--line)', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', overflow: 'hidden' }}>
                     {group.map((tx, i) => (
-                      <div key={tx.Timestamp || i}>
+                      // Timestamp solo tiene precisión de segundo — transacciones importadas en lote
+                      // (ej. extracto PDF) pueden compartir el mismo Timestamp. Usar solo Timestamp
+                      // como key hace que React confunda filas distintas al re-renderizar (filas
+                      // "fantasma" que no se limpian al cambiar de filtro). Se compone con Comercio +
+                      // Monto + posición para garantizar unicidad dentro del grupo del día.
+                      <div key={`${tx.Timestamp || ''}-${tx.Comercio}-${tx['Monto (COP)']}-${i}`}>
                         {i > 0 && <div style={{ height: 1, background: 'var(--line)', marginLeft: 16 }} />}
                         <TxRow tx={tx} onClick={() => setSelected(tx)} onDelete={handleDelete} />
                       </div>
@@ -837,7 +843,7 @@ function BottomSheet({ tx, onClose, onCategoryChange, onDelete, onTransactionUpd
             <div>
               <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 5 }}>Banco</div>
               <select value={editForm.banco} onChange={e => setEditForm(f => ({ ...f, banco: e.target.value }))} style={{ ...inputStyle }}>
-                {['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro'].map(b => <option key={b}>{b}</option>)}
+                {BANKS.map(b => <option key={b}>{b}</option>)}
               </select>
             </div>
             <div>

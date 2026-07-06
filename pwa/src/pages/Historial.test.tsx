@@ -117,3 +117,34 @@ describe('Historial — filtros por categoría', () => {
     expect(screen.getByText('Sin resultados')).toBeInTheDocument();
   });
 });
+
+describe('Historial — filas con Timestamp duplicado (ej. importadas del mismo extracto)', () => {
+  // Timestamp solo tiene precisión de segundo en el backend; transacciones
+  // importadas en lote (PDF/OCR) con ~300ms entre cada una pueden terminar
+  // compartiendo el mismo Timestamp. Antes, la key de React en la lista era
+  // solo `tx.Timestamp || i`, así que filas de categorías distintas con el
+  // mismo Timestamp quedaban "pegadas" (filas fantasma que no se limpiaban)
+  // al cambiar de filtro de categoría.
+  const sameTimestamp = '2026-06-29 10:00:00';
+  const dupTransactions: Transaction[] = [
+    tx({ Timestamp: sameTimestamp, Comercio: 'Groso Col Sas', Categoría: 'Restaurantes', 'Monto (COP)': 21450 }),
+    tx({ Timestamp: sameTimestamp, Comercio: 'Tu Boleta 601', Categoría: 'Entretenimiento', 'Monto (COP)': 168000 }),
+    tx({ Timestamp: sameTimestamp, Comercio: 'Intereses Facturados Ctes', Categoría: 'Otro', 'Monto (COP)': 2080 }),
+  ];
+
+  it('al pasar de Todas a Restaurantes no deja filas fantasma de otras categorías', async () => {
+    const user = userEvent.setup();
+    render(<Historial transactions={dupTransactions} loading={false} />);
+
+    // Estado inicial "Todas": las 3 deben estar presentes una sola vez.
+    expect(screen.getAllByText('Tu Boleta 601')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Restaurantes' }));
+
+    expect(screen.getByText('Groso Col Sas')).toBeInTheDocument();
+    expect(screen.queryByText('Tu Boleta 601')).not.toBeInTheDocument();
+    expect(screen.queryByText('Intereses Facturados Ctes')).not.toBeInTheDocument();
+    // No debe quedar ninguna fila duplicada de Groso Col Sas tampoco.
+    expect(screen.getAllByText('Groso Col Sas')).toHaveLength(1);
+  });
+});

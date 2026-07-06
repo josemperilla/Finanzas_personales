@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { getCategoryColor } from '../lib/config';
-import { formatCOP } from '../lib/utils';
+import { formatCOP, APP_LOCALE } from '../lib/utils';
 import { quickEase, riseItem, staggerContainer } from '../lib/motion';
 
 interface Slice {
@@ -17,8 +17,8 @@ interface Props {
 }
 
 function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 2 })}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toLocaleString('es-CO', { maximumFractionDigits: 0 })}k`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toLocaleString(APP_LOCALE, { maximumFractionDigits: 2 })}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toLocaleString(APP_LOCALE, { maximumFractionDigits: 0 })}k`;
   return formatCOP(n);
 }
 

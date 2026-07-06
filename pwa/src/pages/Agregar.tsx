@@ -1,14 +1,15 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { saveTransaction, parseVoice, ManualTransaction, Transaction, Card } from '../lib/api';
-import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
+import { CATEGORIES, HAS_WEBHOOK_URL, BUDGET_WARNING_RATIO } from '../lib/config';
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
 import { Icon, categoryIcon } from '../components/ui/icons';
 import { quickEase, softSpring, popVariants } from '../lib/motion';
 import { getUserTimezone } from '../lib/profiles';
-import { todayInTZ } from '../lib/utils';
+import { todayInTZ, APP_LOCALE } from '../lib/utils';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 import { detectUnusualCategories } from '../lib/analytics';
 import { QrScanner, QrResult } from '../components/QrScanner';
 
@@ -45,7 +46,7 @@ function makeBankOptions(cards: Card[], transactions: Transaction[]): string[] {
 }
 
 function makeDefaultForm(userId: string, bankOptions: string[]): FormData {
-  const stored = localStorage.getItem('fm_default_bank') || 'Otro';
+  const stored = localStorage.getItem(STORAGE_KEYS.defaultBank) || 'Otro';
   const banco = bankOptions.includes(stored) ? stored : (bankOptions[0] ?? 'Otro');
   return {
     monto: '', comercio: '', nota: '',
@@ -173,7 +174,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
       })
       .reduce((s, tx) => s + Number(tx['Monto (COP)'] || 0), 0);
     const pct = (monthTotal + monto) / budget;
-    if (pct >= 0.8) setBudgetAlert({ cat, pct });
+    if (pct >= BUDGET_WARNING_RATIO) setBudgetAlert({ cat, pct });
   }
 
   function hasDuplicate(monto: number, categoria: string): boolean {
@@ -234,7 +235,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
       ?? (window as unknown as Record<string, unknown>)['webkitSpeechRecognition'] as SpeechRecognitionCtor;
     if (!Ctor) { showToast('Tu navegador no soporta entrada de voz', false); return; }
     const rec = new Ctor();
-    rec.lang = 'es-CO'; rec.continuous = false; rec.interimResults = true;
+    rec.lang = APP_LOCALE; rec.continuous = false; rec.interimResults = true;
     recognitionRef.current = rec;
     rec.onstart = () => setVoiceState('recording');
     rec.onresult = (e) => setTranscript(Array.from(e.results).map(r => r[0].transcript).join(''));
@@ -295,7 +296,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
     setTimeout(() => setPrefillGlow(false), 1500);
   }
 
-  const displayAmount = form.monto ? Number(form.monto).toLocaleString('es-CO') : '0';
+  const displayAmount = form.monto ? Number(form.monto).toLocaleString(APP_LOCALE) : '0';
   const isVoiceActive = voiceState === 'recording' || voiceState === 'processing';
 
   return (
@@ -600,7 +601,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
                 whileTap={{ scale: 0.92 }}
                 onClick={() => {
                   setForm(f => ({ ...f, banco: b }));
-                  localStorage.setItem('fm_default_bank', b);
+                  localStorage.setItem(STORAGE_KEYS.defaultBank, b);
                 }}
                 style={{
                   flexShrink: 0, padding: '6px 13px', borderRadius: 999,
@@ -774,7 +775,7 @@ export function Agregar({ onSaved, transactions, userId, cards }: Props) {
               style={{ width: '100%', background: 'var(--card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 28px' }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>¿Ya guardaste esto?</div>
               <div style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 24 }}>
-                Hay una transacción similar de ${(dupePending.monto).toLocaleString('es-CO')} en los últimos 5 minutos.
+                Hay una transacción similar de ${(dupePending.monto).toLocaleString(APP_LOCALE)} en los últimos 5 minutos.
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setDupePending(null)} style={{

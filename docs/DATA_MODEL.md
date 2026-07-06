@@ -43,6 +43,12 @@ Set/get vía `PropertiesService.getScriptProperties()`. Sensibles a mayúsculas.
 | `WEBHOOK_SECRET` | Secreto del canal shortcut (iOS Shortcut). |
 | `WEB_SECRET` | Secreto del canal web (proxy Cloudflare). |
 | `ANTHROPIC_API_KEY` | Clave de Anthropic para `_callClaudeAI`. |
+| `CLAUDE_DEFAULT_MODEL` | Modelo por defecto de `_callClaudeAI` (fallback `claude-haiku-4-5-20251001`). |
+| `CLAUDE_VOICE_MODEL` | Modelo para `parseVoice` (transcripción de voz). Default Haiku. |
+| `CLAUDE_CHAT_MODEL` | Modelo para `handleChat` (asistente financiero; usa prompt caching). Default Haiku. |
+| `CLAUDE_SMS_MODEL` | Modelo para `parseSmsFallback` (parser IA de SMS no reconocidos). Default Haiku. |
+| `CLAUDE_COACH_MODEL` | Modelo para `_spendingCoach` (insights + retos). Default Haiku. |
+| `CLAUDE_HEALTH_REPORT_MODEL` | Modelo para `_generateHealthReport` (reporte mensual; Default Sonnet — decisión de producto, ver TODOS.md). |
 | `APP_USER_DISABLED_<id>` | `"true"` → usuario bloqueado. |
 | `APP_PROFILE_NAME_<id>` / `APP_PROFILE_AVATAR_<id>` | Perfil cross-device (sincronizado). |
 | `APP_ALERT_EMAIL_<id>` / `APP_ALERT_THRESHOLD_<id>` | Alertas de gasto por email. |
@@ -112,6 +118,10 @@ Suscripciones · Viajes · Software · Bre-B · Entretenimiento · Otro
 - `pwa/src/lib/providers.ts:PROVIDERS` — catálogo semilla (id, nombre, servicio, categoría, urlPago,
   `requiereCuenta`, `tieneConector`). El picker de Facturas se arma sobre esta lista.
 - `apps_script/connectors_facturas.gs:FACTURA_CONNECTORS` — registry `providerId → fn`.
+- `extension/providers.js:PROVIDER_DOMAINS` — **3ª fuente de `providerId`**: la extensión del
+  navegador mapea el dominio del portal (ej. `enel.com.co`) a un `providerId` para extraer la
+  factura y enviarla vía `/api/proxy`. Todo `providerId` aquí debe existir en `PROVIDERS`
+  (catálogo canónico). El drift lo detecta `scripts/check-provider-drift.mjs`.
 - **`tieneConector` (UI) ↔ clave presente en `FACTURA_CONNECTORS` (backend).** Mantener en sync.
   Hoy todos los proveedores tienen `tieneConector: false` y los conectores son esqueletos que
   devuelven `ok:false` (la PWA cae a entrada manual — **nunca** inventa un monto).

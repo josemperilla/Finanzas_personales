@@ -4,6 +4,7 @@ const PROVIDER_DOMAINS = [
   { host: 'acueducto.com.co',  providerId: 'acueducto-bogota', nombre: 'Acueducto de Bogotá' },
   { host: 'grupovanti.com',    providerId: 'vanti',            nombre: 'Vanti' },
   { host: 'vanti.com.co',      providerId: 'vanti',            nombre: 'Vanti' },
+  { host: 'enel.com.co',       providerId: 'enel-codensa',     nombre: 'Enel Codensa' },
   { host: 'enel.com',          providerId: 'enel-codensa',     nombre: 'Enel Codensa' },
   { host: 'etb.com',           providerId: 'etb',              nombre: 'ETB' },
   { host: 'epm.com.co',        providerId: 'epm',              nombre: 'EPM' },

@@ -39,6 +39,7 @@ La PWA **nunca** toca el webhook directo en prod: pasa por `/api/proxy`, que esc
 | Una **nueva categoría** | `webhook.gs:ALLOWED_CATEGORIES` **Y** `pwa/src/lib/config.ts:CATEGORIES` (color+icono) | `node scripts/check-category-drift.mjs` |
 | Un **nuevo tipo de acción** (API) | `webhook.gs:doPost` (rama `if (type === "...")`) **Y** fn cliente en `pwa/src/lib/api.ts` | El `type` es **case-sensitive** (no lowercase) |
 | Un **nuevo conector de factura** | `apps_script/connectors_facturas.gs:FACTURA_CONNECTORS` **Y** `pwa/src/lib/providers.ts:tieneConector` | Mantener en sync |
+| Un **nuevo portal detectable por la extensión** | `extension/providers.js:PROVIDER_DOMAINS` (3ª fuente de `providerId`) **Y** `pwa/src/lib/providers.ts:PROVIDERS` (catálogo canónico) | `node scripts/check-provider-drift.mjs` |
 | Un **feature de IA** | ¿Edge→Anthropic? → nuevo archivo en `functions/api/` con patrón `validateToken` (ver `ocr.js`). ¿Datos del usuario? → GAS `_callClaudeAI` | El modelo va en env, nunca en el bundle |
 | Una **nueva pantalla** | `pwa/src/pages/X.tsx` (export nombrado) + lazy import en `App.tsx` | Consumir `lib/api.ts`; nunca hardcodear demo |
 | Un **componente UI** reutilizable | `pwa/src/components/ui/primitives.tsx` o `ui/icons.tsx` | Tokens CSS (`var(--*)`), no hex/inline |
@@ -66,6 +67,7 @@ La PWA **nunca** toca el webhook directo en prod: pasa por `/api/proxy`, que esc
 ```bash
 cd pwa && npm run lint && npm run build && npm run test   # verde antes de cualquier PR
 node scripts/check-category-drift.mjs                      # tras tocar categorías
+node scripts/check-provider-drift.mjs                      # tras tocar providers/extension
 ```
 - Comandos de deploy (PWA/functions y GAS) y la regla de "no deploy sin aprobación": ver
   `docs/ARCHITECTURE.md` §Deployment.

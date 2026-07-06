@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
-import { formatCOP } from '../lib/utils';
+import { formatCOP, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor } from '../lib/config';
 import { softSpring } from '../lib/motion';
 
@@ -58,7 +58,7 @@ function buildRecap(transactions: Transaction[]): RecapData {
     .slice(0, 3)
     .map(([name, amount]) => ({ name, amount, color: getCategoryColor(name) }));
 
-  const monthLabel = prevDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  const monthLabel = prevDate.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
 
   return { monthLabel, total, prevTotal: prev2Total, delta, topCategories };
 }

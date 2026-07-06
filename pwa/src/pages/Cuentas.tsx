@@ -8,11 +8,10 @@ import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { createPortal } from 'react-dom';
 import { ProductCardFace } from '../components/ProductCardFace';
 import { missingPersonalProducts } from '../lib/personalProducts';
+import { BANKS } from '../lib/banks';
+import { formatCOP as fmtCOP, APP_LOCALE } from '../lib/utils';
 
-const BANKS = ['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Nequi', 'Daviplata', 'AV Villas', 'Occidente', 'Popular', 'dale', 'Rappi', 'Otro'];
 const CHASSIS_OPTIONS = ['Clásica', 'Oro', 'Platinum', 'Signature', 'Black', 'Infinite', 'World', 'Débito', 'Cuenta de Ahorros', 'Cuenta Corriente'];
-
-const fmtCOP = (n: number) => `$${Math.round(n).toLocaleString('es-CO')}`;
 
 const ZERO_SPEND: CardSpend = { gastoPeriodo: 0, numCompras: 0 };
 
@@ -348,7 +347,7 @@ function CardFormSheet({
               <input
                 type="text"
                 inputMode="numeric"
-                value={form.cupo ? Number(form.cupo).toLocaleString('es-CO') : ''}
+                value={form.cupo ? Number(form.cupo).toLocaleString(APP_LOCALE) : ''}
                 onChange={e => set('cupo', e.target.value.replace(/\D/g, ''))}
                 placeholder="5.000.000"
                 style={{ ...inputStyle, paddingLeft: 26 }}
@@ -1136,7 +1135,7 @@ function CashbackSection({ cards }: { cards: Card[] }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{c.programa}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.banco} •••• {key} · {c.puntos.toLocaleString('es-CO')} pts</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.banco} •••• {key} · {c.puntos.toLocaleString(APP_LOCALE)} pts</div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>{fmtCOP(c.valorEnCOP)}</div>

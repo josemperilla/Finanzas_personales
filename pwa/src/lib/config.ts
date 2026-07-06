@@ -56,3 +56,7 @@ export function normalizeCategory(cat: string): string {
   if (!cat) return 'Otro';
   return CATEGORY_ALIASES[cat] ?? cat;
 }
+
+// Umbral de "cerca del límite" para presupuestos por categoría (como fracción 0-1).
+// Usado en el health score, la alerta al agregar un gasto y las barras de progreso.
+export const BUDGET_WARNING_RATIO = 0.8;

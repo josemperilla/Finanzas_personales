@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { getGamification, getLevelProgress, NIVELES } from '../lib/gamification';
 import { useCountUp } from '../lib/useCountUp';
+import { APP_LOCALE } from '../lib/utils';
 import { quickEase } from '../lib/motion';
 
 interface Props {
@@ -84,7 +85,7 @@ export function LevelHeroCard({ userId }: Props) {
           fontFamily: 'var(--font-mono)', fontSize: 13,
           color: 'var(--ink-2)', fontWeight: 600, marginBottom: 4,
         }}>
-          {animatedXP.toLocaleString('es-CO')} / {xpMax.toLocaleString('es-CO')} XP
+          {animatedXP.toLocaleString(APP_LOCALE)} / {xpMax.toLocaleString(APP_LOCALE)} XP
         </div>
         {nivelSig ? (
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>

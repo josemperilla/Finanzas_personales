@@ -1,6 +1,7 @@
 import { Transaction } from './api';
 import { getBudgets, getSharedBudgets } from './budgets';
 import { getMonthTransactions, getCategoryTotals } from './analytics';
+import { BUDGET_WARNING_RATIO } from './config';
 
 export interface HealthBreakdown {
   budget: number;   // 0–40
@@ -43,7 +44,7 @@ export function computeHealthScore(txs: Transaction[], userId: string): HealthSc
   const catTotals = getCategoryTotals(monthTxs);
   const categoriesWithSpend = Object.keys(catTotals).filter(c => catTotals[c] > 0);
   const categoriesWithBudget = categoriesWithSpend.filter(c => (budgets[c] || 0) > 0);
-  const underBudget = categoriesWithBudget.filter(c => catTotals[c] < (budgets[c] || 0) * 0.8);
+  const underBudget = categoriesWithBudget.filter(c => catTotals[c] < (budgets[c] || 0) * BUDGET_WARNING_RATIO);
 
   let budgetScore = 0;
   if (categoriesWithSpend.length === 0) {

@@ -3,8 +3,7 @@
 // Requiere: ANTHROPIC_API_KEY en las variables de entorno de Cloudflare Pages.
 
 import { assertSession } from './_auth.js';
-
-const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+import { CLAUDE_API } from './_constants.js';
 
 // Tipos de imagen aceptados por Claude Vision (y por nosotros).
 const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

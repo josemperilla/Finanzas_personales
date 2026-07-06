@@ -17,6 +17,20 @@
 //   ADMIN_USER     → (optional) override for the admin user ID
 var ADMIN_USER = "jose"; // can also be set in Script Properties as ADMIN_USER
 
+// ── Configuración global compartida ────────────────────────────
+var TIMEZONE = 'America/Bogota'; // usado en todos los Utilities.formatDate() del archivo
+var SHEET_HEADERS = ["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"];
+var MAX_USERS = 10; // límite del plan de Sheets — migrar al backend FastAPI para levantarlo
+var MAX_USERS_ERROR = "Límite de " + MAX_USERS + " usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más.";
+var CACHE_TTL_6H = 21600; // máximo permitido por CacheService
+var CACHE_TTL_1H = 3600;
+
+// Dominio de la PWA en producción — configurable vía Script Property PWA_URL
+// (mismo patrón que CLAUDE_*_MODEL: fallback al valor actual si no está seteada).
+function _getPwaUrl() {
+  return PropertiesService.getScriptProperties().getProperty('PWA_URL') || 'https://finanzas-abiertas.pages.dev';
+}
+
 // ── Dynamic user list (persisted in Script Properties) ────────
 // Falls back to ["jose","dani"] so existing users are never broken.
 function _getAllowedUsers() {
@@ -55,8 +69,8 @@ function _provisionUser(newId, displayName, initPin) {
   var newRef = _getSheet(newId);
   if (!newRef.sheet) {
     var newSheet = newRef.ss.insertSheet(newRef.tabName);
-    newSheet.appendRow(["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"]);
-    newSheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#f3f3f3");
+    newSheet.appendRow(SHEET_HEADERS);
+    newSheet.getRange(1,1,1,SHEET_HEADERS.length).setFontWeight("bold").setBackground("#f3f3f3");
     newSheet.setFrozenRows(1);
   }
   currentUsers.push(newId);
@@ -233,11 +247,11 @@ function _pruneInvites(map) {
 // "usuario aún sin PIN" + límite anti-fuerza-bruta vía CacheService.
 function _handleRedeemInvite(payload) {
   var cache = CacheService.getScriptCache();
-  var hour = Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd-HH");
+  var hour = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd-HH");
   var rlKey = "rl_redeem_" + hour;
   var n = parseInt(cache.get(rlKey) || "0", 10);
   if (n >= 30) return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta más tarde." });
-  cache.put(rlKey, String(n + 1), 3600);
+  cache.put(rlKey, String(n + 1), CACHE_TTL_1H);
 
   var key = _normalizeCode(payload.code);
   if (!key) return jsonResponse({ ok: false, error: "Código requerido" });
@@ -245,7 +259,7 @@ function _handleRedeemInvite(payload) {
   var codeRlKey = "rl_redeem_code_" + key;
   var cn = parseInt(cache.get(codeRlKey) || "0", 10);
   if (cn >= 8) return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta más tarde." });
-  cache.put(codeRlKey, String(cn + 1), 3600);
+  cache.put(codeRlKey, String(cn + 1), CACHE_TTL_1H);
 
   var inv = _getInvites()[key];
   if (!inv) return jsonResponse({ ok: false, error: "Código inválido o expirado" });
@@ -261,12 +275,18 @@ function _handleRedeemInvite(payload) {
 
 // ── Per-user Sheet accessor ───────────────────────────────────
 // Single spreadsheet; each user gets a tab named after them (e.g. "Jose", "Dani").
+// "jose" → "Jose" — nombre de tab correspondiente a un userId (mismo criterio
+// en todo el archivo: la pestaña de cada usuario está capitalizada en el Sheet).
+function _tabNameForUser(userId) {
+  return userId.charAt(0).toUpperCase() + userId.slice(1);
+}
+
 function _getSheet(userId) {
   var props   = PropertiesService.getScriptProperties();
   var sheetId = props.getProperty("SHEET_ID");
   if (!sheetId) throw new Error("SHEET_ID no configurado en Script Properties");
   var ss       = SpreadsheetApp.openById(sheetId);
-  var tabName  = userId.charAt(0).toUpperCase() + userId.slice(1); // "jose" → "Jose"
+  var tabName  = _tabNameForUser(userId);
   var sheet    = ss.getSheetByName(tabName);
   return { ss: ss, sheet: sheet, sheetId: sheetId, tabName: tabName };
 }
@@ -274,10 +294,16 @@ function _getSheet(userId) {
 // ── Rate limiting (per-user daily cap via CacheService) ───────
 function _checkRateLimit(action, userId) {
   var cache = CacheService.getScriptCache();
-  var today = Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd");
+  var today = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd");
   var key = "rate_" + action + "_" + (userId || "global") + "_" + today;
   var count = parseInt(cache.get(key) || "0", 10);
-  var limits = { chat: 100, voice: 50, admin: 100 };
+  // Cuotas configurables vía Script Properties (mismo patrón que CLAUDE_*_MODEL); fallback al valor actual.
+  var rlProps = PropertiesService.getScriptProperties();
+  var limits = {
+    chat:  parseInt(rlProps.getProperty('AI_QUOTA_CHAT')  || '100', 10),
+    voice: parseInt(rlProps.getProperty('AI_QUOTA_VOICE') || '50', 10),
+    admin: parseInt(rlProps.getProperty('AI_QUOTA_ADMIN') || '100', 10)
+  };
   var limit = limits[action] !== undefined ? limits[action] : 100;
   if (count >= limit) {
     var msg = (action === "chat" || action === "voice")
@@ -285,7 +311,7 @@ function _checkRateLimit(action, userId) {
       : "Límite diario de operaciones alcanzado. Intenta mañana.";
     throw new Error(msg);
   }
-  cache.put(key, String(count + 1), 21600);
+  cache.put(key, String(count + 1), CACHE_TTL_6H);
 }
 
 // ── Auth check ───────────────────────────────────────────────
@@ -315,7 +341,7 @@ function _checkSecret(e) {
 // -- Tokens de sesion (emitidos tras validar PIN; viven 6h en CacheService) --
 function _issueToken(userId) {
   var token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
-  CacheService.getScriptCache().put("tok_" + token, String(userId), 21600);
+  CacheService.getScriptCache().put("tok_" + token, String(userId), CACHE_TTL_6H);
   return token;
 }
 function _userFromToken(token) {
@@ -323,7 +349,7 @@ function _userFromToken(token) {
   var cache = CacheService.getScriptCache();
   var uid = cache.get("tok_" + token);
   if (!uid) return null;
-  cache.put("tok_" + token, uid, 21600); // refresco deslizante mientras este activo
+  cache.put("tok_" + token, uid, CACHE_TTL_6H); // refresco deslizante mientras este activo
   return uid;
 }
 // Token de larga duración para la extensión de navegador (persistente en Script
@@ -444,7 +470,7 @@ function doPost(e) {
       // Anti fuerza-bruta de red: como el token emitido aqui es la barrera de
       // autenticacion, se limita el numero de fallos por usuario/hora.
       var pinCache = CacheService.getScriptCache();
-      var pinRlKey = "rl_pin_" + claimedUserId + "_" + Utilities.formatDate(new Date(), 'America/Bogota', "yyyy-MM-dd-HH");
+      var pinRlKey = "rl_pin_" + claimedUserId + "_" + Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd-HH");
       if (parseInt(pinCache.get(pinRlKey) || "0", 10) >= 20) {
         return jsonResponse({ ok: false, error: "Demasiados intentos. Intenta mas tarde." });
       }
@@ -470,7 +496,7 @@ function doPost(e) {
         } catch(e) {}
       }
       // Contar el intento fallido (TTL 1h).
-      pinCache.put(pinRlKey, String(parseInt(pinCache.get(pinRlKey) || "0", 10) + 1), 3600);
+      pinCache.put(pinRlKey, String(parseInt(pinCache.get(pinRlKey) || "0", 10) + 1), CACHE_TTL_1H);
       return jsonResponse({ ok: false, error: "PIN incorrecto" });
     }
 
@@ -624,7 +650,7 @@ function doPost(e) {
       if (!newId) return jsonResponse({ ok: false, error: "newUserId requerido" });
       if (!/^[a-z0-9]{2,20}$/.test(newId)) return jsonResponse({ ok: false, error: "userId debe tener 2-20 caracteres alfanuméricos en minúsculas" });
       if (initPin && !/^\d{4,6}$/.test(initPin)) return jsonResponse({ ok: false, error: "PIN debe tener 4-6 dígitos" });
-      if (_getAllowedUsers().length >= 10) return jsonResponse({ ok: false, error: "Límite de 10 usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más." });
+      if (_getAllowedUsers().length >= MAX_USERS) return jsonResponse({ ok: false, error: MAX_USERS_ERROR });
       try {
         _provisionUser(newId, newName, initPin);
       } catch (provErr) {
@@ -638,7 +664,7 @@ function doPost(e) {
       if (userId !== _getAdminUser()) return jsonResponse({ ok: false, error: "Solo el admin puede crear invitaciones" });
       var invName = String(payload.displayName || "").trim();
       if (!invName) return jsonResponse({ ok: false, error: "displayName requerido" });
-      if (_getAllowedUsers().length >= 10) return jsonResponse({ ok: false, error: "Límite de 10 usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más." });
+      if (_getAllowedUsers().length >= MAX_USERS) return jsonResponse({ ok: false, error: MAX_USERS_ERROR });
       var invId;
       if (payload.newUserId) {
         invId = String(payload.newUserId).toLowerCase().trim();
@@ -895,6 +921,13 @@ function doPost(e) {
                                : /google\s*pay/i.test(ntxt) ? 'google_pay'
                                : 'notification';
 
+      // Ver comentario en el handler de type:"sms" — Itaú manda dos avisos
+      // (genérico + con llave Bre-B) para la misma transferencia.
+      if (parsedNotif.banco === CANONICAL_BANCO.itau && isBrebMergeCandidate(parsedNotif)) {
+        var mergedNotif = mergeBrebDuplicate(parsedNotif, userId);
+        if (mergedNotif) return jsonResponse({ ok: true, merged: true, data: parsedNotif });
+      }
+
       appendToSheet(parsedNotif, userId);
       return jsonResponse({ ok: true, data: parsedNotif });
     }
@@ -950,7 +983,7 @@ function doPost(e) {
 
     // ── CLUSTER 2: Calendario de Pagos Fijos (PRIORIDAD 1) ───────────────
     if (type === "getFixedCalendar") {
-      var month = (payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM'));
+      var month = (payload.month || Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM'));
       return jsonResponse(_getFixedCalendar(userId, month));
     }
     if (type === "saveFixedPayment") {
@@ -995,12 +1028,12 @@ function doPost(e) {
 
     // ── CLUSTER 3: Category Budgets ───────────────────────────────────────
     if (type === "getCategoryBudgets") {
-      var bMonth = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      var bMonth = payload.month || Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
       return jsonResponse(_getCategoryStatus(userId, bMonth));
     }
     if (type === "setCategoryBudget") {
       if (!payload.category || payload.amount === undefined) return jsonResponse({ ok: false, error: "category y amount requeridos" });
-      var bMonth2 = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      var bMonth2 = payload.month || Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
       var sp4 = PropertiesService.getScriptProperties();
       var budgets = JSON.parse(sp4.getProperty("CAT_BUDGETS_" + userId + "_" + bMonth2) || "{}");
       budgets[payload.category] = Number(payload.amount) || 0;
@@ -1009,7 +1042,7 @@ function doPost(e) {
     }
     if (type === "deleteCategoryBudget") {
       if (!payload.category) return jsonResponse({ ok: false, error: "category requerido" });
-      var bMonth3 = payload.month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+      var bMonth3 = payload.month || Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
       var sp4b = PropertiesService.getScriptProperties();
       var budgets2 = JSON.parse(sp4b.getProperty("CAT_BUDGETS_" + userId + "_" + bMonth3) || "{}");
       delete budgets2[payload.category];
@@ -1109,7 +1142,7 @@ function doPost(e) {
       if (!payload.mood || payload.mood < 1 || payload.mood > 5) return jsonResponse({ ok: false, error: "mood debe ser 1-5" });
       var sp7 = PropertiesService.getScriptProperties();
       var moodHistory = JSON.parse(sp7.getProperty("MOOD_HISTORY_" + userId) || "[]");
-      var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+      var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
       moodHistory = moodHistory.filter(function(m){ return m.date !== today; });
       moodHistory.push({ date: today, mood: Number(payload.mood), note: payload.note || "" });
       moodHistory.sort(function(a,b){ return a.date > b.date ? 1 : -1; });
@@ -1147,18 +1180,22 @@ function doPost(e) {
 
     // ── CLUSTER 5: AI Intelligence ────────────────────────────────────────
     if (type === "spendingCoach") {
-      var rlCoach = _checkRate(userId, "coach", 5);
+      // Cuota configurable vía Script Property AI_QUOTA_COACH (mismo patrón que CLAUDE_*_MODEL).
+      var coachLimit = parseInt(PropertiesService.getScriptProperties().getProperty('AI_QUOTA_COACH') || '5', 10);
+      var rlCoach = _checkRate(userId, "coach", coachLimit);
       if (!rlCoach.ok) return jsonResponse({ ok: false, error: rlCoach.error });
       return jsonResponse(_spendingCoach(userId, Number(payload.months || 3)));
     }
     if (type === "getRetoSuggestion") {
-      var rlReto = _checkRate(userId, "reto", 10);
+      var retoLimit = parseInt(PropertiesService.getScriptProperties().getProperty('AI_QUOTA_RETO') || '10', 10);
+      var rlReto = _checkRate(userId, "reto", retoLimit);
       if (!rlReto.ok) return jsonResponse({ ok: false, error: rlReto.error });
       var coachData = _spendingCoach(userId, 3);
       return jsonResponse({ ok: coachData.ok, suggestedReto: coachData.suggestedReto || null });
     }
     if (type === "generateHealthReport") {
-      var rlReport = _checkRate(userId, "report", 3);
+      var reportLimit = parseInt(PropertiesService.getScriptProperties().getProperty('AI_QUOTA_REPORT') || '3', 10);
+      var rlReport = _checkRate(userId, "report", reportLimit);
       if (!rlReport.ok) return jsonResponse({ ok: false, error: rlReport.error });
       return jsonResponse(_generateHealthReport(userId, payload.month || null));
     }
@@ -1217,6 +1254,9 @@ function doPost(e) {
       var aiFallback = parseSmsFallback(sms);
       if (!aiFallback) return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
       if (aiFallback.skipped) return jsonResponse({ ok: true, skipped: true, reason: "not a transaction (AI)" });
+      // El banco ya se detectó por regex antes de caer al fallback de IA — usa el
+      // nombre canónico en vez de confiar en cómo la IA transcribió el texto del SMS.
+      if (CANONICAL_BANCO[resolvedBank]) aiFallback.banco = CANONICAL_BANCO[resolvedBank];
       parsed = aiFallback;
     }
 
@@ -1233,6 +1273,16 @@ function doPost(e) {
     parsed.fuente       = /apple\s*pay/i.test(sms) ? 'apple_pay'
                         : /google\s*pay/i.test(sms) ? 'google_pay'
                         : 'sms';
+
+    // Itaú manda dos SMS para UNA misma transferencia Bre-B: uno genérico
+    // ("débito de tu Cuenta de Ahorros...") y otro con la llave del
+    // destinatario ("...a la llave Bre-B <llave>..."). Sin esto cada uno
+    // crea su propia fila y la transferencia queda duplicada — ver
+    // mergeBrebDuplicate() (junto a reverseTransaction()).
+    if (parsed.banco === CANONICAL_BANCO.itau && isBrebMergeCandidate(parsed)) {
+      var mergedSms = mergeBrebDuplicate(parsed, userId);
+      if (mergedSms) return jsonResponse({ ok: true, merged: true, data: parsed });
+    }
 
     appendToSheet(parsed, userId);
     var smsResponse = { ok: true, data: parsed };
@@ -1286,9 +1336,6 @@ function getTransactions(userId) {
 
 // ── Parseo de voz con Claude API ──────────────────────────────
 function parseVoice(text) {
-  var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
-  if (!key) throw new Error("ANTHROPIC_API_KEY no configurada en Script Properties");
-
   // FIX: user input goes in the user message (not concatenated into system prompt)
   // This prevents prompt injection via voice input.
   var systemPrompt = "Extrae la informaci\u00f3n de una transacci\u00f3n financiera en pesos colombianos. " +
@@ -1300,25 +1347,9 @@ function parseVoice(text) {
     "tipo (Compra, D\u00e9bito, Transferencia u Otro). " +
     "Si alg\u00fan campo no est\u00e1 claro en el texto, usa el valor m\u00e1s probable.";
 
-  var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
-    method: "post",
-    headers: {
-      "Content-Type":      "application/json",
-      "x-api-key":         key,
-      "anthropic-version": "2023-06-01"
-    },
-    payload: JSON.stringify({
-      model:      "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      system:     systemPrompt,
-      messages:   [{ role: "user", content: text }]  // user input is isolated here
-    }),
-    muteHttpExceptions: true
-  });
-
-  var result  = JSON.parse(response.getContentText());
-  var content = result.content && result.content[0] && result.content[0].text;
-  if (!content) throw new Error("Claude no devolvió respuesta");
+  // Modelo configurable vía Script Properties (ver docs/CONVENTIONS.md); fallback al actual.
+  var voiceModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_VOICE_MODEL') || 'claude-haiku-4-5-20251001';
+  var content = _callClaudeAI(systemPrompt, text, 300, voiceModel);
 
   var jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Claude no devolvió JSON válido: " + content);
@@ -1328,9 +1359,6 @@ function parseVoice(text) {
 
 // ── Chat con asistente financiero ────────────────────────────
 function handleChat(question, context) {
-  var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
-  if (!key) throw new Error("ANTHROPIC_API_KEY no configurada en Script Properties");
-
   // System prompt contains server-generated context (safe). User question is isolated in the user turn.
   var systemPrompt = "Eres un asistente financiero personal del usuario. El usuario habla espa\u00f1ol colombiano. " +
     "Responde siempre en espa\u00f1ol. Puedes responder cualquier pregunta sobre los datos financieros del usuario, " +
@@ -1343,42 +1371,13 @@ function handleChat(question, context) {
 
   // Prompt caching (GA, sin beta header): el bloque system (instrucciones + contexto
   // de 6 meses) es idéntico entre mensajes de la misma sesión de chat — cachearlo
-  // evita reprocesar esos tokens en cada pregunta nueva del usuario.
-  var response = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
-    method: "post",
-    headers: {
-      "Content-Type":      "application/json",
-      "x-api-key":         key,
-      "anthropic-version": "2023-06-01"
-    },
-    payload: JSON.stringify({
-      model:      "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system:     [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-      messages:   [{ role: "user", content: question }]
-    }),
-    muteHttpExceptions: true
-  });
-
-  var code = response.getResponseCode();
-  var body = response.getContentText();
-
-  var result;
-  try {
-    result = JSON.parse(body);
-  } catch (parseErr) {
-    throw new Error("Anthropic devolvió respuesta no-JSON (HTTP " + code + "): " + body.slice(0, 120));
-  }
-
-  if (code !== 200) {
-    var apiErr = result.error && result.error.message
-      ? result.error.message
-      : JSON.stringify(result).slice(0, 150);
-    throw new Error("Anthropic API error " + code + ": " + apiErr);
-  }
-
-  var content = result.content && result.content[0] && result.content[0].text;
-  if (!content) throw new Error("Respuesta inesperada de Anthropic: " + JSON.stringify(result).slice(0, 100));
+  // evita reprocesar esos tokens en cada pregunta nueva del usuario. _callClaudeAI
+  // soporta system como array de bloques con cache_control.
+  // Modelo configurable vía Script Properties; fallback al actual.
+  var chatModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_CHAT_MODEL') || 'claude-haiku-4-5-20251001';
+  var systemBlocks = [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }];
+  var content = _callClaudeAI(systemBlocks, question, 1024, chatModel);
+  if (!content) throw new Error("Respuesta inesperada de Anthropic: vacía");
   return content;
 }
 
@@ -1427,6 +1426,22 @@ function detectBank(sms) {
   return null;
 }
 
+// Nombre de banco canónico por resolvedBank — evita que el fallback de IA devuelva
+// el nombre tal cual aparece en el SMS (ej. "ITAU" en mayúsculas sin tilde).
+var CANONICAL_BANCO = {
+  davivienda:  "Davivienda",
+  bancolombia: "Bancolombia",
+  bogota:      "Bogotá",
+  itau:        "Itaú",
+  avvillas:    "AV Villas",
+  nequi:       "Nequi",
+  daviplata:   "Daviplata",
+  dale:        "dale!",
+  rappi:       "Rappi",
+  occidente:   "Occidente",
+  popular:     "Popular"
+};
+
 // ── AV Villas ─────────────────────────────────────────────────
 // "AVVillas. 11/06/26 20:38 COMPRA CON TU TARJETA CREDITO 3403 POR $ 30,000 EN NICK HAVANA MUSIC HALL"
 function parseAvVillas(sms) {
@@ -1444,7 +1459,7 @@ function parseAvVillas(sms) {
   var comerc = normalizeComercio(m[8].trim());
 
   return {
-    banco:    "AV Villas",
+    banco:    CANONICAL_BANCO.avvillas,
     tipo:     tipo,
     monto:    monto,
     tarjeta:  "Tarjeta " + tarj,
@@ -1458,9 +1473,6 @@ function parseAvVillas(sms) {
 // Usa Claude Haiku para parsear cualquier SMS bancario colombiano
 // cuyo formato no esté cubierto por los parsers anteriores.
 function parseSmsFallback(sms) {
-  var key = PropertiesService.getScriptProperties().getProperty("ANTHROPIC_API_KEY");
-  if (!key) return null;
-
   var systemPrompt =
     "Eres un extractor de datos de SMS bancarios colombianos. " +
     "Dado un SMS, responde SOLO con JSON válido (sin texto adicional) con estos campos: " +
@@ -1474,25 +1486,10 @@ function parseSmsFallback(sms) {
     "fecha (string formato YYYY-MM-DDTHH:MM:SS hora Colombia). " +
     "Si no es transacción, devuelve solo {\"esTransaccion\": false}.";
 
+  // Modelo configurable vía Script Properties; fallback al actual.
+  var smsModel = PropertiesService.getScriptProperties().getProperty('CLAUDE_SMS_MODEL') || 'claude-haiku-4-5-20251001';
   try {
-    var resp = UrlFetchApp.fetch("https://api.anthropic.com/v1/messages", {
-      method: "post",
-      headers: {
-        "Content-Type":      "application/json",
-        "x-api-key":         key,
-        "anthropic-version": "2023-06-01"
-      },
-      payload: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
-        max_tokens: 200,
-        system:     systemPrompt,
-        messages:   [{ role: "user", content: sms }]
-      }),
-      muteHttpExceptions: true
-    });
-
-    var result  = JSON.parse(resp.getContentText());
-    var content = result.content && result.content[0] && result.content[0].text;
+    var content = _callClaudeAI(systemPrompt, sms, 200, smsModel);
     if (!content) return null;
 
     var jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1516,6 +1513,9 @@ function parseSmsFallback(sms) {
       income:   p.esIngreso === true
     };
   } catch(e) {
+    // Fallback no-fatal: el flujo principal de SMS sigue con los parsers regex.
+    // Pero logueamos el error para que cuota/auth/WAF no queden opacos.
+    Logger.log('parseSmsFallback falló: ' + e.message);
     return null;
   }
 }
@@ -1539,7 +1539,7 @@ function parseDavivienda(sms) {
   now.setHours(parseInt(hp[0]), parseInt(hp[1]), 0, 0);
 
   return {
-    banco:    "Davivienda",
+    banco:    CANONICAL_BANCO.davivienda,
     tipo:     isReversal ? "Reversada" : "Compra",
     monto:    monto,
     tarjeta:  "Tarjeta *" + tarjeta.replace(/^\*/, ""),
@@ -1558,7 +1558,7 @@ function parseBancolombia(sms) {
   var mp = sms.match(rePSE);
   if (mp) {
     return {
-      banco:    "Bancolombia",
+      banco:    CANONICAL_BANCO.bancolombia,
       tipo:     "Pago PSE",
       monto:    parseMontoUS(mp[1]),
       comercio: normalizeComercio(mp[2].trim()),
@@ -1572,7 +1572,7 @@ function parseBancolombia(sms) {
   var mb = sms.match(reBreb);
   if (mb) {
     return {
-      banco:    "Bancolombia",
+      banco:    CANONICAL_BANCO.bancolombia,
       tipo:     "Transferencia",
       monto:    parseMontoUS(mb[1]),
       tarjeta:  "Cuenta *" + mb[2].replace(/^\*/, ""),
@@ -1646,6 +1646,119 @@ function reverseTransaction(parsed, userId) {
   return false;
 }
 
+// ── Bre-B (Itaú) — evitar duplicado entre las dos notificaciones ──────
+// Itaú envía DOS notificaciones separadas para UNA misma transferencia Bre-B:
+// una genérica ("Se realizo un/a débito/retiro/Transferencia de tu Cuenta de
+// Ahorros...", comercio = "Cuenta de Ahorros"/"Cuenta Corriente" vía reDebit)
+// y otra específica con la llave del destinatario ("...a la llave Bre-B
+// <llave>...", comercio = "Llave Bre-B <llave>" vía reBreBDebit). Sin esto,
+// cada una crea su propia fila y la transferencia queda duplicada.
+//
+// isBrebMergeCandidate() marca los parses de cualquiera de las dos formas.
+// mergeBrebDuplicate() busca, dentro de una ventana corta de tiempo, una fila
+// ya registrada para el mismo banco+monto+cuenta:
+//   - si la notificación que llega trae la llave (brebKey) y la fila existente
+//     es la genérica → la enriquece con la llave y la recategoriza (fusión).
+//   - si la notificación que llega es la genérica y la fila existente ya tiene
+//     la llave → se descarta (la fila específica ya es la versión completa).
+// Devuelve true si resolvió (fusionó o descartó) — el caller NO debe appendear.
+// Devuelve false si no encontró nada que fusionar — el caller debe appendear normal.
+function isBrebMergeCandidate(parsed) {
+  return !!parsed.brebKey || /^Cuenta de (Ahorros|Corriente)$/i.test(String(parsed.comercio || "").trim());
+}
+
+// Lógica pura de decisión (sin llamadas a Sheets) — testeable fuera de GAS,
+// ver scripts/test-itau-breb-merge.mjs. `data` es la matriz completa devuelta
+// por sheet.getDataRange().getValues() (data[0] son los headers).
+// Devuelve null si no hay match, o { rowIndex1Based, action: 'enrich'|'discard' }.
+function _findBrebMergeMatch(parsed, data, hdrs) {
+  if (!data || data.length <= 1) return null;
+
+  var bancoCol     = hdrs.indexOf("Banco");
+  var montoCol     = hdrs.indexOf("Monto (COP)");
+  var tarjetaCol   = hdrs.indexOf("Tarjeta/Cuenta");
+  var fechaCol     = hdrs.indexOf("Fecha");
+  var comercioCol  = hdrs.indexOf("Comercio");
+
+  var last4match = parsed.tarjeta ? parsed.tarjeta.match(/(\d{4})$/) : null;
+  var last4      = last4match ? last4match[1] : null;
+  if (!last4) return null;
+
+  // 90s: la evidencia real (ver PR cerrado #39 y los fixtures de
+  // scripts/test-itau-breb-merge.mjs) muestra que las dos notificaciones de
+  // Itaú llegan con 3-18s de diferencia. Una ventana angosta reduce el riesgo
+  // de fusionar dos transferencias reales distintas que coincidan en monto
+  // (ej. pagarle lo mismo a dos personas seguido) sin perder margen para el
+  // delay real de red/procesamiento entre las dos notificaciones.
+  var windowMs   = 90 * 1000;
+  var parsedTime = parsed.fecha ? parsed.fecha.getTime() : Date.now();
+  if (isNaN(parsedTime)) return null; // fecha inválida — nunca fusionar a ciegas
+
+  for (var i = data.length - 1; i >= 1; i--) {
+    var row = data[i];
+    if (String(row[bancoCol]).trim() !== parsed.banco) continue;
+    if (Math.abs(parseFloat(row[montoCol]) - parsed.monto) > 0.01) continue;
+    if (String(row[tarjetaCol]).indexOf(last4) === -1) continue;
+
+    var rowDate = row[fechaCol] instanceof Date ? row[fechaCol] : new Date(String(row[fechaCol]));
+    if (isNaN(rowDate.getTime()) || Math.abs(rowDate.getTime() - parsedTime) > windowMs) continue;
+
+    var existingComercio = String(row[comercioCol] || "").trim();
+    var isGenericRow = /^Cuenta de (Ahorros|Corriente)$/i.test(existingComercio);
+    var isBrebRow    = /^Llave Bre-?B\b/i.test(existingComercio) || /^Bre-?B$/i.test(existingComercio);
+
+    if (parsed.brebKey && isGenericRow) {
+      // Llegó la notificación con la llave y ya existía la fila genérica → enriquecerla.
+      return { rowIndex1Based: i + 1, action: 'enrich' };
+    }
+    if (!parsed.brebKey && isBrebRow) {
+      // Llegó la notificación genérica pero ya existía la fila con la llave → descartar.
+      return { rowIndex1Based: i + 1, action: 'discard' };
+    }
+  }
+  return null;
+}
+
+// Wrapper que lee el Sheet del usuario, delega la decisión a _findBrebMergeMatch()
+// y ejecuta el efecto (escritura o no-op). Devuelve true si resolvió (fusionó o
+// descartó) — el caller NO debe appendear. Devuelve false si no encontró nada que
+// fusionar — el caller debe appendear normal.
+//
+// LockService: las dos notificaciones de Itaú llegan casi al mismo tiempo, que es
+// exactamente la ventana donde dos ejecuciones concurrentes de doPost podrían leer
+// el Sheet antes de que cualquiera escriba y ambas concluyan "no hay match" —
+// duplicando la fila que esta función existe para evitar. Se serializa con un lock
+// corto (5s) alrededor del read-decide-write; si no se obtiene a tiempo, se procede
+// sin fusionar (aparece un duplicado en vez de trabar el request — no es peor que
+// el comportamiento sin esta función).
+function mergeBrebDuplicate(parsed, userId) {
+  var ref   = _getSheet(userId);
+  var sheet = ref.sheet;
+  if (!sheet) return false;
+
+  var lock = LockService.getScriptLock();
+  var locked = lock.tryLock(5000);
+  try {
+    var data = sheet.getDataRange().getValues();
+    var hdrs = data[0];
+
+    var match = _findBrebMergeMatch(parsed, data, hdrs);
+    if (!match) return false;
+
+    if (match.action === 'enrich') {
+      var comercioCol  = hdrs.indexOf("Comercio");
+      var categoriaCol = hdrs.indexOf("Categoría");
+      sheet.getRange(match.rowIndex1Based, comercioCol + 1).setValue(parsed.comercio);
+      sheet.getRange(match.rowIndex1Based, categoriaCol + 1).setValue(parsed.categoria);
+    }
+    Logger.log('mergeBrebDuplicate: ' + match.action + ' fila ' + match.rowIndex1Based +
+      ' (usuario ' + userId + ', monto ' + parsed.monto + ', locked=' + locked + ')');
+    return true;
+  } finally {
+    if (locked) lock.releaseLock();
+  }
+}
+
 // ── Banco de Bogotá ──────────────────────────────────────────
 // "Banco de Bogota: Tu compra por 130,456 fue aprobada con
 //  Tarjeta Crédito 8645 el 30/05/26 15:11:08 en COUNTRY CLUB ¿Dudas?..."
@@ -1655,7 +1768,7 @@ function parseBogota(sms) {
   if (!m) return null;
 
   return {
-    banco:    "Bogot\u00e1",
+    banco:    CANONICAL_BANCO.bogota,
     tipo:     normalizeTipo(m[1]),
     monto:    parseMonto(m[2]),
     tarjeta:  m[3].trim() + " " + m[4],
@@ -1683,7 +1796,7 @@ function parseItau(sms) {
   var mp = sms.match(rePurchase);
   if (mp) {
     return {
-      banco:    "Ita\u00fa",
+      banco:    CANONICAL_BANCO.itau,
       tipo:     normalizeTipo(mp[1]),
       comercio: normalizeComercio(mp[2].trim()),
       tarjeta:  mp[3].trim() + " ****" + mp[4],
@@ -1697,7 +1810,7 @@ function parseItau(sms) {
   var md = sms.match(reDebit);
   if (md) {
     return {
-      banco:    "Ita\u00fa",
+      banco:    CANONICAL_BANCO.itau,
       tipo:     normalizeTipo(md[1]),
       comercio: md[2].trim(),
       tarjeta:  md[2].trim() + " ****" + md[3],
@@ -1708,25 +1821,29 @@ function parseItau(sms) {
   }
 
   // Patrón 2b — débito Bre-B (formato abreviado con prefijo ITAU: y cuenta corta).
-  // "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504
+  // "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1234567890
   //  por $ 1000.00 el 2026-07-01 a las 20:50:00."
   // Diferencias vs patrón 2: prefijo "ITAU:", tildes ("se realizó"), cuenta abreviada
   // (AHO/CTE sin ****), monto en formato US ("$ 1000.00" con decimales), fecha con
-  // guiones y separador "a las".
-  var reBreBDebit = /(?:ITAU:?\s*)?se\s+realiz[oó]\s+un\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)\s+a tu cuenta\s+(\w+)\s+(\d+)\s+a la llave\s+Bre-?B\s+\d+\s+por\s+\$\s*([\d,.]+)\s+el\s+(\d{4}[-\/]\d{2}[-\/]\d{2})\s+a las\s+(\d{2}:\d{2}:\d{2})/i;
+  // guiones y separador "a las". La llave Bre-B puede ser numérica (1234567890) o un
+  // alias con @ (@usuario9237) — se captura (grupo 4) para registrarla en el comercio
+  // en vez de descartarla; también se usa para fusionar con la notificación genérica
+  // de la misma transferencia (ver mergeBrebDuplicate).
+  var reBreBDebit = /(?:ITAU:?\s*)?se\s+realiz[oó]\s+un\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)\s+a tu cuenta\s+(\w+)\s+(\d+)\s+a la llave\s+Bre-?B\s+(\S+)\s+por\s+\$\s*([\d,.]+)\s+el\s+(\d{4}[-\/]\d{2}[-\/]\d{2})\s+a las\s+(\d{2}:\d{2}:\d{2})/i;
   var mbreb = sms.match(reBreBDebit);
   if (mbreb) {
     var acctType = /AHO/i.test(mbreb[2]) ? "Cuenta de Ahorros"
                  : /CTE/i.test(mbreb[2]) ? "Cuenta Corriente"
                  : "Cuenta " + mbreb[2];
     return {
-      banco:    "Ita\u00fa",
+      banco:    CANONICAL_BANCO.itau,
       tipo:     normalizeTipo(mbreb[1]),
-      comercio: "Bre-B",
+      comercio: "Llave Bre-B " + mbreb[4],
       tarjeta:  acctType + " ****" + mbreb[3],
-      monto:    parseMontoUS(mbreb[4]),
-      fecha:    parseFechaItau(mbreb[5], mbreb[6]),
-      reversal: false
+      monto:    parseMontoUS(mbreb[5]),
+      fecha:    parseFechaItau(mbreb[6], mbreb[7]),
+      reversal: false,
+      brebKey:  mbreb[4]
     };
   }
 
@@ -1736,7 +1853,7 @@ function parseItau(sms) {
   var mc = sms.match(reCredit);
   if (mc) {
     return {
-      banco:    "Ita\u00fa",
+      banco:    CANONICAL_BANCO.itau,
       tipo:     normalizeTipo(mc[1]),
       comercio: mc[2].trim(),
       tarjeta:  mc[2].trim() + " ****" + mc[3],
@@ -1796,6 +1913,8 @@ function detectCategory(merchant, userId) {
   }
 
   var rules = [
+    // ── Bre-B — transferencias por llave (Itaú/Bancolombia) ────────────────
+    { cat: "Bre-B", keywords: ["BRE-B", "BREB"] },
     // ── Domicilios — plataformas de delivery ──────────────────────────────
     { cat: "Domicilios", keywords: [
       "RAPPI", "IFOOD", "UBER EATS", "UBEREATS", "PEDIDOSYA",
@@ -2186,7 +2305,7 @@ function updateTransactionFields(timestamp, payload, userId) {
         var notaCol = hdrs.indexOf("Nota");
         if (notaCol === -1) {
           notaCol = hdrs.length;
-          sheet.getRange(1, notaCol + 1).setValue("Nota").setFontWeight("bold").setBackground("#f3f3f3");
+          _appendHeaderColumn(sheet, notaCol + 1, "Nota");
         }
         sheet.getRange(row, notaCol + 1).setValue(payload.nota);
       }
@@ -2194,6 +2313,13 @@ function updateTransactionFields(timestamp, payload, userId) {
     }
   }
   throw new Error("Transacción no encontrada: " + timestamp);
+}
+
+// Agrega una columna nueva al final de la hoja con el mismo estilo de encabezado
+// (negrita + fondo gris) que usa el header original — patrón repetido al migrar
+// hojas existentes a un esquema con más columnas.
+function _appendHeaderColumn(sheet, colIndex1Based, headerName) {
+  sheet.getRange(1, colIndex1Based).setValue(headerName).setFontWeight("bold").setBackground("#f3f3f3");
 }
 
 // ── Google Sheets writer ──────────────────────────────────────
@@ -2204,11 +2330,8 @@ function appendToSheet(data, userId) {
 
   if (!sheet) {
     sheet = ss.insertSheet(ref.tabName);
-    sheet.appendRow([
-      "Timestamp", "Fecha", "Banco", "Tipo", "Monto (COP)",
-      "Comercio", "Tarjeta/Cuenta", "Categoría", "SMS_Original", "Fuente", "Nota"
-    ]);
-    sheet.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#f3f3f3");
+    sheet.appendRow(SHEET_HEADERS);
+    sheet.getRange(1, 1, 1, SHEET_HEADERS.length).setFontWeight("bold").setBackground("#f3f3f3");
     sheet.setFrozenRows(1);
   }
 
@@ -2216,13 +2339,13 @@ function appendToSheet(data, userId) {
   var hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (hdrs.indexOf("Nota") === -1) {
     var notaCol = hdrs.length + 1;
-    sheet.getRange(1, notaCol).setValue("Nota").setFontWeight("bold").setBackground("#f3f3f3");
+    _appendHeaderColumn(sheet, notaCol, "Nota");
   }
 
-  var fecha = data.fecha ? Utilities.formatDate(data.fecha, 'America/Bogota', "yyyy-MM-dd HH:mm:ss") : "";
+  var fecha = data.fecha ? Utilities.formatDate(data.fecha, TIMEZONE, "yyyy-MM-dd HH:mm:ss") : "";
 
   sheet.appendRow([
-    Utilities.formatDate(data.timestamp, 'America/Bogota', "yyyy-MM-dd HH:mm:ss"),
+    Utilities.formatDate(data.timestamp, TIMEZONE, "yyyy-MM-dd HH:mm:ss"),
     fecha,
     data.banco        || "",
     data.tipo         || "",
@@ -2410,34 +2533,34 @@ function _parseEmailTransaction(bank, subject, body) {
     // "Enviaste $23.000 a Juan Pérez" / "Recibiste $50.000 de María"
     var rePago = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
     var mp = text.match(rePago);
-    if (mp) return { banco: "Nequi", tipo: "Transferencia", monto: _parseCopEmail(mp[1]), comercio: mp[2].trim(), tarjeta: "", fecha: new Date() };
+    if (mp) return { banco: CANONICAL_BANCO.nequi, tipo: "Transferencia", monto: _parseCopEmail(mp[1]), comercio: mp[2].trim(), tarjeta: "", fecha: new Date() };
 
     var reRecibio = /[Rr]ecibiste\s+\$\s*([\d.,]+)\s+de\s+(.+?)(?:\.|$)/;
     var mr = text.match(reRecibio);
-    if (mr) return { banco: "Nequi", tipo: "Ingreso", monto: _parseCopEmail(mr[1]), comercio: mr[2].trim(), tarjeta: "", fecha: new Date() };
+    if (mr) return { banco: CANONICAL_BANCO.nequi, tipo: "Ingreso", monto: _parseCopEmail(mr[1]), comercio: mr[2].trim(), tarjeta: "", fecha: new Date() };
 
     var reCompra = /[Cc]ompraste?\s+(?:en\s+)?(.+?)\s+por\s+\$\s*([\d.,]+)/;
     var mc = text.match(reCompra);
-    if (mc) return { banco: "Nequi", tipo: "Compra", monto: _parseCopEmail(mc[2]), comercio: normalizeComercio(mc[1].trim()), tarjeta: "", fecha: new Date() };
+    if (mc) return { banco: CANONICAL_BANCO.nequi, tipo: "Compra", monto: _parseCopEmail(mc[2]), comercio: normalizeComercio(mc[1].trim()), tarjeta: "", fecha: new Date() };
   }
 
   if (bank === "rappi") {
     // "Tu pedido de $45.900 fue pagado" / "Pagaste $45.900 en Rappi"
     var reRappi = /\$\s*([\d.,]+)/;
     var mr2 = text.match(reRappi);
-    if (mr2) return { banco: "Rappi", tipo: "Compra", monto: _parseCopEmail(mr2[1]), comercio: "Rappi", tarjeta: "", fecha: new Date() };
+    if (mr2) return { banco: CANONICAL_BANCO.rappi, tipo: "Compra", monto: _parseCopEmail(mr2[1]), comercio: "Rappi", tarjeta: "", fecha: new Date() };
   }
 
   if (bank === "dale") {
     var reDale = /[Ee]nviaste\s+\$\s*([\d.,]+)\s+a\s+(.+?)(?:\.|$)/;
     var md = text.match(reDale);
-    if (md) return { banco: "dale!", tipo: "Transferencia", monto: _parseCopEmail(md[1]), comercio: md[2].trim(), tarjeta: "", fecha: new Date() };
+    if (md) return { banco: CANONICAL_BANCO.dale, tipo: "Transferencia", monto: _parseCopEmail(md[1]), comercio: md[2].trim(), tarjeta: "", fecha: new Date() };
   }
 
   if (bank === "davivienda") {
     var reDAV = /[Cc]ompra.*?\$([\d,.]+).*?[Tt]arjeta\s+\*(\d+).*?[Ll]ugar\s+(.+?)(?:\.|$)/;
     var mdav = text.match(reDAV);
-    if (mdav) return { banco: "Davivienda", tipo: "Compra", monto: _parseCopEmail(mdav[1]), tarjeta: "Tarjeta *" + mdav[2], comercio: normalizeComercio(mdav[3].trim()), fecha: new Date() };
+    if (mdav) return { banco: CANONICAL_BANCO.davivienda, tipo: "Compra", monto: _parseCopEmail(mdav[1]), tarjeta: "Tarjeta *" + mdav[2], comercio: normalizeComercio(mdav[3].trim()), fecha: new Date() };
   }
 
   if (bank === "bancolombia") {
@@ -2445,7 +2568,7 @@ function _parseEmailTransaction(bank, subject, body) {
     var mbco = text.match(reBCO);
     if (mbco) {
       var monto = _parseCopEmail(mbco[1]);
-      if (monto > 0) return { banco: "Bancolombia", tipo: "Compra", monto: monto, comercio: "", tarjeta: "", fecha: new Date() };
+      if (monto > 0) return { banco: CANONICAL_BANCO.bancolombia, tipo: "Compra", monto: monto, comercio: "", tarjeta: "", fecha: new Date() };
     }
   }
 
@@ -2517,10 +2640,9 @@ function _migrateSheetHeaders(userId) {
   var lastCol = sheet.getLastColumn();
   var hdrs    = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   if (hdrs.indexOf("Fuente") === -1) {
-    sheet.getRange(1, lastCol + 1).setValue("Fuente");
-    sheet.getRange(1, lastCol + 1).setFontWeight("bold").setBackground("#f3f3f3");
+    _appendHeaderColumn(sheet, lastCol + 1, "Fuente");
   }
-  cache.put(key, "1", 21600); // 6 hours
+  cache.put(key, "1", CACHE_TTL_6H);
 }
 
 // ── Push notification dispatcher ──────────────────────────────
@@ -2557,7 +2679,7 @@ function parseNotifBancolombia(title, body) {
   var mc = text.match(reCompra);
   if (mc) {
     return {
-      banco:   "Bancolombia",
+      banco:   CANONICAL_BANCO.bancolombia,
       tipo:    "Compra",
       monto:   parseMontoUS(mc[1].replace(/\./g, "")),
       comercio: normalizeComercio(mc[2].trim()),
@@ -2571,7 +2693,7 @@ function parseNotifBancolombia(title, body) {
   var mt = text.match(reTransfer);
   if (mt) {
     return {
-      banco:   "Bancolombia",
+      banco:   CANONICAL_BANCO.bancolombia,
       tipo:    "Transferencia",
       monto:   parseMontoUS(mt[1].replace(/\./g, "")),
       comercio: "",
@@ -2595,7 +2717,7 @@ function parseNotifDavivienda(title, body) {
   var m  = text.match(re);
   if (m) {
     return {
-      banco:   "Davivienda",
+      banco:   CANONICAL_BANCO.davivienda,
       tipo:    "Compra",
       monto:   parseMonto(m[1]),
       tarjeta: "Tarjeta *" + m[2],
@@ -2631,7 +2753,7 @@ function parseNotifItau(title, body) {
   var ms = text.match(reShort);
   if (ms) {
     return {
-      banco:   "Ita\u00fa",
+      banco:   CANONICAL_BANCO.itau,
       tipo:    "Compra",
       monto:   parseMonto(ms[1]),
       comercio: normalizeComercio(ms[2].trim()),
@@ -2656,7 +2778,7 @@ function parseNotifNequi(title, body) {
   var mp = text.match(rePago);
   if (mp) {
     return {
-      banco:   "Nequi",
+      banco:   CANONICAL_BANCO.nequi,
       tipo:    "Transferencia",
       monto:   parseMonto(mp[1]),
       comercio: mp[2].trim(),
@@ -2669,7 +2791,7 @@ function parseNotifNequi(title, body) {
   var mr = text.match(reRecibio);
   if (mr) {
     return {
-      banco:   "Nequi",
+      banco:   CANONICAL_BANCO.nequi,
       tipo:    "Ingreso",
       monto:   parseMonto(mr[1]),
       comercio: mr[2].trim(),
@@ -2682,7 +2804,7 @@ function parseNotifNequi(title, body) {
   var mc = text.match(reCompra);
   if (mc) {
     return {
-      banco:   "Nequi",
+      banco:   CANONICAL_BANCO.nequi,
       tipo:    "Compra",
       monto:   parseMonto(mc[1]),
       comercio: normalizeComercio(mc[2].trim()),
@@ -2704,7 +2826,7 @@ function parseNotifDaviplata(title, body) {
   var mr = text.match(reRecibio);
   if (mr) {
     return {
-      banco:   "Daviplata",
+      banco:   CANONICAL_BANCO.daviplata,
       tipo:    "Ingreso",
       monto:   parseMonto(mr[1]),
       comercio: mr[2].trim(),
@@ -2717,7 +2839,7 @@ function parseNotifDaviplata(title, body) {
   var mp = text.match(rePago);
   if (mp) {
     return {
-      banco:   "Daviplata",
+      banco:   CANONICAL_BANCO.daviplata,
       tipo:    "Transferencia",
       monto:   parseMonto(mp[1]),
       comercio: "",
@@ -2733,13 +2855,13 @@ function parseNotifDaviplata(title, body) {
 // All share Aval infrastructure — likely same notification format as Bogotá.
 // Update with tools/notification_samples/OCC.txt, POP.txt, AVV.txt.
 function parseNotifOccidente(title, body) {
-  return _parseNotifAval("Occidente", title, body);
+  return _parseNotifAval(CANONICAL_BANCO.occidente, title, body);
 }
 function parseNotifPopular(title, body) {
-  return _parseNotifAval("Popular", title, body);
+  return _parseNotifAval(CANONICAL_BANCO.popular, title, body);
 }
 function parseNotifAvVillas(title, body) {
-  return _parseNotifAval("AV Villas", title, body);
+  return _parseNotifAval(CANONICAL_BANCO.avvillas, title, body);
 }
 
 function _parseNotifAval(nombreBanco, title, body) {
@@ -2785,7 +2907,7 @@ function parseNotifDale(title, body) {
   var mp = text.match(rePago);
   if (mp) {
     return {
-      banco:   "dale!",
+      banco:   CANONICAL_BANCO.dale,
       tipo:    "Transferencia",
       monto:   parseMonto(mp[1]),
       comercio: mp[2].replace(/\.$/, "").trim(),
@@ -2798,7 +2920,7 @@ function parseNotifDale(title, body) {
   var mr = text.match(reRecibio);
   if (mr) {
     return {
-      banco:   "dale!",
+      banco:   CANONICAL_BANCO.dale,
       tipo:    "Ingreso",
       monto:   parseMonto(mr[1]),
       comercio: mr[2].replace(/\.$/, "").trim(),
@@ -2820,7 +2942,7 @@ function parseNotifRappi(title, body) {
   var m  = text.match(re);
   if (m) {
     return {
-      banco:   "Rappi",
+      banco:   CANONICAL_BANCO.rappi,
       tipo:    "Compra",
       monto:   parseMonto(m[1]),
       comercio: "Rappi",
@@ -2838,7 +2960,8 @@ function testParsers() {
   var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
   var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
   var smsItauTransfer = "Se realizo una Transferencia de tu Cuenta de Ahorros ****8448 por $240,000 el 2026/06/27 18:30:00 ITAU Tel: 5818181 Bta o 018000512633 Nal";
-  var smsItauBreB     = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504 por $ 1000.00 el 2026-07-01 a las 20:50:00.";
+  var smsItauBreB     = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1234567890 por $ 1000.00 el 2026-07-01 a las 20:50:00.";
+  var smsItauBreBLlaveAlias = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B @usuario9237 por $ 220000.00 el 2026-07-02 a las 12:13:03.";
   var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
   var smsDaviReversed = "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            .";
   var smsBancoPSE     = "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19. ¿Dudas? Llamanos al 6045109095. Estamos cerca";
@@ -2849,6 +2972,12 @@ function testParsers() {
   Logger.log("Itaú debit:       " + JSON.stringify(parseItau(smsItauDebit)));
   Logger.log("Itaú transfer:    " + JSON.stringify(parseItau(smsItauTransfer)));
   Logger.log("Itaú Bre-B débito:" + JSON.stringify(parseItau(smsItauBreB)));
+  Logger.log("Itaú Bre-B débito (llave alias):" + JSON.stringify(parseItau(smsItauBreBLlaveAlias)));
+  // Regresión: la llave debe quedar en comercio (no el string genérico "Bre-B")
+  // y detectCategory debe clasificarla como "Bre-B" (no "Otro"). El fusionado
+  // entre las dos notificaciones (mergeBrebDuplicate) requiere un Sheet real —
+  // no se puede probar aquí; ver apps_script/webhook.gs mergeBrebDuplicate().
+  Logger.log("Itaú Bre-B categoría:" + detectCategory(parseItau(smsItauBreB).comercio));
   Logger.log("Davivienda compra:" + JSON.stringify(parseDavivienda(smsDaviApproved)));
   Logger.log("Davivienda reversa:" + JSON.stringify(parseDavivienda(smsDaviReversed)));
   Logger.log("Bancolombia PSE:  " + JSON.stringify(parseBancolombia(smsBancoPSE)));
@@ -2929,7 +3058,7 @@ function weeklyBackupToDrive() {
 
   var ss      = SpreadsheetApp.openById(sheetId);
   var users   = _getAllowedUsers();
-  var date    = Utilities.formatDate(new Date(), "America/Bogota", "yyyy-MM-dd");
+  var date    = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd");
 
   // Encontrar o crear carpeta "Finanzas Backup" en Drive
   var folders = DriveApp.getFoldersByName("Finanzas Backup");
@@ -2937,7 +3066,11 @@ function weeklyBackupToDrive() {
 
   var backed = 0;
   users.forEach(function(uid) {
-    var tab = ss.getSheetByName(uid);
+    // Misma resolución de nombre de tab que _getSheet (capitaliza el userId, ej.
+    // "jose" → "Jose"), reutilizando el spreadsheet ya abierto arriba en vez de
+    // reabrirlo por cada usuario. Antes se buscaba por uid en minúsculas
+    // directamente y el backup fallaba en silencio para todos los usuarios.
+    var tab = ss.getSheetByName(_tabNameForUser(uid));
     if (!tab) return;
     var data    = tab.getDataRange().getValues();
     if (data.length < 2) return;
@@ -2978,7 +3111,7 @@ function _sendAlertEmail(userId, tx) {
     + "<tr><td style='padding:6px 0;color:#64748b'>Comercio</td><td>" + (tx.comercio || "—") + "</td></tr>"
     + "<tr><td style='padding:6px 0;color:#64748b'>Banco</td><td>" + (tx.banco || "—") + "</td></tr>"
     + "<tr><td style='padding:6px 0;color:#64748b'>Categoría</td><td>" + (tx.categoria || "—") + "</td></tr>"
-    + "<tr><td style='padding:6px 0;color:#64748b'>Fecha</td><td>" + (tx.fecha ? Utilities.formatDate(tx.fecha, 'America/Bogota', "dd/MM/yyyy HH:mm") : "—") + "</td></tr>"
+    + "<tr><td style='padding:6px 0;color:#64748b'>Fecha</td><td>" + (tx.fecha ? Utilities.formatDate(tx.fecha, TIMEZONE, "dd/MM/yyyy HH:mm") : "—") + "</td></tr>"
     + "</table>"
     + "<p style='color:#64748b;font-size:12px;margin-top:16px'>Finance Manager · alerta automática</p>"
     + "</div>";
@@ -3052,8 +3185,8 @@ function _sendWeeklySummary(userId) {
   catRows.sort(function(a, b) { return b.total - a.total; });
   var top3 = catRows.slice(0, 3);
 
-  var weekStr = Utilities.formatDate(lastMon, 'America/Bogota', "dd MMM")
-    + " – " + Utilities.formatDate(lastSun, 'America/Bogota', "dd MMM yyyy");
+  var weekStr = Utilities.formatDate(lastMon, TIMEZONE, "dd MMM")
+    + " – " + Utilities.formatDate(lastSun, TIMEZONE, "dd MMM yyyy");
 
   var catHtml = top3.map(function(c) {
     return "<tr><td style='padding:5px 0;color:#64748b'>" + c.cat + "</td>"
@@ -3096,11 +3229,11 @@ function _saveCards(userId, cards) {
 // ── Rate limit helper (devuelve {ok, error} en vez de throw) ─────────
 function _checkRate(userId, action, dailyLimit) {
   var cache = CacheService.getScriptCache();
-  var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+  var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
   var key = 'rate_' + action + '_' + userId + '_' + today;
   var count = parseInt(cache.get(key) || '0', 10);
   if (count >= dailyLimit) return { ok: false, error: 'Límite diario de ' + action + ' alcanzado (' + dailyLimit + '/día).' };
-  cache.put(key, String(count + 1), 21600);
+  cache.put(key, String(count + 1), CACHE_TTL_6H);
   return { ok: true };
 }
 
@@ -3134,6 +3267,16 @@ function _getTxnsRange(userId, months) {
 // ── Normalizar nombre de comercio ─────────────────────────────────────
 function _normMerchant(s) {
   return String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+// Quita la llave/alias del destinatario de un comercio Bre-B ("Llave Bre-B
+// 3001234567" / "Llave Bre-B @usuario9237" → "Bre-B") antes de que el texto
+// entre a un prompt de Claude. La llave es PII del destinatario (teléfono o
+// alias de otra persona) — útil para mostrarla en la UI del usuario, pero no
+// hay razón para que un pago recurrente a la misma persona le mande su
+// teléfono/alias a un proveedor de IA externo en cada resumen o coach.
+function _redactBrebKeyForAI(comercio) {
+  return String(comercio || '').replace(/^Llave Bre-?B\s+\S+/i, 'Bre-B');
 }
 
 // ── Detectar pagos recurrentes desde transacciones ───────────────────
@@ -3443,7 +3586,7 @@ function _refreshFixedPayment(userId, id) {
   _saveFixedPayments(userId, payments);
 
   // Devolver el pago con estado recalculado (reconciliación) para refrescar la UI.
-  var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var month = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
   var cal = _getFixedCalendar(userId, month);
   var updated = (cal.payments || []).filter(function(x){ return x.id === id; })[0] || p;
   return { ok: true, payment: updated };
@@ -3506,7 +3649,7 @@ function _deleteFixedPayment(userId, id) {
 // ── CLUSTER 3: Budget Alert Helper ────────────────────────────────────
 function _checkBudgetAlert(userId, categoria) {
   try {
-    var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+    var month = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
     var sp = PropertiesService.getScriptProperties();
     var budgets = JSON.parse(sp.getProperty('CAT_BUDGETS_' + userId + '_' + month) || '{}');
     var budget = Number(budgets[categoria]) || 0;
@@ -3536,6 +3679,15 @@ function _getCategoryStatus(userId, month) {
 }
 
 // ── CLUSTER 5: AI Intelligence ────────────────────────────────────────
+// Cliente central de Anthropic. Toda llamada a Claude debe pasar por aquí para que el
+// modelo sea configurable vía Script Properties y el manejo de errores sea uniforme.
+//
+// `systemPrompt` puede ser:
+//   - string: se envía como bloque de texto plano.
+//   - Array<{type,text,cache_control?}>: para prompt caching (GA, sin beta header).
+//
+// Lanza Error con contexto del HTTP code si la API falla (no devuelve null silently).
+// Para flujos donde el fallo debe ser no-fatal (fallback de parsing), el llamador envuelve en try/catch.
 function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
   var key = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
@@ -3553,8 +3705,21 @@ function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
     }),
     muteHttpExceptions: true
   });
-  var result = JSON.parse(resp.getContentText());
-  if (resp.getResponseCode() !== 200) throw new Error('Claude API error: ' + (result.error && result.error.message || resp.getContentText().slice(0,120)));
+  var code = resp.getResponseCode();
+  var body = resp.getContentText();
+  var result;
+  try {
+    result = JSON.parse(body);
+  } catch (parseErr) {
+    // Anthropic (o un WAF/Cloudflare intermedio) puede devolver HTML/502 — sin JSON.
+    throw new Error('Anthropic devolvió respuesta no-JSON (HTTP ' + code + '): ' + body.slice(0, 120));
+  }
+  if (code !== 200) {
+    var apiErr = result.error && result.error.message
+      ? result.error.message
+      : JSON.stringify(result).slice(0, 150);
+    throw new Error('Claude API error ' + code + ': ' + apiErr);
+  }
   return (result.content && result.content[0] && result.content[0].text) || '';
 }
 
@@ -3562,7 +3727,7 @@ function _spendingCoach(userId, months) {
   // Cache same-day result (CacheService pattern, ver _buildWidgetData) para que
   // getRetoSuggestion no recompute vía Claude cuando ya corrió spendingCoach hoy.
   var cache = CacheService.getScriptCache();
-  var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+  var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
   var cacheKey = 'coach_' + userId + '_' + (months || 3) + '_' + today;
   var cached = cache.get(cacheKey);
   if (cached) return JSON.parse(cached);
@@ -3577,13 +3742,13 @@ function _spendingCoach(userId, months) {
     byCat[cat]=(byCat[cat]||0)+monto;
   });
   var topCats = Object.keys(byCat).sort(function(a,b){ return byCat[b]-byCat[a]; }).slice(0,5)
-    .map(function(c){ return c+': $'+Math.round(byCat[c]).toLocaleString('es-CO'); }).join(', ');
-  var subs = _detectRecurring(txns).slice(0,5).map(function(s){ return s.comercio+'($'+s.monthlyAvg+'/mes)'; }).join(', ');
+    .map(function(c){ return c+': '+_formatCOP(Math.round(byCat[c])); }).join(', ');
+  var subs = _detectRecurring(txns).slice(0,5).map(function(s){ return _redactBrebKeyForAI(s.comercio)+'($'+s.monthlyAvg+'/mes)'; }).join(', ');
   var totalSpent = Object.values ? Object.values(byCat).reduce(function(s,v){return s+v;},0)
     : Object.keys(byCat).reduce(function(s,k){return s+byCat[k];},0);
 
   var systemPrompt = 'Eres un coach financiero amigable para un usuario colombiano. Analiza los datos y devuelve ÚNICAMENTE un JSON válido con esta estructura: {"insights":["insight1","insight2","insight3"],"suggestedReto":{"titulo":"string","tipo":"budget_limit|frequency_limit|no_spend","categorias":["Cat"],"objetivo":number,"razon":"string"}}. Los insights deben ser específicos con números reales. El reto debe ser el más impactante dado el perfil. Máx 80 palabras por insight. En español colombiano informal.';
-  var userMsg = 'Datos del usuario (últimos ' + months + ' meses): Total gastado: $' + Math.round(totalSpent).toLocaleString('es-CO') + '. Por categoría: ' + topCats + '. Suscripciones detectadas: ' + (subs || 'ninguna') + '.';
+  var userMsg = 'Datos del usuario (últimos ' + months + ' meses): Total gastado: ' + _formatCOP(Math.round(totalSpent)) + '. Por categoría: ' + topCats + '. Suscripciones detectadas: ' + (subs || 'ninguna') + '.';
 
   try {
     // Modelo configurable vía Script Properties (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
@@ -3593,7 +3758,7 @@ function _spendingCoach(userId, months) {
     if (!jsonMatch) return { ok: false, error: 'Claude no devolvió JSON válido' };
     var parsed = JSON.parse(jsonMatch[0]);
     var result = { ok: true, insights: parsed.insights || [], suggestedReto: parsed.suggestedReto || null };
-    cache.put(cacheKey, JSON.stringify(result), 21600); // 6h (máx CacheService), sirve para el resto del día
+    cache.put(cacheKey, JSON.stringify(result), CACHE_TTL_6H); // sirve para el resto del día
     return result;
   } catch(e) {
     return { ok: false, error: e.message };
@@ -3601,12 +3766,12 @@ function _spendingCoach(userId, months) {
 }
 
 function _generateHealthReport(userId, month) {
-  var targetMonth = month || Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var targetMonth = month || Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
   var txns = _getTxnsRange(userId, 6);
   var monthTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === targetMonth; });
   var prevMonth = (function(){
     var d = new Date(targetMonth + '-01'); d.setMonth(d.getMonth()-1);
-    return Utilities.formatDate(d, 'America/Bogota', 'yyyy-MM');
+    return Utilities.formatDate(d, TIMEZONE, 'yyyy-MM');
   })();
   var prevTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === prevMonth; });
 
@@ -3621,15 +3786,15 @@ function _generateHealthReport(userId, month) {
   var totalCurr = Object.keys(catCurr).reduce(function(s,k){return s+catCurr[k];},0);
   var totalPrev = Object.keys(catPrev).reduce(function(s,k){return s+catPrev[k];},0);
   var topCatsStr = Object.keys(catCurr).sort(function(a,b){return catCurr[b]-catCurr[a];}).slice(0,5)
-    .map(function(c){return c+': $'+Math.round(catCurr[c]).toLocaleString('es-CO');}).join(', ');
-  var subs = _detectRecurring(txns).slice(0,5).map(function(s){return s.comercio+'($'+s.monthlyAvg+'/mes)';}).join(', ');
+    .map(function(c){return c+': '+_formatCOP(Math.round(catCurr[c]));}).join(', ');
+  var subs = _detectRecurring(txns).slice(0,5).map(function(s){return _redactBrebKeyForAI(s.comercio)+'($'+s.monthlyAvg+'/mes)';}).join(', ');
   var budgets = JSON.parse(PropertiesService.getScriptProperties().getProperty('CAT_BUDGETS_' + userId + '_' + targetMonth) || '{}');
   var budgetStr = Object.keys(budgets).length ? Object.keys(budgets).map(function(c){
-    var b=budgets[c], s=catCurr[c]||0; return c+': gastado $'+Math.round(s).toLocaleString('es-CO')+' de $'+b.toLocaleString('es-CO')+'('+Math.round(s/b*100)+'%)';
+    var b=budgets[c], s=catCurr[c]||0; return c+': gastado '+_formatCOP(Math.round(s))+' de '+_formatCOP(Math.round(b))+'('+Math.round(s/b*100)+'%)';
   }).join('; ') : 'sin presupuestos configurados';
 
   var systemPrompt = 'Eres un asesor financiero generando un reporte mensual en español colombiano. Devuelve ÚNICAMENTE JSON con esta estructura exacta: {"resumenEjecutivo":"string","seccion1_gastos":"string","seccion2_tendencias":"string","seccion3_recomendaciones":["r1","r2","r3"],"proyeccion6meses":"string","scoreGeneral":number}. scoreGeneral es 0-100 basado en control de gastos y hábitos. Sé específico con números, usa lenguaje cercano pero profesional.';
-  var userMsg = 'Mes: '+targetMonth+'. Total gastos: $'+Math.round(totalCurr).toLocaleString('es-CO')+'. Mes anterior: $'+Math.round(totalPrev).toLocaleString('es-CO')+'. Variación: '+(totalPrev?Math.round((totalCurr-totalPrev)/totalPrev*100)+'%':'N/A')+'. Por categoría: '+topCatsStr+'. Presupuestos: '+budgetStr+'. Suscripciones: '+(subs||'ninguna')+'.';
+  var userMsg = 'Mes: '+targetMonth+'. Total gastos: '+_formatCOP(Math.round(totalCurr))+'. Mes anterior: '+_formatCOP(Math.round(totalPrev))+'. Variación: '+(totalPrev?Math.round((totalCurr-totalPrev)/totalPrev*100)+'%':'N/A')+'. Por categoría: '+topCatsStr+'. Presupuestos: '+budgetStr+'. Suscripciones: '+(subs||'ninguna')+'.';
 
   try {
     // Modelo configurable vía Script Properties (ver docs/CONVENTIONS.md: "el modelo va en env"); fallback al valor actual.
@@ -3655,7 +3820,7 @@ function _buildWidgetData(userId) {
   if (cached) return JSON.parse(cached);
 
   var txns = _getTxnsRange(userId, 1);
-  var month = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM');
+  var month = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
   var monthTxns = txns.filter(function(t){ return String(t.Fecha||'').slice(0,7) === month; });
   var totalGastos = monthTxns.filter(function(t){ return (Number(t['Monto (COP)'])||0) > 0 && String(t.Categoría||'') !== 'Ingreso'; })
     .reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0);
@@ -3704,12 +3869,12 @@ function sendWeeklySummaryTrigger() {
       var byCat = {};
       weekTxns.forEach(function(t){ var c=String(t.Categoría||'Otro'); byCat[c]=(byCat[c]||0)+(Number(t['Monto (COP)'])||0); });
       var top = Object.keys(byCat).sort(function(a,b){return byCat[b]-byCat[a];}).slice(0,3)
-        .map(function(c){ return c+': $'+Math.round(byCat[c]).toLocaleString('es-CO'); }).join(' · ');
+        .map(function(c){ return c+': '+_formatCOP(Math.round(byCat[c])); }).join(' · ');
       // Check lifestyle inflation
       var analytics = _buildAnalytics(uid, { months: 4 });
       var inflMsg = analytics.inflationSignal && analytics.inflationSignal.detected ? '<p style="color:#f59e0b">⚠️ '+analytics.inflationSignal.message+'</p>' : '';
       MailApp.sendEmail({ to: email, subject: '📊 Tu semana financiera',
-        htmlBody: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2 style="color:#6366f1">Tu semana en números</h2><p>Gastaste <strong>$'+Math.round(total).toLocaleString('es-CO')+'</strong> esta semana.</p><p>'+top+'</p>'+inflMsg+'<p style="color:#94a3b8;font-size:11px">Finanzas Personales · resumen semanal</p></div>'
+        htmlBody: '<div style="font-family:sans-serif;max-width:480px;margin:0 auto"><h2 style="color:#6366f1">Tu semana en números</h2><p>Gastaste <strong>'+_formatCOP(Math.round(total))+'</strong> esta semana.</p><p>'+top+'</p>'+inflMsg+'<p style="color:#94a3b8;font-size:11px">Finanzas Personales · resumen semanal</p></div>'
       });
     } catch(e) { Logger.log('sendWeeklySummary error para ' + uid + ': ' + e.message); }
   });
@@ -3724,7 +3889,7 @@ function sendFridayNudgeTrigger() {
       var nudgeKey = 'NUDGE_LAST_' + uid;
       var sp = PropertiesService.getScriptProperties();
       var lastNudge = JSON.parse(sp.getProperty(nudgeKey) || '{}');
-      var today = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+      var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
       if (lastNudge.date === today) return;
       var txns = _getTxnsRange(uid, 1);
       var restoCats = ['Restaurantes','Domicilios','Entretenimiento'];
@@ -3735,7 +3900,7 @@ function sendFridayNudgeTrigger() {
       if (fridaySpend.length >= 3) {
         var avg = Math.round(fridaySpend.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0)/fridaySpend.length);
         MailApp.sendEmail({ to: email, subject: '🍕 ¡Llega el viernes!',
-          htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>$'+avg.toLocaleString('es-CO')+'</strong> en restaurantes y domicilios. ¿Lo tenés en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+          htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>'+_formatCOP(avg)+'</strong> en restaurantes y domicilios. ¿Lo tenés en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
         });
         sp.setProperty(nudgeKey, JSON.stringify({ date: today, type: 'friday-restaurant' }));
       }
@@ -3756,7 +3921,7 @@ function sendUncategorizedReminderTrigger() {
       }).length;
       if (uncat >= 3) {
         MailApp.sendEmail({ to: email, subject: '🏷️ Tienes '+uncat+' transacciones sin categorizar',
-          htmlBody: '<div style="font-family:sans-serif"><p>Tienes <strong>'+uncat+' transacciones</strong> sin categorizar esta semana. Categorizarlas mejora tu análisis financiero y te da XP.</p><p><a href="https://finanzas-abiertas.pages.dev">Abrir app →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+          htmlBody: '<div style="font-family:sans-serif"><p>Tienes <strong>'+uncat+' transacciones</strong> sin categorizar esta semana. Categorizarlas mejora tu análisis financiero y te da XP.</p><p><a href="'+_getPwaUrl()+'">Abrir app →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
         });
       }
     } catch(e) { Logger.log('sendUncategorizedReminder error para ' + uid + ': ' + e.message); }
@@ -3773,7 +3938,7 @@ function checkLifestyleInflationTrigger() {
       var inf = analytics.inflationSignal;
       if (inf && inf.detected) {
         MailApp.sendEmail({ to: email, subject: '📈 Alerta: tu gasto sube cada mes',
-          htmlBody: '<div style="font-family:sans-serif"><p>⚠️ <strong>'+inf.message+'</strong></p><p>Tus totales recientes: '+inf.months.map(function(m,i){ return _monthName(m)+': $'+(inf.totals[i]||0).toLocaleString('es-CO'); }).join(' → ')+'</p><p><a href="https://finanzas-abiertas.pages.dev">Ver análisis →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+          htmlBody: '<div style="font-family:sans-serif"><p>⚠️ <strong>'+inf.message+'</strong></p><p>Tus totales recientes: '+inf.months.map(function(m,i){ return _monthName(m)+': '+_formatCOP(inf.totals[i]||0); }).join(' → ')+'</p><p><a href="'+_getPwaUrl()+'">Ver análisis →</a></p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
         });
       }
     } catch(e) { Logger.log('checkLifestyleInflation error para ' + uid + ': ' + e.message); }

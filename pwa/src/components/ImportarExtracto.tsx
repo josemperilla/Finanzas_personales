@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { importTransactions, getToken } from '../lib/api';
 import { type ManualTransaction } from '../lib/api';
 import { quickEase } from '../lib/motion';
+import { APP_LOCALE } from '../lib/utils';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { addXP, awardBadge } from '../lib/gamification';
 
@@ -464,7 +465,7 @@ export function ImportarExtracto({ userId, onClose, showSkipButton }: Props) {
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--muted)' }}>{row.fecha}</div>
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', color: 'var(--ink)', flexShrink: 0, marginLeft: 12 }}>
-                    ${row.monto.toLocaleString('es-CO')}
+                    ${row.monto.toLocaleString(APP_LOCALE)}
                   </div>
                 </div>
               ))}

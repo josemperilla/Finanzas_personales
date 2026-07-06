@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
-import { fetchFixedCalendar, FixedPaymentStatus } from '../lib/api';
+import { FixedPaymentStatus } from '../lib/api';
 import { getCategoryColor } from '../lib/config';
-import { formatCOP } from '../lib/utils';
+import { formatCOP, todayInTZ } from '../lib/utils';
+import { getUserTimezone } from '../lib/profiles';
 
 interface Props {
   userId: string;
+  payments: FixedPaymentStatus[];
   onGoPagosFijos?: () => void;
 }
 
@@ -14,38 +15,49 @@ const DAY_LABELS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 const CALENDAR_PATH =
   'M8 2v3M16 2v3M3.5 9.5h17M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z';
 
-function getNext7Days() {
-  const result = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+// Próximos 7 días en la TZ configurada por el usuario (no UTC). Las fechas como
+// YYYY-MM-DD se construyen desde todayInTZ para evitar el bug de "hoy" desplazado
+// en viajeros o usuarios con timezone distinto a Colombia.
+function getNext7Days(tz: string): { date: Date; label: string; dayNum: number; key: string }[] {
+  const result: { date: Date; label: string; dayNum: number; key: string }[] = [];
+  const base = new Date(todayInTZ(tz) + 'T12:00:00');
   for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    result.push({
-      date: d,
-      label: DAY_LABELS[d.getDay()],
-      dayNum: d.getDate(),
-      key: d.toISOString().split('T')[0],
-    });
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    result.push({ date: d, label: DAY_LABELS[d.getDay()], dayNum: d.getDate(), key });
   }
   return result;
 }
 
-function nextOccurrence(diaDelMes: number): Date {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), diaDelMes);
-  if (thisMonth >= today) return thisMonth;
-  return new Date(today.getFullYear(), today.getMonth() + 1, diaDelMes);
+// Próxima ocurrencia de un día del mes (1-31), resuelta en la TZ del usuario.
+function nextOccurrenceKey(diaDelMes: number, tz: string): string {
+  const baseStr = todayInTZ(tz);
+  const [yStr, mStr] = baseStr.split('-');
+  const year = Number(yStr);
+  const mes = Number(mStr); // 1-12
+  const diasEsteMes = new Date(year, mes, 0).getDate();
+  const diaEsteMes = Math.min(diaDelMes, diasEsteMes);
+  // Ambos a mediodía (no medianoche) para que un pago que vence HOY compare igual
+  // a hoyBase en vez de "ya pasado" (bug: medianoche < mediodía del mismo día).
+  const este = new Date(year, mes - 1, diaEsteMes, 12);
+  const hoyBase = new Date(baseStr + 'T12:00:00');
+  if (este >= hoyBase) {
+    return `${year}-${String(mes).padStart(2, '0')}-${String(diaEsteMes).padStart(2, '0')}`;
+  }
+  // Mes siguiente
+  const mesSig = mes === 12 ? 1 : mes + 1;
+  const yearSig = mes === 12 ? year + 1 : year;
+  const diasSig = new Date(yearSig, mesSig, 0).getDate();
+  const diaSig = Math.min(diaDelMes, diasSig);
+  return `${yearSig}-${String(mesSig).padStart(2, '0')}-${String(diaSig).padStart(2, '0')}`;
 }
 
-function dayLabel(key: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = today.toISOString().split('T')[0];
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowKey = tomorrow.toISOString().split('T')[0];
+function dayLabel(key: string, tz: string): string {
+  const todayKey = todayInTZ(tz);
+  const hoyBase = new Date(todayKey + 'T12:00:00');
+  hoyBase.setDate(hoyBase.getDate() + 1);
+  const tomorrowKey = `${hoyBase.getFullYear()}-${String(hoyBase.getMonth() + 1).padStart(2, '0')}-${String(hoyBase.getDate()).padStart(2, '0')}`;
   if (key === todayKey) return 'Hoy';
   if (key === tomorrowKey) return 'Mañana';
   const [, m, d] = key.split('-');
@@ -53,32 +65,19 @@ function dayLabel(key: string): string {
   return `${Number(d)} ${months[Number(m) - 1]}`;
 }
 
-export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
-  const [payments, setPayments] = useState<FixedPaymentStatus[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchFixedCalendar()
-      .then(data => { if (!cancelled) setPayments(data.payments); })
-      .catch(() => { if (!cancelled) setPayments([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [userId]);
-
-  const days = getNext7Days();
+export function PagosProximosCard({ userId, payments, onGoPagosFijos }: Props) {
+  const tz = getUserTimezone(userId);
+  const days = getNext7Days(tz);
   const todayKey = days[0].key;
-  const windowEnd = days[days.length - 1].date;
+  const windowEndKey = days[days.length - 1].key;
 
-  // Map dateKey → payments due that day
+  // Map dateKey → payments due that day (solo dentro de la ventana de 7 días)
   const byDay = new Map<string, FixedPaymentStatus[]>();
   for (const p of payments) {
-    const occ = nextOccurrence(p.diaDelMes);
-    if (occ <= windowEnd) {
-      const key = occ.toISOString().split('T')[0];
-      if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key)!.push(p);
+    const occKey = nextOccurrenceKey(p.diaDelMes, tz);
+    if (occKey <= windowEndKey) {
+      if (!byDay.has(occKey)) byDay.set(occKey, []);
+      byDay.get(occKey)!.push(p);
     }
   }
 
@@ -86,7 +85,6 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
     .filter(d => byDay.has(d.key))
     .flatMap(d => (byDay.get(d.key) ?? []).map(p => ({ ...p, dateKey: d.key })));
 
-  if (loading) return null;
   if (upcoming.length === 0) return null;
 
   return (
@@ -101,7 +99,7 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
         <div style={{
           width: 48, height: 48, borderRadius: 15, flexShrink: 0,
-          background: 'linear-gradient(150deg, var(--blue-2, #13805C), var(--blue, #0E6B4D))',
+          background: 'linear-gradient(150deg, var(--blue-2), var(--blue))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 6px 16px rgba(14,107,77,.28)',
         }}>
@@ -119,6 +117,7 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={onGoPagosFijos}
+            aria-label="Ver pagos fijos"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 600, color: 'var(--blue-700)',
@@ -153,7 +152,7 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
                   background: hasPayment ? dotColor : 'var(--surface-2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: isToday && hasPayment
-                    ? '0 0 0 3px var(--blue-50, rgba(219,234,254,0.9))'
+                    ? '0 0 0 3px var(--blue-50)'
                     : 'none',
                   border: isToday && !hasPayment ? '1.5px solid var(--line)' : 'none',
                 }}
@@ -208,7 +207,7 @@ export function PagosProximosCard({ userId, onGoPagosFijos }: Props) {
                   {p.nombre}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
-                  {dayLabel(p.dateKey)} · {p.categoria}
+                  {dayLabel(p.dateKey, tz)} · {p.categoria}
                 </div>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: 'var(--ink)', flexShrink: 0 }}>
