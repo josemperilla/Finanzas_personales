@@ -510,7 +510,12 @@ export function Historial({ transactions, loading, userId = '', onCategoryChange
                   </div>
                   <div style={{ background: 'var(--card)', borderRadius: 20, border: '1px solid var(--line)', boxShadow: '0 1px 2px rgba(16,18,28,.04), 0 10px 26px rgba(16,18,28,.07)', overflow: 'hidden' }}>
                     {group.map((tx, i) => (
-                      <div key={tx.Timestamp || i}>
+                      // Timestamp solo tiene precisión de segundo — transacciones importadas en lote
+                      // (ej. extracto PDF) pueden compartir el mismo Timestamp. Usar solo Timestamp
+                      // como key hace que React confunda filas distintas al re-renderizar (filas
+                      // "fantasma" que no se limpian al cambiar de filtro). Se compone con Comercio +
+                      // Monto + posición para garantizar unicidad dentro del grupo del día.
+                      <div key={`${tx.Timestamp || ''}-${tx.Comercio}-${tx['Monto (COP)']}-${i}`}>
                         {i > 0 && <div style={{ height: 1, background: 'var(--line)', marginLeft: 16 }} />}
                         <TxRow tx={tx} onClick={() => setSelected(tx)} onDelete={handleDelete} />
                       </div>
