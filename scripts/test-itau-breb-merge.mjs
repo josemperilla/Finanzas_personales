@@ -69,7 +69,7 @@ function assert(name, actual, expected) {
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
     fecha: new Date("2026-07-02T07:34:09"),
-    brebKey: "3204237287", comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    brebKey: "3001234567", comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert(
     "enriches the generic row when the keyed notification arrives second",
@@ -85,7 +85,7 @@ function assert(name, actual, expected) {
 {
   const data = [HDRS, row({
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: "2026-07-02 07:34:09", comercio: "Llave Bre-B 3204237287"
+    fecha: "2026-07-02 07:34:09", comercio: "Llave Bre-B 3001234567"
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
@@ -106,8 +106,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 25000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert("different amount is not matched", _findBrebMergeMatch(parsed, data, HDRS), null);
 }
@@ -120,8 +120,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta Corriente ****1234",
-    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert("different account (last 4 digits) is not matched", _findBrebMergeMatch(parsed, data, HDRS), null);
 }
@@ -137,8 +137,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: new Date("2026-07-02T07:41:00"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("2026-07-02T07:41:00"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert("outside the 90s window is not matched (real separate transfer)", _findBrebMergeMatch(parsed, data, HDRS), null);
 }
@@ -151,8 +151,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: new Date("2026-07-02T07:35:25"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("2026-07-02T07:35:25"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert(
     "85s apart (inside window) still merges",
@@ -171,8 +171,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: new Date("not-a-date"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("not-a-date"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert("invalid incoming date never merges blindly", _findBrebMergeMatch(parsed, data, HDRS), null);
 }
@@ -185,8 +185,8 @@ function assert(name, actual, expected) {
   })];
   const parsed = {
     banco: "Itaú", monto: 18000, tarjeta: "Cuenta de Ahorros ****8448",
-    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3204237287",
-    comercio: "Llave Bre-B 3204237287", categoria: "Bre-B"
+    fecha: new Date("2026-07-02T07:34:09"), brebKey: "3001234567",
+    comercio: "Llave Bre-B 3001234567", categoria: "Bre-B"
   };
   assert("different bank is never merged", _findBrebMergeMatch(parsed, data, HDRS), null);
 }
@@ -200,7 +200,7 @@ function assert(name, actual, expected) {
   const parsed = {
     banco: "Itaú", monto: 220000, tarjeta: "Cuenta de Ahorros ****8448",
     fecha: new Date("2026-07-02T12:13:03"),
-    brebKey: "@ramirez9237", comercio: "Llave Bre-B @ramirez9237", categoria: "Bre-B"
+    brebKey: "@usuario9237", comercio: "Llave Bre-B @usuario9237", categoria: "Bre-B"
   };
   assert(
     "alias key (@usuario) also enriches the generic row",

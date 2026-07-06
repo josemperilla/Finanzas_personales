@@ -38,9 +38,9 @@ describe('cleanMerchant', () => {
   });
 
   it('reconoce transferencias Bre-B con o sin guion y conserva la llave/destinatario', () => {
-    expect(cleanMerchant('Llave Bre-B 1015471504')).toBe('Transferencia por Bre-B · 1015471504');
+    expect(cleanMerchant('Llave Bre-B 1234567890')).toBe('Transferencia por Bre-B · 1234567890');
     expect(cleanMerchant('transferencia BREB natalia')).toBe('Transferencia por Bre-B · Natalia');
-    expect(cleanMerchant('Llave Bre-B @ramirez9237')).toBe('Transferencia por Bre-B · @Ramirez9237');
+    expect(cleanMerchant('Llave Bre-B @usuario9237')).toBe('Transferencia por Bre-B · @Usuario9237');
   });
 
   it('cae al genérico "Transferencia por Bre-B" cuando no hay llave/destinatario capturado', () => {

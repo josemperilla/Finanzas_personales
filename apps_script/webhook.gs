@@ -1821,12 +1821,12 @@ function parseItau(sms) {
   }
 
   // Patrón 2b — débito Bre-B (formato abreviado con prefijo ITAU: y cuenta corta).
-  // "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504
+  // "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1234567890
   //  por $ 1000.00 el 2026-07-01 a las 20:50:00."
   // Diferencias vs patrón 2: prefijo "ITAU:", tildes ("se realizó"), cuenta abreviada
   // (AHO/CTE sin ****), monto en formato US ("$ 1000.00" con decimales), fecha con
-  // guiones y separador "a las". La llave Bre-B puede ser numérica (1015471504) o un
-  // alias con @ (@ramirez9237) — se captura (grupo 4) para registrarla en el comercio
+  // guiones y separador "a las". La llave Bre-B puede ser numérica (1234567890) o un
+  // alias con @ (@usuario9237) — se captura (grupo 4) para registrarla en el comercio
   // en vez de descartarla; también se usa para fusionar con la notificación genérica
   // de la misma transferencia (ver mergeBrebDuplicate).
   var reBreBDebit = /(?:ITAU:?\s*)?se\s+realiz[oó]\s+un\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)\s+a tu cuenta\s+(\w+)\s+(\d+)\s+a la llave\s+Bre-?B\s+(\S+)\s+por\s+\$\s*([\d,.]+)\s+el\s+(\d{4}[-\/]\d{2}[-\/]\d{2})\s+a las\s+(\d{2}:\d{2}:\d{2})/i;
@@ -2960,8 +2960,8 @@ function testParsers() {
   var smsItauCard     = "Se realizo una compra en THE NEW YORK TIMES desde tu Tarjeta Credito ****8439 por $7,293  el 2026/05/30 02:04:18 ITAU Tel: 5818181 Bta o 018000512633 Nal para transacciones con tarjeta";
   var smsItauDebit    = "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $23,400 el 2026/05/29 15:00:00 ITAU Tel: 5818181 Bta o 018000512633 Nal para transfrencias con Bre-B";
   var smsItauTransfer = "Se realizo una Transferencia de tu Cuenta de Ahorros ****8448 por $240,000 el 2026/06/27 18:30:00 ITAU Tel: 5818181 Bta o 018000512633 Nal";
-  var smsItauBreB     = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1015471504 por $ 1000.00 el 2026-07-01 a las 20:50:00.";
-  var smsItauBreBLlaveAlias = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B @ramirez9237 por $ 220000.00 el 2026-07-02 a las 12:13:03.";
+  var smsItauBreB     = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B 1234567890 por $ 1000.00 el 2026-07-01 a las 20:50:00.";
+  var smsItauBreBLlaveAlias = "ITAU: se realizó un débito a tu cuenta AHO 8448 a la llave Bre-B @usuario9237 por $ 220000.00 el 2026-07-02 a las 12:13:03.";
   var smsDaviApproved = "DAVIVIENDA: Compra . Aprobado(a), $5,550, Tarjeta *8863, Hora 07:12,Lugar Mercado Pago*TEMBICI";
   var smsDaviReversed = "DAVIVIENDA: Compra Reversada(o)  , $10,939, Tarjeta *8863, Hora 10:00,Lugar UBER RIDES            .";
   var smsBancoPSE     = "Bancolombia: Pagaste $100,000.00 a Acciones y Valores S A desde tu producto 0018 el 02/06/2026 14:00:19. ¿Dudas? Llamanos al 6045109095. Estamos cerca";
@@ -3270,7 +3270,7 @@ function _normMerchant(s) {
 }
 
 // Quita la llave/alias del destinatario de un comercio Bre-B ("Llave Bre-B
-// 3204237287" / "Llave Bre-B @ramirez9237" → "Bre-B") antes de que el texto
+// 3001234567" / "Llave Bre-B @usuario9237" → "Bre-B") antes de que el texto
 // entre a un prompt de Claude. La llave es PII del destinatario (teléfono o
 // alias de otra persona) — útil para mostrarla en la UI del usuario, pero no
 // hay razón para que un pago recurrente a la misma persona le mande su
