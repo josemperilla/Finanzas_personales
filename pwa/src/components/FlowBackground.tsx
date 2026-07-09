@@ -35,9 +35,13 @@ export default function FlowBackground() {
 
     const resize = () => {
       DPR = Math.min(window.devicePixelRatio || 1, 2);
-      W = window.innerWidth; H = window.innerHeight;
+      // Usa el tamaño REAL del elemento (fixed + width/height:100%), no
+      // window.innerHeight: en la PWA standalone de iOS innerHeight excluye el
+      // safe-area inferior (home indicator), dejando una franja del fondo sin
+      // pintar. clientWidth/Height del canvas cubren el viewport completo.
+      W = canvas.clientWidth || window.innerWidth;
+      H = canvas.clientHeight || window.innerHeight;
       canvas.width = W * DPR; canvas.height = H * DPR;
-      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
     };
@@ -104,7 +108,7 @@ export default function FlowBackground() {
 
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <canvas ref={ref} aria-hidden="true" style={{ position: 'fixed', inset: '0', zIndex: 0, pointerEvents: 'none' }} />,
+    <canvas ref={ref} aria-hidden="true" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }} />,
     document.body,
   );
 }
