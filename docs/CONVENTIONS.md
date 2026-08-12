@@ -45,7 +45,7 @@ Reglas que **previenen drift**. Lee antes de escribir TS/GAS/CF. Detalle de arqu
 - **`doPost` no lowercases `type`.** Los `if (type === "validatePin")` dependen del case original.
 - **`userId` se lowercea** al entrar. Tabs de Sheets en minúsculas.
 - Búsqueda por `Timestamp` con **tolerancia ±2s**. Montos: COL (`parseMonto`, punto=miles) vs US
-  (`parseMontoUS`, coma=miles, punto=decimal). Bancolombia=US; Bogotá/Itaú=COL. Mezclar ×1000 el monto.
+  (`parseMontoUS`, coma=miles, punto=decimal). Bancolombia=US; Banco de Bogotá=COL (sus dos formatos, el propio y el heredado de Itaú). Mezclar ×1000 el monto.
 - Categorías: persistir siempre dentro de `ALLOWED_CATEGORIES`. Nuevo parser → caso en `testParsers()`.
 - Deploy: manual, ver `docs/ARCHITECTURE.md` §Deployment.
 
