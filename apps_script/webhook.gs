@@ -573,7 +573,7 @@ function doPost(e) {
     _validateUserId(userId);
 
     // Rate-limit admin write operations para mitigar abuso incluso con token válido.
-    var ADMIN_TYPES = ["generateEmergencyPin","listUsers","createUser","createInvite","listInvites","listUsersData","disableUser","enableUser","revokeInvite","resetPin","deleteUser"];
+    var ADMIN_TYPES = ["generateEmergencyPin","listUsers","createUser","createInvite","listInvites","listUsersData","disableUser","enableUser","revokeInvite","resetPin","deleteUser","migrarProductos"];
     if (ADMIN_TYPES.indexOf(type) !== -1) _checkRateLimit("admin", userId);
 
     // Prueba en vivo del onboarding: devuelve el timestamp (ms) del último SMS que el
@@ -590,8 +590,16 @@ function doPost(e) {
     // Migración puntual de productos/duplicados (ver migrarProductosYDuplicados).
     // Solo el admin, y por omisión SIMULA: hay que mandar aplicar:true a propósito.
     if (type === "migrarProductos") {
-      if (userId !== ADMIN_USER) return jsonResponse({ ok: false, error: "solo admin" });
-      return jsonResponse(migrarProductosYDuplicados(userId, payload.aplicar === true));
+      // Esta acción BORRA filas, así que exige un token de sesión real y no el
+      // userId auto-declarado que `_authUserId` acepta en el canal "shortcut":
+      // ahí basta con tener WEBHOOK_SECRET para hacerse pasar por cualquiera.
+      // (Las demás acciones admin comparten esa debilidad; aquí no se hereda
+      // porque el daño sería irreversible.)
+      var migUid = _userFromToken(payload.token);
+      if (!migUid || migUid !== ADMIN_USER) {
+        return jsonResponse({ ok: false, error: "requiere token de sesión de admin" });
+      }
+      return jsonResponse(migrarProductosYDuplicados(migUid, payload.aplicar === true));
     }
 
     // Entrada manual desde la PWA
@@ -1312,7 +1320,12 @@ function doPost(e) {
       // VETO_RULES ya descartó promocionales/OTP, así que es probable un nuevo
       // formato transaccional que el banco introdujo.
       var aiFallback = parseSmsFallback(sms);
-      if (!aiFallback) return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
+      if (!aiFallback) {
+        // No se guardó nada y puede ser transitorio (la IA falló o no respondió):
+        // soltar la reserva para que un reenvío pueda reintentar.
+        _releaseIngest(userId, sms);
+        return jsonResponse({ ok: false, error: "parse failed", bank: resolvedBank });
+      }
       if (aiFallback.skipped) return jsonResponse({ ok: true, skipped: true, reason: "not a transaction (AI)" });
       // El banco ya se detectó por regex antes de caer al fallback de IA — usa el
       // nombre canónico en vez de confiar en cómo la IA transcribió el texto del SMS.
@@ -1354,6 +1367,10 @@ function doPost(e) {
     return jsonResponse(smsResponse);
 
   } catch (err) {
+    // Falló a mitad de camino: si ya se había reservado la huella, soltarla.
+    // Si no, un reintento del teléfono dentro de la ventana se descartaría y
+    // la transacción se perdería.
+    try { _releaseIngest(userId, sms); } catch (e2) {}
     return jsonResponse({ ok: false, error: err.message });
   }
 }
@@ -1950,6 +1967,20 @@ function _ingestFingerprint(userId, rawText) {
     hex += ("0" + (bytes[i] & 0xFF).toString(16)).slice(-2);
   }
   return "ing_" + hex;
+}
+
+// Suelta la reserva de una huella. Se llama cuando la petición terminó SIN
+// guardar nada por un fallo transitorio (no parseó, excepción): si la huella
+// se quedara marcada, el reenvío del teléfono —que es justo lo que recuperaría
+// la transacción— se descartaría y el gasto se perdería para siempre.
+//
+// OJO: no se suelta cuando la petición resolvió a propósito sin appendear
+// (reversa, fusión Bre-B, mensaje no transaccional). Ahí el reenvío SÍ debe
+// descartarse, o una reversa reenviada borraría dos filas.
+function _releaseIngest(userId, rawText) {
+  var key = _ingestFingerprint(userId, rawText);
+  if (!key) return;
+  try { CacheService.getScriptCache().remove(key); } catch (e) {}
 }
 
 // true si este mensaje ya se ingirió hace poco (y NO debe volver a guardarse).
