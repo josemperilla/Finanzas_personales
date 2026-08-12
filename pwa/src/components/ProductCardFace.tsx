@@ -12,13 +12,11 @@ export function ProductCardFace({ card, compact = false }: Props) {
   const isBogota = bank.includes('bogot');
   const isItau = bank.includes('ita');
   const isSavings = chassis.includes('ahorros') || chassis.includes('cuenta');
-  const imageSrc = getProductImage(card);
+  const art = getProductArt(card);
 
-  if (imageSrc) {
-    // La cuenta de ahorros Itaú ya trae los últimos 4 dígitos dibujados en el
-    // propio SVG — el overlay solo hace falta en la tarjeta de crédito, cuyo
-    // artwork no incluye un número real.
-    const needsLast4Overlay = isItau && !isSavings;
+  if (art) {
+    // Solo se superpone el número cuando el arte no lo trae dibujado.
+    const needsLast4Overlay = !art.last4Impreso;
     return (
       <div style={{
         position: 'relative',
@@ -31,7 +29,7 @@ export function ProductCardFace({ card, compact = false }: Props) {
         flexShrink: 0,
       }}>
         <img
-          src={imageSrc}
+          src={art.src}
           alt={`${card.alias || card.banco} terminada en ${card.ultimos4}`}
           style={{
             position: 'absolute',
@@ -172,12 +170,19 @@ export function ProductCardFace({ card, compact = false }: Props) {
   );
 }
 
-function getProductImage(card: Card): string | null {
-  const bank = card.banco.toLowerCase();
-  const last4 = card.ultimos4;
-  if (bank.includes('bogot') && last4 === '8645') return '/products/bogota-latam-8645.png';
-  if (bank.includes('av villas') && last4 === '3403') return '/products/avvillas-lifemiles-3403.png';
-  if (bank.includes('ita') && last4 === '8439') return '/products/itau-black-8439.png';
-  if (bank.includes('ita') && last4 === '8448') return '/products/itau-ahorros-8448.svg';
-  return null;
+// El arte se elige por los últimos 4 dígitos, NO por el nombre del banco.
+// Banco de Bogotá compró a Itaú: las tarjetas ****8439 y ****8448 cambiaron de
+// banco sin cambiar de plástico. Mientras esto dependía de `banco.includes('ita')`,
+// el renombre dejaba esos dos productos sin imagen.
+// `last4Impreso` marca el arte que YA trae el número dibujado, para no
+// superponerle otro encima.
+const PRODUCT_ART: Record<string, { src: string; last4Impreso: boolean }> = {
+  '8645': { src: '/products/bogota-latam-8645.png',      last4Impreso: true },
+  '3403': { src: '/products/avvillas-lifemiles-3403.png', last4Impreso: true },
+  '8439': { src: '/products/itau-black-8439.png',         last4Impreso: false },
+  '8448': { src: '/products/itau-ahorros-8448.svg',       last4Impreso: true },
+};
+
+function getProductArt(card: Card): { src: string; last4Impreso: boolean } | null {
+  return PRODUCT_ART[card.ultimos4] || null;
 }

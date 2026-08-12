@@ -3,7 +3,11 @@ import { Card } from './api';
 export const JOSE_DEFAULT_PRODUCTS: Card[] = [
   {
     id: 'jose-itau-black-8439',
-    banco: 'Itaú',
+    // Banco de Bogotá compró a Itaú: el plástico es el mismo, el banco cambió.
+    // `productKey` es `banco|ultimos4`, así que este nombre TIENE que coincidir
+    // con el que webhook.gs escribe en la hoja (BANCO_BOGOTA) o el producto
+    // aparece duplicado en la PWA.
+    banco: 'Banco de Bogotá',
     chasis: 'Black',
     ultimos4: '8439',
     alias: 'Itaú Black',
@@ -19,7 +23,7 @@ export const JOSE_DEFAULT_PRODUCTS: Card[] = [
   },
   {
     id: 'jose-bogota-signature-8645',
-    banco: 'Bogotá',
+    banco: 'Banco de Bogotá',
     chasis: 'Signature',
     ultimos4: '8645',
     alias: 'LATAM Pass',
@@ -27,7 +31,7 @@ export const JOSE_DEFAULT_PRODUCTS: Card[] = [
   },
   {
     id: 'jose-itau-ahorros-8448',
-    banco: 'Itaú',
+    banco: 'Banco de Bogotá',
     chasis: 'Cuenta de Ahorros',
     ultimos4: '8448',
     alias: 'Cuenta de Ahorros',
