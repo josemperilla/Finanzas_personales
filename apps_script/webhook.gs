@@ -28,6 +28,25 @@ var TIMEZONE = 'America/Bogota'; // usado en todos los Utilities.formatDate() de
 // transacciones distintas (~300ms+ en importaciones en lote), o dos filas
 // vecinas podrían matchear entre sí y editarse/borrarse por error.
 var TIMESTAMP_MATCH_TOLERANCE_MS = 50;
+
+// ── Idempotencia de ingesta ────────────────────────────────────
+// El iPhone reenvía el MISMO SMS más de una vez: en los datos reales aparecen
+// pares con `SMS_Original` idéntico byte por byte separados por 6 ms a 5 s
+// (AV Villas ****3403 y Banco de Bogotá ****8439, entre otros). Cada envío creaba
+// su propia fila. No es un problema de parseo: el texto crudo es el mismo, así que
+// el servidor tiene que ser idempotente aunque el teléfono no lo sea.
+//
+// Por qué el texto crudo y no los campos parseados: el fallback de IA no es
+// determinista — el mismo SMS produjo "DIDI RIDES*DL" en una fila y "DIDI RIDES"
+// en la otra. Comparar campos parseados no habría detectado ese par.
+//
+// Por qué es seguro: el texto del banco incluye SU PROPIA marca de tiempo
+// ("el 2026/08/10 06:01:38", "01/08/26 01:03"), así que dos compras reales
+// distintas nunca producen el mismo texto. El único choque teórico es el mismo
+// comercio, mismo monto y mismo minuto en bancos con precisión de minuto —
+// mucho más raro que el duplicado que esto elimina, y la ventana corta lo acota.
+var INGEST_DEDUP_TTL_S = 300;   // 5 min: cubre reintentos y reenvíos del teléfono
+var INGEST_DEDUP_LOCK_MS = 5000;
 var SHEET_HEADERS = ["Timestamp","Fecha","Banco","Tipo","Monto (COP)","Comercio","Tarjeta/Cuenta","Categoría","SMS_Original","Fuente","Nota"];
 var MAX_USERS = 10; // límite del plan de Sheets — migrar al backend FastAPI para levantarlo
 var MAX_USERS_ERROR = "Límite de " + MAX_USERS + " usuarios alcanzado en el plan de Sheets. Migra al backend FastAPI antes de agregar más.";
@@ -568,6 +587,13 @@ function doPost(e) {
     // Ensure Fuente column exists (cached -- runs once per user per 6h)
     _migrateSheetHeaders(userId);
 
+    // Migración puntual de productos/duplicados (ver migrarProductosYDuplicados).
+    // Solo el admin, y por omisión SIMULA: hay que mandar aplicar:true a propósito.
+    if (type === "migrarProductos") {
+      if (userId !== ADMIN_USER) return jsonResponse({ ok: false, error: "solo admin" });
+      return jsonResponse(migrarProductosYDuplicados(userId, payload.aplicar === true));
+    }
+
     // Entrada manual desde la PWA
     if (type === "manual") {
       var data = {
@@ -898,6 +924,12 @@ function doPost(e) {
 
       if (!body && !title) return jsonResponse({ ok: false, error: "empty notification" });
 
+      // Mismo problema que en la ruta de SMS: el teléfono reenvía la misma
+      // notificación más de una vez (ver INGEST_DEDUP_TTL_S).
+      if (_isDuplicateIngest(userId, "PUSH|" + title + "|" + body)) {
+        return jsonResponse({ ok: true, skipped: true, reason: "duplicate" });
+      }
+
       var parsedNotif = parseNotification(bank, title, body);
 
       if (!parsedNotif) {
@@ -932,7 +964,7 @@ function doPost(e) {
 
       // Ver comentario en el handler de type:"sms" — Itaú manda dos avisos
       // (genérico + con llave Bre-B) para la misma transferencia.
-      if (parsedNotif.banco === CANONICAL_BANCO.itau && isBrebMergeCandidate(parsedNotif)) {
+      if (parsedNotif._bankKey === "itau" && isBrebMergeCandidate(parsedNotif)) {
         var mergedNotif = mergeBrebDuplicate(parsedNotif, userId);
         if (mergedNotif) return jsonResponse({ ok: true, merged: true, data: parsedNotif });
       }
@@ -1225,6 +1257,13 @@ function doPost(e) {
       return jsonResponse({ ok: true, skipped: true, reason: "vetoed" });
     }
 
+    // El teléfono reenvía el mismo SMS más de una vez (ver INGEST_DEDUP_TTL_S).
+    // Va ANTES del parseo a propósito: además de evitar la fila duplicada, ahorra
+    // la llamada al fallback de IA, que el duplicado pagaba dos veces.
+    if (_isDuplicateIngest(userId, sms)) {
+      return jsonResponse({ ok: true, skipped: true, reason: "duplicate" });
+    }
+
     var resolvedBank = bank || detectBank(sms);
 
     var parsed;
@@ -1256,8 +1295,20 @@ function doPost(e) {
       parsed = fallback;
     }
 
+    // Antes de gastar IA: probar los parsers de los OTROS bancos. Un banco puede
+    // cambiar el encabezado o el pie del SMS sin cambiar la estructura — pasó con
+    // la compra de Itaú por Banco de Bogotá, y mandó meses de transacciones al
+    // fallback de IA con la tarjeta mal transcrita.
     if (!parsed) {
-      // Banco conocido pero formato SMS no reconocido — intenta AI fallback.
+      parsed = parseAnyBank(sms, resolvedBank);
+      if (parsed) {
+        Logger.log("parseAnyBank rescató un SMS de '" + resolvedBank +
+                   "' con formato de otro banco (usuario " + userId + ")");
+      }
+    }
+
+    if (!parsed) {
+      // Formato no reconocido por NINGÚN parser — intenta AI fallback.
       // VETO_RULES ya descartó promocionales/OTP, así que es probable un nuevo
       // formato transaccional que el banco introdujo.
       var aiFallback = parseSmsFallback(sms);
@@ -1288,7 +1339,7 @@ function doPost(e) {
     // destinatario ("...a la llave Bre-B <llave>..."). Sin esto cada uno
     // crea su propia fila y la transferencia queda duplicada — ver
     // mergeBrebDuplicate() (junto a reverseTransaction()).
-    if (parsed.banco === CANONICAL_BANCO.itau && isBrebMergeCandidate(parsed)) {
+    if (parsed._bankKey === "itau" && isBrebMergeCandidate(parsed)) {
       var mergedSms = mergeBrebDuplicate(parsed, userId);
       if (mergedSms) return jsonResponse({ ok: true, merged: true, data: parsed });
     }
@@ -1416,6 +1467,15 @@ var VETO_RULES = [
 
   // Welcome / onboarding messages from banks
   /bienvenid[ao]\s+a\b/i,
+
+  // dale! — publicidad de combos escrita como si fuera una compra ("Compra tu
+  // combo dale! por $14.900 en Cafe Quindio con tu Tarjeta Debito dale!").
+  // Entraban como transacciones reales, con fecha inventada (2024-01-01) porque
+  // el mensaje no trae ninguna. El delator es el enlace promocional y el
+  // imperativo/futuro: una compra real ya ocurrió, no se anuncia.
+  /smsdale\.com\.co/i,
+  /\bAplicaTyC\b/i,
+  /dale!:.*\b(?:es hora del|tu cafe de la tarde|compra tu combo)\b/i,
 ];
 
 function isVetoed(sms) {
@@ -1432,16 +1492,62 @@ function detectBank(sms) {
   if (/^Banco\s+de\s+Bogot/i.test(sms)) return "bogota";
   if (/\bITAU\b/i.test(sms))             return "itau";
   if (/^AVVillas\./i.test(sms))          return "avvillas";
+
+  // Banco de Bogotá compró a Itaú (2026). El pie del SMS cambió de
+  // "ITAU Tel: 5818181..." a "Si no fuiste tu, comunicate con la Servilinea de
+  // Banco de Bogota.", pero la ESTRUCTURA del mensaje sigue siendo la de Itaú
+  // ("Se realizo una compra en X desde tu Tarjeta Credito ****NNNN por $N el ...").
+  // Sin esta regla el mensaje no detectaba banco, caía al fallback de IA y la
+  // tarjeta quedaba como "8439" pelado en vez de "Tarjeta Credito ****8439"
+  // — fragmentando el producto. Se detecta por la forma, no por el pie.
+  if (/Se\s+realiz[oó]\s+.{0,60}?\s(?:desde|de|a)\s+tu\s+(?:Tarjeta|Cuenta)/i.test(sms)) return "itau";
+  if (/has\s+recibido\s+una\s+transferencia\s+a\s+tu\s+cuenta/i.test(sms))               return "itau";
+
+  return null;
+}
+
+// Orden de intentos cuando el parser del banco declarado no reconoce el mensaje.
+// Existe porque un banco puede cambiar el pie/encabezado de su SMS sin cambiar la
+// estructura (pasó con la compra de Itaú por Banco de Bogotá): antes eso mandaba el
+// mensaje al fallback de IA, que cuesta cuota y devuelve campos inconsistentes
+// (el mismo SMS produjo "DIDI RIDES*DL" y "DIDI RIDES" en dos filas distintas).
+var SMS_PARSERS = [
+  { key: "itau",        fn: function(s) { return parseItau(s); } },
+  { key: "bogota",      fn: function(s) { return parseBogota(s); } },
+  { key: "davivienda",  fn: function(s) { return parseDavivienda(s); } },
+  { key: "bancolombia", fn: function(s) { return parseBancolombia(s); } },
+  { key: "avvillas",    fn: function(s) { return parseAvVillas(s); } }
+];
+
+// Prueba todos los parsers de formato y devuelve el primero que reconozca el
+// mensaje. `saltar` evita repetir el que ya falló.
+function parseAnyBank(sms, saltar) {
+  for (var i = 0; i < SMS_PARSERS.length; i++) {
+    if (SMS_PARSERS[i].key === saltar) continue;
+    var r = null;
+    try { r = SMS_PARSERS[i].fn(sms); } catch (e) { r = null; }
+    if (r) return r;
+  }
   return null;
 }
 
 // Nombre de banco canónico por resolvedBank — evita que el fallback de IA devuelva
 // el nombre tal cual aparece en el SMS (ej. "ITAU" en mayúsculas sin tilde).
+// Nombre VISIBLE de cada banco en el Sheet y la PWA. La llave es el origen
+// técnico del parser (`_bankKey`), que no cambia; el valor es lo que ve el usuario.
+//
+// Banco de Bogotá compró a Itaú (2026): las tarjetas ****8439 y ****8448 pasaron
+// a ser productos de Banco de Bogotá. Por eso `bogota` e `itau` comparten nombre
+// visible — es una sola entidad con varios productos. Lo que distingue los
+// productos es la columna "Tarjeta/Cuenta", no el banco. Cualquier lógica que
+// necesite saber que un mensaje vino con formato Itaú usa `_bankKey`, nunca el
+// nombre visible (ver las guardas de mergeBrebDuplicate).
+var BANCO_BOGOTA = "Banco de Bogotá";
 var CANONICAL_BANCO = {
   davivienda:  "Davivienda",
   bancolombia: "Bancolombia",
-  bogota:      "Bogotá",
-  itau:        "Itaú",
+  bogota:      BANCO_BOGOTA,
+  itau:        BANCO_BOGOTA,
   avvillas:    "AV Villas",
   nequi:       "Nequi",
   daviplata:   "Daviplata",
@@ -1655,6 +1761,212 @@ function reverseTransaction(parsed, userId) {
   return false;
 }
 
+// ── Migración: unificar productos y limpiar duplicados históricos ─────
+// Se corre UNA vez (es idempotente: correrla de nuevo no hace nada) después de
+// desplegar los arreglos de parseo. Repara lo que ya quedó mal escrito:
+//
+//   1. Banco: "Itaú" y "Bogotá" → "Banco de Bogotá". Banco de Bogotá compró a
+//      Itaú, así que ****8439/****8448 son productos suyos. Se conservan los
+//      cuatro últimos dígitos: lo que identifica el producto es la tarjeta.
+//   2. Tarjeta pelada: las filas que pasaron por el fallback de IA quedaron con
+//      "8439"/"8448" en vez de la etiqueta completa, partiendo el producto en dos.
+//      Se resuelve buscando en el propio Sheet la etiqueta completa que más se
+//      repite para esos mismos cuatro dígitos — sin números cableados.
+//   3. Duplicados: filas con SMS_Original idéntico (el teléfono reenviando).
+//      Se conserva la más antigua.
+//   4. Promos de dale! que entraron como compras (ver VETO_RULES).
+
+// Se comparan en minúsculas y sin tildes: en la hoja conviven "Itaú", "Itau",
+// "ITAU" y "Bogotá" según de qué época y de qué parser venga la fila.
+var BANCO_RENOMBRES_CLAVES = ["itau", "bogota", "banco de bogota"];
+
+function _normalizaNombreBanco(nombre) {
+  return String(nombre == null ? "" : nombre)
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .trim().toLowerCase();
+}
+
+// Devuelve el nombre unificado, o null si la fila ya está bien.
+function _renombreBanco(actual) {
+  var clave = _normalizaNombreBanco(actual);
+  if (BANCO_RENOMBRES_CLAVES.indexOf(clave) === -1) return null;
+  return String(actual).trim() === BANCO_BOGOTA ? null : BANCO_BOGOTA;
+}
+
+// Decisión pura, sin tocar Sheets — testeable fuera de GAS
+// (scripts/test-migracion-productos.mjs). `data` es la matriz completa de
+// getDataRange().getValues(). Devuelve { updates:[{row1,col1,valor}], deletes:[row1...], resumen }.
+function _planMigracionProductos(data, hdrs) {
+  var plan = { updates: [], deletes: [], resumen: { banco: 0, tarjeta: 0, duplicados: 0, promos: 0 } };
+  if (!data || data.length <= 1) return plan;
+
+  var cBanco = hdrs.indexOf("Banco");
+  var cTarj  = hdrs.indexOf("Tarjeta/Cuenta");
+  var cSms   = hdrs.indexOf("SMS_Original");
+  var cTs    = hdrs.indexOf("Timestamp");
+
+  // Paso A — catálogo de etiquetas completas por últimos-4, tomado del propio Sheet.
+  // "Tarjeta Credito ****8439" aporta 8439; "8439" pelado no aporta nada.
+  var porUlt4 = {};
+  for (var i = 1; i < data.length; i++) {
+    var etiqueta = String(data[i][cTarj] == null ? "" : data[i][cTarj]).trim();
+    if (!etiqueta || /^\d{3,4}$/.test(etiqueta)) continue; // pelada: no es fuente
+    var m4 = etiqueta.match(/(\d{4})\s*$/);
+    if (!m4) continue;
+    porUlt4[m4[1]] = porUlt4[m4[1]] || {};
+    porUlt4[m4[1]][etiqueta] = (porUlt4[m4[1]][etiqueta] || 0) + 1;
+  }
+  var canonUlt4 = {};
+  for (var d4 in porUlt4) {
+    var mejor = null, mejorN = -1;
+    for (var et in porUlt4[d4]) {
+      if (porUlt4[d4][et] > mejorN) { mejor = et; mejorN = porUlt4[d4][et]; }
+    }
+    canonUlt4[d4] = mejor;
+  }
+
+  // Paso B — recorrido único: renombres, tarjetas peladas, duplicados y promos.
+  var vistos = {};   // texto normalizado -> primera fila (1-based)
+  var aBorrar = {};
+
+  for (var r = 1; r < data.length; r++) {
+    var fila1 = r + 1;
+    var sms = String(data[r][cSms] == null ? "" : data[r][cSms]);
+
+    // Promos de dale! que ya entraron como compras
+    if (/smsdale\.com\.co/i.test(sms) || /\bAplicaTyC\b/i.test(sms)) {
+      aBorrar[fila1] = true; plan.resumen.promos++;
+      continue; // no vale la pena corregirle campos a una fila que se borra
+    }
+
+    // Duplicados por reenvío: SMS_Original idéntico. Se excluyen las entradas
+    // manuales/importadas ("MANUAL...", vacías): ahí el texto no es único por
+    // transacción y dos filas iguales pueden ser dos gastos reales.
+    var norm = _normalizeIngestText(sms);
+    if (norm && sms.indexOf("MANUAL") !== 0) {
+      if (vistos[norm]) { aBorrar[fila1] = true; plan.resumen.duplicados++; continue; }
+      vistos[norm] = fila1;
+    }
+
+    // Banco → nombre unificado
+    var nuevoBanco = _renombreBanco(data[r][cBanco]);
+    if (nuevoBanco) {
+      plan.updates.push({ row1: fila1, col1: cBanco + 1, valor: nuevoBanco });
+      plan.resumen.banco++;
+    }
+
+    // Tarjeta pelada → etiqueta completa del mismo producto
+    var tarj = String(data[r][cTarj] == null ? "" : data[r][cTarj]).trim();
+    if (/^\d{3,4}$/.test(tarj) && canonUlt4[tarj]) {
+      plan.updates.push({ row1: fila1, col1: cTarj + 1, valor: canonUlt4[tarj] });
+      plan.resumen.tarjeta++;
+    }
+  }
+
+  plan.deletes = Object.keys(aBorrar).map(Number).sort(function(a, b) { return b - a; }); // desc: borrar de abajo hacia arriba
+  return plan;
+}
+
+// Aplica (o simula) la migración sobre el Sheet del usuario.
+// `aplicar=false` → solo reporta. Correr primero en simulación.
+function migrarProductosYDuplicados(userId, aplicar) {
+  var ref = _getSheet(userId);
+  if (!ref.sheet) return { ok: false, error: "sin hoja para " + userId };
+
+  var data = ref.sheet.getDataRange().getValues();
+  var plan = _planMigracionProductos(data, data[0]);
+
+  if (aplicar) {
+    // Una escritura por COLUMNA, no una por celda: son ~900 cambios y 900
+    // llamadas sueltas a setValue tardan minutos y arriesgan el límite de
+    // ejecución. Se agrupan y se escribe cada columna afectada de una vez.
+    var porColumna = {};
+    for (var i = 0; i < plan.updates.length; i++) {
+      var u = plan.updates[i];
+      (porColumna[u.col1] = porColumna[u.col1] || []).push(u);
+    }
+    for (var col in porColumna) {
+      var c = parseInt(col, 10);
+      var columna = ref.sheet.getRange(2, c, data.length - 1, 1).getValues(); // sin encabezado
+      for (var k = 0; k < porColumna[col].length; k++) {
+        columna[porColumna[col][k].row1 - 2][0] = porColumna[col][k].valor;
+      }
+      ref.sheet.getRange(2, c, data.length - 1, 1).setValues(columna);
+    }
+    // Descendente: borrar de abajo hacia arriba no corre los índices restantes.
+    for (var j = 0; j < plan.deletes.length; j++) ref.sheet.deleteRow(plan.deletes[j]);
+    SpreadsheetApp.flush();
+  }
+
+  var out = {
+    ok: true, aplicado: !!aplicar, usuario: userId,
+    filasRevisadas: data.length - 1,
+    bancoRenombrado: plan.resumen.banco,
+    tarjetaUnificada: plan.resumen.tarjeta,
+    duplicadosBorrados: plan.resumen.duplicados,
+    promosBorradas: plan.resumen.promos
+  };
+  Logger.log("migrarProductosYDuplicados: " + JSON.stringify(out));
+  return out;
+}
+
+// Atajos para correr a mano desde el editor de Apps Script.
+function migracionSimular() { return migrarProductosYDuplicados(ADMIN_USER, false); }
+function migracionAplicar() { return migrarProductosYDuplicados(ADMIN_USER, true); }
+
+// ── Idempotencia: el mismo mensaje crudo no se guarda dos veces ───────
+// Ver el comentario de INGEST_DEDUP_TTL_S para el porqué y la evidencia.
+
+// Normaliza el texto crudo para comparar. Pura y testeable fuera de GAS
+// (ver scripts/test-ingest-dedup.mjs). Colapsa espacios porque el mismo SMS
+// puede llegar con espaciado distinto según cómo lo serialice el Atajo — los
+// mensajes reales traen doble espacio antes de "el" ("por $32,990  el ...").
+function _normalizeIngestText(text) {
+  return String(text == null ? "" : text).replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// Huella estable de (usuario, mensaje). MD5 basta: no es un control de
+// seguridad, solo una llave de caché.
+function _ingestFingerprint(userId, rawText) {
+  var norm = _normalizeIngestText(rawText);
+  if (!norm) return null;
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.MD5, String(userId) + "|" + norm, Utilities.Charset.UTF_8);
+  var hex = "";
+  for (var i = 0; i < bytes.length; i++) {
+    hex += ("0" + (bytes[i] & 0xFF).toString(16)).slice(-2);
+  }
+  return "ing_" + hex;
+}
+
+// true si este mensaje ya se ingirió hace poco (y NO debe volver a guardarse).
+// Marca la huella al mismo tiempo, bajo lock, porque los dos envíos llegan con
+// milisegundos de diferencia: sin serializar, ambos leerían "no visto" antes de
+// que cualquiera escriba, que es exactamente el caso que esto evita
+// (par observado a 6 ms). Si el lock no se obtiene, se deja pasar: un duplicado
+// es preferible a perder una transacción real.
+function _isDuplicateIngest(userId, rawText) {
+  var key = _ingestFingerprint(userId, rawText);
+  if (!key) return false;
+
+  var cache = CacheService.getScriptCache();
+  var lock  = LockService.getScriptLock();
+  var locked = false;
+  try { locked = lock.tryLock(INGEST_DEDUP_LOCK_MS); } catch (e) { locked = false; }
+  try {
+    if (cache.get(key)) {
+      Logger.log("ingesta duplicada descartada (usuario " + userId + ", huella " + key + ")");
+      return true;
+    }
+    cache.put(key, "1", INGEST_DEDUP_TTL_S);
+    return false;
+  } catch (e) {
+    return false; // ante cualquier fallo de caché, no bloquear la ingesta
+  } finally {
+    if (locked) { try { lock.releaseLock(); } catch (e2) {} }
+  }
+}
+
 // ── Bre-B (Itaú) — evitar duplicado entre las dos notificaciones ──────
 // Itaú envía DOS notificaciones separadas para UNA misma transferencia Bre-B:
 // una genérica ("Se realizo un/a débito/retiro/Transferencia de tu Cuenta de
@@ -1806,6 +2118,7 @@ function parseItau(sms) {
   if (mp) {
     return {
       banco:    CANONICAL_BANCO.itau,
+      _bankKey: "itau",
       tipo:     normalizeTipo(mp[1]),
       comercio: normalizeComercio(mp[2].trim()),
       tarjeta:  mp[3].trim() + " ****" + mp[4],
@@ -1815,11 +2128,16 @@ function parseItau(sms) {
   }
 
   // Acepta "un debito", "un retiro" y "una Transferencia" desde la cuenta.
-  var reDebit = /Se realizo una?\s+(\w+)\s+de tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
+  // El artículo es OPCIONAL: el banco también manda "Se realizo Transferencia de
+  // tu Cuenta de Ahorros ****8448 por $205,966 ..." (sin "una"). Cuando exigía el
+  // artículo, esos mensajes caían al fallback de IA y la cuenta quedaba como
+  // "8448" pelado en vez de "Cuenta de Ahorros ****8448".
+  var reDebit = /Se realizo\s+(?:una?\s+)?(\w+)\s+de tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
   var md = sms.match(reDebit);
   if (md) {
     return {
       banco:    CANONICAL_BANCO.itau,
+      _bankKey: "itau",
       tipo:     normalizeTipo(md[1]),
       comercio: md[2].trim(),
       tarjeta:  md[2].trim() + " ****" + md[3],
@@ -1846,6 +2164,7 @@ function parseItau(sms) {
                  : "Cuenta " + mbreb[2];
     return {
       banco:    CANONICAL_BANCO.itau,
+      _bankKey: "itau",
       tipo:     normalizeTipo(mbreb[1]),
       comercio: "Llave Bre-B " + mbreb[4],
       tarjeta:  acctType + " ****" + mbreb[3],
@@ -1856,6 +2175,31 @@ function parseItau(sms) {
     };
   }
 
+  // Inbound Bre-B: transferencia RECIBIDA por llave.
+  // "ITAU: has recibido una transferencia a tu cuenta AHO 8448 asociada a la
+  //  llave Bre-B 3007183487 por $ 61000.00 el 2026-07-30 a las 21:12:02."
+  // Es el espejo entrante de reBreBDebit (cuenta abreviada AHO/CTE sin ****,
+  // monto en formato US, fecha con guiones). Sin este patrón caía a la IA y la
+  // cuenta quedaba como "8448" pelado.
+  var reBreBCredit = /(?:ITAU:?\s*)?has\s+recibido\s+una\s+transferencia\s+a\s+tu\s+cuenta\s+(\w+)\s+(\d+)\s+asociada\s+a\s+la\s+llave\s+Bre-?B\s+(\S+)\s+por\s+\$\s*([\d,.]+)\s+el\s+(\d{4}[-\/]\d{2}[-\/]\d{2})\s+a las\s+(\d{2}:\d{2}:\d{2})/i;
+  var mbc = sms.match(reBreBCredit);
+  if (mbc) {
+    var acctIn = /AHO/i.test(mbc[1]) ? "Cuenta de Ahorros"
+               : /CTE/i.test(mbc[1]) ? "Cuenta Corriente"
+               : "Cuenta " + mbc[1];
+    return {
+      banco:    CANONICAL_BANCO.itau,
+      _bankKey: "itau",
+      tipo:     "Transferencia",
+      comercio: "Llave Bre-B " + mbc[3],
+      tarjeta:  acctIn + " ****" + mbc[2],
+      monto:    parseMontoUS(mbc[4]),
+      fecha:    parseFechaItau(mbc[5], mbc[6]),
+      reversal: false,
+      income:   true
+    };
+  }
+
   // Inbound: deposit / abono TO account ("a tu Cuenta")
   // "Se realizo un Deposito en Efectivo a tu Cuenta de Ahorros ****8448 por $1,000 el 2026/06/14 06:27:00"
   var reCredit = /Se realizo\s+u?n?\s+(Deposito\s+en\s+Efectivo|Abono|Consignaci[o\u00f3]n|Ingreso)\s+a\s+tu\s+(Cuenta de (?:Ahorros|Corriente))\s+\*+(\d+)\s+por\s+\$([\d,.]+)\s+el\s+(\d{4}\/\d{2}\/\d{2})\s+(\d{2}:\d{2}:\d{2})/i;
@@ -1863,6 +2207,7 @@ function parseItau(sms) {
   if (mc) {
     return {
       banco:    CANONICAL_BANCO.itau,
+      _bankKey: "itau",
       tipo:     normalizeTipo(mc[1]),
       comercio: mc[2].trim(),
       tarjeta:  mc[2].trim() + " ****" + mc[3],
@@ -2769,6 +3114,7 @@ function parseNotifItau(title, body) {
   if (ms) {
     return {
       banco:   CANONICAL_BANCO.itau,
+      _bankKey: "itau",
       tipo:    "Compra",
       monto:   parseMonto(ms[1]),
       comercio: normalizeComercio(ms[2].trim()),
