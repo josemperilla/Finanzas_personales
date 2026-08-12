@@ -38,7 +38,9 @@ vm.runInContext(
     grabVar("BANCO_BOGOTA"),
     grabVar("CANONICAL_BANCO"),
     grabVar("VETO_RULES"),
-    grabVar("BANCO_RENOMBRES"),
+    grabVar("BANCO_RENOMBRES_CLAVES"),
+    grabFn("_normalizaNombreBanco"),
+    grabFn("_renombreBanco"),
     grabVar("SMS_PARSERS"),
     grabFn("detectBank"),
     grabFn("parseAnyBank"),
@@ -150,6 +152,8 @@ const muestra = [H,
   fila("2026-06-13 11:40:41", "Bogotá", 36119, "ANTHROPIC", "Tarjeta Crédito 8645", SMS_BOGOTA_PROPIO),
   // transferencia con cuenta pelada
   fila("2026-07-29 16:31:28", "Itaú", 205966, "Transferencia", "8448", SMS_TRANSF_SIN_ARTICULO),
+  fila("2026-06-16 19:19:06", "ITAU", 1000, "Cuenta de Ahorros", "Cuenta de Ahorros ****8448",
+       "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $1,000 el 2026/06/16 19:18:00 ITAU"),
   fila("2026-06-19 16:53:56", "Itaú", 170560, "Factura Luz", "Cuenta de Ahorros ****8448",
        "Se realizo un debito de tu Cuenta de Ahorros ****8448 por $170,560 el 2026/06/19 16:51:44 ITAU"),
   // promo
@@ -174,9 +178,13 @@ check("unifica '8439' → 'Tarjeta Credito ****8439'",
   plan.updates.some(u => u.col1 === H.indexOf("Tarjeta/Cuenta") + 1 && u.valor === "Tarjeta Credito ****8439"));
 check("unifica '8448' → 'Cuenta de Ahorros ****8448'",
   plan.updates.some(u => u.col1 === H.indexOf("Tarjeta/Cuenta") + 1 && u.valor === "Cuenta de Ahorros ****8448"));
+check("'ITAU' en mayúsculas también se renombra",
+  ctx._renombreBanco("ITAU") === "Banco de Bogotá" && ctx._renombreBanco("Itaú") === "Banco de Bogotá" &&
+  ctx._renombreBanco("Bogotá") === "Banco de Bogotá" && ctx._renombreBanco("Banco de Bogotá") === null &&
+  ctx._renombreBanco("AV Villas") === null);
 check("renombra Itaú y Bogotá a Banco de Bogotá",
   plan.updates.filter(u => u.col1 === H.indexOf("Banco") + 1 && u.valor === "Banco de Bogotá").length === plan.resumen.banco &&
-  plan.resumen.banco >= 4, `renombró ${plan.resumen.banco}`);
+  plan.resumen.banco >= 5, `renombró ${plan.resumen.banco}`);
 check("los borrados van en orden descendente (no corren los índices)",
   plan.deletes.every((v, i, a) => i === 0 || a[i - 1] > v), JSON.stringify(plan.deletes));
 

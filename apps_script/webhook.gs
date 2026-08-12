@@ -587,6 +587,13 @@ function doPost(e) {
     // Ensure Fuente column exists (cached -- runs once per user per 6h)
     _migrateSheetHeaders(userId);
 
+    // Migración puntual de productos/duplicados (ver migrarProductosYDuplicados).
+    // Solo el admin, y por omisión SIMULA: hay que mandar aplicar:true a propósito.
+    if (type === "migrarProductos") {
+      if (userId !== ADMIN_USER) return jsonResponse({ ok: false, error: "solo admin" });
+      return jsonResponse(migrarProductosYDuplicados(userId, payload.aplicar === true));
+    }
+
     // Entrada manual desde la PWA
     if (type === "manual") {
       var data = {
@@ -1769,7 +1776,22 @@ function reverseTransaction(parsed, userId) {
 //      Se conserva la más antigua.
 //   4. Promos de dale! que entraron como compras (ver VETO_RULES).
 
-var BANCO_RENOMBRES = { "Itaú": BANCO_BOGOTA, "Itau": BANCO_BOGOTA, "Bogotá": BANCO_BOGOTA, "Bogota": BANCO_BOGOTA };
+// Se comparan en minúsculas y sin tildes: en la hoja conviven "Itaú", "Itau",
+// "ITAU" y "Bogotá" según de qué época y de qué parser venga la fila.
+var BANCO_RENOMBRES_CLAVES = ["itau", "bogota", "banco de bogota"];
+
+function _normalizaNombreBanco(nombre) {
+  return String(nombre == null ? "" : nombre)
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .trim().toLowerCase();
+}
+
+// Devuelve el nombre unificado, o null si la fila ya está bien.
+function _renombreBanco(actual) {
+  var clave = _normalizaNombreBanco(actual);
+  if (BANCO_RENOMBRES_CLAVES.indexOf(clave) === -1) return null;
+  return String(actual).trim() === BANCO_BOGOTA ? null : BANCO_BOGOTA;
+}
 
 // Decisión pura, sin tocar Sheets — testeable fuera de GAS
 // (scripts/test-migracion-productos.mjs). `data` es la matriz completa de
@@ -1827,9 +1849,9 @@ function _planMigracionProductos(data, hdrs) {
     }
 
     // Banco → nombre unificado
-    var bancoAct = String(data[r][cBanco] == null ? "" : data[r][cBanco]).trim();
-    if (BANCO_RENOMBRES[bancoAct]) {
-      plan.updates.push({ row1: fila1, col1: cBanco + 1, valor: BANCO_RENOMBRES[bancoAct] });
+    var nuevoBanco = _renombreBanco(data[r][cBanco]);
+    if (nuevoBanco) {
+      plan.updates.push({ row1: fila1, col1: cBanco + 1, valor: nuevoBanco });
       plan.resumen.banco++;
     }
 
@@ -1855,9 +1877,21 @@ function migrarProductosYDuplicados(userId, aplicar) {
   var plan = _planMigracionProductos(data, data[0]);
 
   if (aplicar) {
+    // Una escritura por COLUMNA, no una por celda: son ~900 cambios y 900
+    // llamadas sueltas a setValue tardan minutos y arriesgan el límite de
+    // ejecución. Se agrupan y se escribe cada columna afectada de una vez.
+    var porColumna = {};
     for (var i = 0; i < plan.updates.length; i++) {
       var u = plan.updates[i];
-      ref.sheet.getRange(u.row1, u.col1).setValue(u.valor);
+      (porColumna[u.col1] = porColumna[u.col1] || []).push(u);
+    }
+    for (var col in porColumna) {
+      var c = parseInt(col, 10);
+      var columna = ref.sheet.getRange(2, c, data.length - 1, 1).getValues(); // sin encabezado
+      for (var k = 0; k < porColumna[col].length; k++) {
+        columna[porColumna[col][k].row1 - 2][0] = porColumna[col][k].valor;
+      }
+      ref.sheet.getRange(2, c, data.length - 1, 1).setValues(columna);
     }
     // Descendente: borrar de abajo hacia arriba no corre los índices restantes.
     for (var j = 0; j < plan.deletes.length; j++) ref.sheet.deleteRow(plan.deletes[j]);
