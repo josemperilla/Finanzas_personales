@@ -1898,9 +1898,22 @@ function migrarProductosYDuplicados(userId, aplicar) {
     SpreadsheetApp.flush();
   }
 
+  // Los productos NO viven solo en la hoja: hay un catálogo aparte en Script
+  // Properties ('cards_<userId>') que alimenta action=cards y la pantalla de
+  // Productos. La PWA agrupa por `banco|ultimos4`, así que si la hoja dice
+  // "Banco de Bogotá" y el catálogo sigue diciendo "Itaú", el mismo plástico
+  // aparece DOS veces. Hay que renombrar en los dos lados o en ninguno.
+  var tarjetas = _getCards(userId), tarjetasRenombradas = 0;
+  for (var t = 0; t < tarjetas.length; t++) {
+    var nuevo = _renombreBanco(tarjetas[t].banco);
+    if (nuevo) { if (aplicar) tarjetas[t].banco = nuevo; tarjetasRenombradas++; }
+  }
+  if (aplicar && tarjetasRenombradas) _saveCards(userId, tarjetas);
+
   var out = {
     ok: true, aplicado: !!aplicar, usuario: userId,
     filasRevisadas: data.length - 1,
+    productosRenombrados: tarjetasRenombradas,
     bancoRenombrado: plan.resumen.banco,
     tarjetaUnificada: plan.resumen.tarjeta,
     duplicadosBorrados: plan.resumen.duplicados,
