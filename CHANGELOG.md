@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.5.1] — 2026-08-13
+
+### Fixes
+- **El drenaje de la cola podía perder trabajo ya pagado.** El worker procesaba lotes de tamaño fijo, pero una búsqueda con Opus encadena hasta tres consultas web y no tiene duración predecible: bastaba con que unos cuantos comercios salieran lentos para pasarse del límite de 6 minutos de Apps Script. Cuando la ejecución muere, no llega ni a guardar la cola ni a escribir la hoja — pero los resultados **sí** quedaron cacheados uno por uno. La corrida siguiente los veía como "ya intentados", los saltaba con `continue` sin rellenar nada, y **los sacaba de la cola con sus filas todavía sin categorizar**. Permanentemente. Ahora el bucle se corta solo a los 4 minutos y devuelve al frente de la cola lo que no alcanzó, y un comercio ya cacheado entra al relleno en vez de descartarse. Observado en producción: 15 minutos de trigger movieron solo 2 filas de las ~96 encoladas.
+- **Se pagaban búsquedas por respuestas que ya estaban en la hoja.** 13 comercios sin categorizar (24 filas) ya aparecían clasificados —y de forma unánime— en otras filas de la misma hoja. `encolarOtrosExistentes()` resuelve ahora en tres niveles: la propia hoja (gratis), el diccionario `WEBCAT_*` (ya pagado) y, solo si nadie sabe, la búsqueda web. No es solo el ahorro: `TEMBICI` tenía 7 filas sin categorizar y otras ya en Transporte, y una búsqueda podría contestar "Deporte" con toda la razón (es bicicleta compartida) dejando al mismo comercio partido entre dos categorías del presupuesto — peor que cualquiera de las dos. Cuando las filas existentes **no** coinciden entre sí (`I AM SCI` estaba como Entretenimiento y como Restaurantes) no se adivina: pasa al siguiente nivel.
+
+### Tooling
+- **`scripts/test-webcat.mjs` 54 → 82 tests.** `procesarColaCategorias` ahora se ejercita de verdad, con dobles solo para lo que toca el mundo (el lock, la API, la hoja): camino feliz, comercio ya cacheado, desconocido cacheado, fallo transitorio y corte por reloj. Los dos arreglos están mutation-tested — revertir cualquiera de los dos hace fallar la suite.
+
 ## [1.5.0] — 2026-08-13
 
 ### Features
