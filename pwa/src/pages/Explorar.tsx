@@ -16,6 +16,7 @@ import { CategoryComparison } from '../components/CategoryComparison';
 import { SubscripcionesWidget } from '../components/SubscripcionesWidget';
 import { WeeklyCashFlow } from '../components/WeeklyCashFlow';
 import { computeHealthScore } from '../lib/healthScore';
+import { normalizeBankName } from '../lib/banks';
 
 interface Props {
   transactions: Transaction[];
@@ -35,20 +36,24 @@ interface MonthStats {
   topByCount: { name: string; amount: number; count: number }[];
 }
 
-// Construye los chips de banco dinámicamente: unión de los bancos presentes en las
-// transacciones + los de los productos/tarjetas registradas, ordenados por gasto.
-// "Otro" solo aparece si hay transacciones con Banco vacío/desconocido.
+// Construye los chips de banco dinámicamente: unión de los bancos presentes en
+// las transacciones + los de los productos/tarjetas registradas, normalizados a
+// su nombre canónico (ver `normalizeBankName`) y ordenados por gasto. Las
+// transacciones sin banco solo se ven bajo "Todos".
 function buildBankList(txs: Transaction[], cards: Card[]): string[] {
   const spend: Record<string, number> = {};
-  let hasBlank = false;
   for (const tx of txs) {
-    if (!tx.Banco) { hasBlank = true; continue; }
-    spend[tx.Banco] = (spend[tx.Banco] || 0) + Number(tx['Monto (COP)'] || 0);
+    const bank = normalizeBankName(tx.Banco);
+    if (!bank) continue;
+    spend[bank] = (spend[bank] || 0) + Number(tx['Monto (COP)'] || 0);
   }
   const set = new Set<string>(Object.keys(spend));
-  for (const c of cards) if (c.banco) set.add(c.banco);
+  for (const c of cards) {
+    const bank = normalizeBankName(c.banco);
+    if (bank) set.add(bank);
+  }
   const sorted = [...set].sort((a, b) => (spend[b] || 0) - (spend[a] || 0) || a.localeCompare(b));
-  return ['Todos', ...sorted, ...(hasBlank ? ['Otro'] : [])];
+  return ['Todos', ...sorted];
 }
 
 function getMonthKey(dateStr: string): string {
@@ -69,10 +74,9 @@ function shortLabel(key: string): string {
 }
 
 function computeStats(txs: Transaction[], bank: string): MonthStats[] {
-  const filtered = bank === 'Todos' ? txs : txs.filter(tx => {
-    if (bank === 'Otro') return !tx.Banco;
-    return tx.Banco === bank;
-  });
+  const filtered = bank === 'Todos'
+    ? txs
+    : txs.filter(tx => normalizeBankName(tx.Banco) === bank);
 
   const byMonth: Record<string, Transaction[]> = {};
   for (const tx of filtered) {
@@ -140,6 +144,16 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
   const allStats = useMemo(() => computeStats(transactions, activeBank), [transactions, activeBank]);
   const last6 = allStats.slice(-6);
 
+  // Mismo filtro por banco (normalizado) que `computeStats`, pero sobre las
+  // transacciones crudas: alimenta las gráficas que no son mensuales (semana,
+  // comparativa por categoría, día de la semana, suscripciones, drill-down).
+  const bankFilteredTxs = useMemo(
+    () => activeBank === 'Todos'
+      ? transactions
+      : transactions.filter(tx => normalizeBankName(tx.Banco) === activeBank),
+    [transactions, activeBank],
+  );
+
   const [selectedIdx, setSelectedIdx] = useState<number>(-1);
   const [compareIdx, setCompareIdx] = useState<number>(-1);
   const [budgets, setBudgetsState] = useState<Record<string, number>>(() => getBudgets(userId));
@@ -169,11 +183,11 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
 
   const monthTxCurrent = useMemo(() => {
     const now = new Date();
-    return transactions.filter(tx => {
+    return bankFilteredTxs.filter(tx => {
       const d = new Date((tx.Fecha || tx.Timestamp).replace(' ', 'T'));
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-  }, [transactions]);
+  }, [bankFilteredTxs]);
 
   if (loading) {
     return (
@@ -194,7 +208,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
     );
   }
 
-  if (last6.length === 0) {
+  if (transactions.length === 0) {
     return (
       <div style={{ padding: 'max(20px, env(safe-area-inset-top)) 20px 100px', fontFamily: 'var(--font-body)' }}>
         <p style={{ color: 'var(--muted)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 2px' }}>Análisis</p>
@@ -273,6 +287,17 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
       </div>
 
       <motion.div variants={staggerContainer} initial="initial" animate="animate" style={{ padding: '0 16px' }}>
+
+        {last6.length === 0 && activeBank !== 'Todos' && (
+          <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-xl)', padding: '18px 16px', boxShadow: 'var(--shadow-card)', marginBottom: 14, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+              Sin transacciones de {activeBank}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Este banco aún no tiene movimientos registrados. Elige otro banco o vuelve a “Todos”.
+            </div>
+          </motion.div>
+        )}
 
         {/* Health Score — primero para dar contexto */}
         <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
@@ -402,6 +427,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
         </AnimatePresence>
 
         {/* Bar chart */}
+        {last6.length > 0 && (
         <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 12px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Últimos {last6.length} meses</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
@@ -439,6 +465,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
             })}
           </div>
         </motion.div>
+        )}
 
         {displayStats && (
           <>
@@ -523,7 +550,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
               </motion.div>
             )}
 
-            <SubscripcionesWidget transactions={transactions} />
+            <SubscripcionesWidget transactions={bankFilteredTxs} />
 
             {/* Live subscriptions from backend */}
             {analytics && analytics.subscriptions.length > 0 && (
@@ -720,14 +747,14 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
         {/* Comparativa mes a mes */}
         {!loading && (
           <motion.div variants={riseItem} style={{ margin: '0 0 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-            <CategoryComparison transactions={transactions} />
+            <CategoryComparison transactions={bankFilteredTxs} />
           </motion.div>
         )}
 
         {/* Por día de semana */}
         {!loading && (
           <motion.div variants={riseItem} style={{ margin: '0 0 16px', background: 'var(--card)', borderRadius: 'var(--r-xl)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
-            <WeekdayChart transactions={transactions} />
+            <WeekdayChart transactions={bankFilteredTxs} />
           </motion.div>
         )}
 
@@ -850,7 +877,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
         {drillCategory && (
           <CategorySheet
             category={drillCategory}
-            transactions={transactions}
+            transactions={bankFilteredTxs}
             onClose={() => setDrillCategory(null)}
           />
         )}
