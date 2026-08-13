@@ -71,6 +71,10 @@ node scripts/check-provider-drift.mjs                      # tras tocar provider
 ```
 - Comandos de deploy (PWA/functions y GAS) y la regla de "no deploy sin aprobación": ver
   `docs/ARCHITECTURE.md` §Deployment.
+- **Deploy de pilotos/previews** (para que un humano revise un branch antes del merge, en
+  Cloudflare Preview o local): ver `workflows/preview_deploy.md`. Si un preview "no deja entrar",
+  la causa casi siempre es que faltan `WEBHOOK_URL`/`WEB_SECRET` en el entorno **Preview** del
+  dashboard de Cloudflare (no se heredan de Production).
 
 ## Errores recurrentes (léelos para no repetirlos)
 
@@ -78,6 +82,18 @@ Ver `workflows/jose_qa.md` — checklist de los fallos más frecuentes: GAS no d
 Properties con typo, `type` lowercased, montos COL vs US, `userId` no pasado explícito a
 `validatePin`, `requirements.txt` en raíz (Cloudflare cree que es Python), `VITE_*` confundidas con
 runtime vars. **Corre esa checklist antes de cerrar cualquier cambio.**
+
+Dos patrones que ya costaron caro y no son obvios leyendo el código:
+
+- **Un dato "único" suele vivir en más de un lado.** El nombre del banco vive en cinco
+  (`CANONICAL_BANCO`, `cards_<userId>`, `banks.ts`, `BANK_DISPLAY`, `personalProducts.ts`) y el
+  flujo de productos se agrupa por `banco|ultimos4`: renombrar en cuatro y olvidar el quinto
+  duplica el producto en pantalla. Antes de renombrar cualquier identificador de negocio, busca
+  **todas** sus copias. Ver `docs/DATA_MODEL.md` §1.1.
+- **No acoples el parseo a la marca.** `detectBank` buscaba `\bITAU\b`; cuando Banco de Bogotá
+  compró a Itaú y cambió el pie del SMS, meses de transacciones cayeron al fallback de IA sin que
+  nada fallara ruidosamente. Ancla a la **estructura** del mensaje y guarda el origen en `_bankKey`,
+  separado del nombre visible.
 
 ## Cómo extender sin introducir inconsistencias
 

@@ -78,6 +78,38 @@ PWA (lecturas)          ──┴─→ functions/api/proxy ─→ webhook.gs do
 ```
 La escritura diaria (SMS) entra por `sms.js`→GAS, no por la PWA. La PWA lee y edita vía `proxy`.
 
+### La ingesta es idempotente (el teléfono reenvía)
+
+El iPhone manda el **mismo SMS más de una vez**. No es teoría: en la hoja real
+había 14 pares con `SMS_Original` idéntico byte por byte, separados por **6 ms a
+5 s**, en AV Villas `****3403` y Banco de Bogotá `****8439`. Nunca se determinó
+la causa en el teléfono, así que el servidor se defiende solo.
+
+`_isDuplicateIngest(userId, textoCrudo)` descarta el reenvío: huella MD5 del
+texto normalizado en `CacheService` (TTL 5 min), bajo `LockService` porque los
+dos envíos llegan con milisegundos de diferencia y sin serializar ambos leerían
+"no visto". Corre **antes del parseo**, así que un duplicado tampoco paga el
+fallback de IA.
+
+Tres decisiones que parecen detalles y no lo son:
+
+- **Se compara el texto crudo, no los campos parseados.** El fallback de IA no
+  es determinista: el mismo SMS produjo `DIDI RIDES*DL` en una fila y
+  `DIDI RIDES` en la otra. Comparar campos no habría detectado ese par.
+- **Es seguro porque el texto trae la marca de tiempo del banco.** Dos compras
+  reales distintas nunca generan el mismo texto. Verificado: 8 pares con mismo
+  monto y comercio pero hora distinta quedaron intactos.
+- **Un fallo transitorio suelta la huella** (`_releaseIngest`). Si no, un
+  reintento del teléfono dentro de la ventana se descartaría y la transacción se
+  perdería. No se suelta cuando la petición resolvió a propósito sin guardar
+  (reversa, fusión Bre-B): ahí el reenvío **sí** debe descartarse, o una reversa
+  reenviada borraría dos filas.
+
+Riesgo aceptado: un banco con precisión de minuto (AV Villas) podría colapsar dos
+compras reales idénticas en el mismo minuto. Mucho más raro que el bug que evita.
+
+Tests: `node scripts/test-ingest-dedup.mjs`.
+
 ## Autenticación y seguridad
 
 - **Canales de secreto** (`_checkSecret`): `web` (`WEB_SECRET`, proxy CF) y `shortcut`
@@ -101,9 +133,12 @@ La escritura diaria (SMS) entra por `sms.js`→GAS, no por la PWA. La PWA lee y 
 > `docs/CONVENTIONS.md`) apuntan aquí en vez de repetir este bloque.
 
 - **PWA + functions:** automático al mergear a `main` (Cloudflare Pages **git-connected**; push a
-  `main` = deploy a producción, otras ramas = Preview). **No uses `wrangler deploy` manual.**
+  `main` = deploy a producción, otras ramas = Preview en `https://<branch>.finanzas-abiertas.pages.dev`).
   Un solo proyecto: `finanzas-abiertas` (prod). Variables en el dashboard: `WEBHOOK_URL`,
-  `WEB_SECRET`, `ANTHROPIC_API_KEY` (y `WEBHOOK_SECRET` para el canal shortcut).
+  `WEB_SECRET`, `ANTHROPIC_API_KEY` (y `WEBHOOK_SECRET` para el canal shortcut). **El entorno
+  Preview NO hereda las vars de Production** — configúralas por separado o el preview cae en modo
+  mock. Para el procedimiento completo de pilotos/previews (Cloudflare o local): ver
+  `workflows/preview_deploy.md`.
 - **GAS:** `cd apps_script && clasp push`. **No toma efecto solo** (deploy manual tras cada cambio).
 - **No deployar ni pushear a `main` sin aprobación** (prod vivo = proyecto `finanzas-abiertas`).
 - **CI (`.github/workflows/ci.yml`):** lint+build+test del PWA + drift de categorías

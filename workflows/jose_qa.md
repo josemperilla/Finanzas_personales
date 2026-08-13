@@ -113,8 +113,10 @@ useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);  // ✓
 - **Error que produce:** al cambiar de perfil, se siguen mostrando las transacciones del usuario anterior.
 
 ### 3.3 ¿El dropdown de banco incluye todos los bancos activos?
-- Lista actual válida: `['Bogotá', 'Itaú', 'Davivienda', 'Bancolombia', 'Otro']`
-- Si se añade un nuevo banco con parser en el webhook, hay que añadirlo también en `Agregar.tsx`.
+- La lista viva es `BANKS` en `pwa/src/lib/banks.ts` (fuente única; ya no está inline en las páginas).
+- Tiene que coincidir **exactamente** con `CANONICAL_BANCO` de `webhook.gs`, o el mismo producto se
+  parte en dos (la PWA agrupa por `banco|ultimos4`). Ver `docs/DATA_MODEL.md` §1.1.
+- `Itaú` ya no está: Banco de Bogotá lo compró y sus productos son suyos.
 
 ---
 
@@ -138,7 +140,7 @@ function detectBank(sms) {
 
 ### 4.3 ¿Los montos en formato americano usan `parseMontoUS()`?
 - Bancolombia usa `100,000.00` (coma = miles, punto = decimales).
-- Bogotá e Itaú usan `100.000` (punto = miles, sin decimales).
+- Banco de Bogotá (incluye el formato Itaú) usa `100.000` (punto = miles, sin decimales).
 - Usar el parser equivocado da montos multiplicados por 1000.
 
 ---

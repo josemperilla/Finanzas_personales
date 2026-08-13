@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.4.0] — 2026-08-12
+
+### Fixes
+- **Transacciones duplicadas en toda la ingesta**: el iPhone reenvía el mismo SMS y cada envío creaba su propia fila. En la hoja real había 14 pares con `SMS_Original` idéntico byte por byte separados por **6 ms a 5 s** (AV Villas `****3403` y Banco de Bogotá `****8439`). La causa en el teléfono nunca se determinó, así que ahora el servidor es idempotente: `_isDuplicateIngest` descarta el reenvío por huella del texto crudo, bajo lock y **antes del parseo**, así un duplicado tampoco paga el fallback de IA. Se compara el texto crudo y no los campos parseados porque la IA no es determinista — el mismo SMS produjo `DIDI RIDES*DL` en una fila y `DIDI RIDES` en la otra. Es seguro porque el texto del banco trae su propia marca de tiempo: dos compras reales nunca generan el mismo texto (verificado contra 8 pares de mismo monto y comercio a horas distintas, que quedaron intactos).
+- **La tarjeta `****8439` aparecía partida en dos productos**: Banco de Bogotá compró a Itaú y cambió el pie del SMS (`ITAU Tel: 5818181...` → `Si no fuiste tu, comunicate con la Servilinea de Banco de Bogota.`) conservando la estructura. `detectBank` buscaba `\bITAU\b`, dejó de reconocerlo y meses de transacciones cayeron al fallback de IA con la tarjeta transcrita como `8439` pelado. Ahora `detectBank` rutea **por la estructura del mensaje, no por la marca**, y `parseAnyBank` prueba los demás parsers antes de gastar IA.
+- **Nombre de banco unificado**: `Itaú` y `Bogotá` son la misma entidad desde la compra, así que comparten nombre visible (`Banco de Bogotá`). Lo que distingue un producto es la tarjeta, no el banco. La lógica que necesita saber que un mensaje llegó con formato Itaú usa `_bankKey`, nunca el nombre visible, para que el banco pueda renombrarse sin romper el parseo.
+- **Dos formatos de Itaú que caían a la IA**: `Se realizo Transferencia de tu Cuenta...` (el artículo era obligatorio y ese mensaje no lo trae) y el Bre-B entrante (`has recibido una transferencia a tu cuenta AHO...`). Los dos dejaban la cuenta como `8448` pelado.
+- **Publicidad de `dale!` entraba como compra**: los combos promocionales (`Compra tu combo dale! por $14.900...`) se guardaban como transacciones reales con fecha inventada (2024-01-01).
+- **Un fallo transitorio podía perder una transacción**: la huella de idempotencia se reservaba antes de guardar la fila, así que si el parseo o la IA fallaban, el reenvío del teléfono —el mecanismo que la recuperaría— se descartaba. Ahora las rutas de fallo real sueltan la reserva; las que resuelven a propósito sin guardar (reversa, fusión Bre-B) la conservan, o una reversa reenviada borraría dos filas.
+
+### Changed
+- **`BANKS` (`pwa/src/lib/banks.ts`) y `BANK_DISPLAY` (`ImportarExtracto.tsx`) usan los nombres canónicos.** Antes el selector de "crear cuenta", el de "editar transacción" y el importador de extractos podían escribir `Itaú`/`Bogotá`, que reintroducían el producto duplicado por la puerta de atrás.
+- **El arte de la tarjeta se elige por los últimos 4 dígitos, no por el nombre del banco** (`PRODUCT_ART` en `ProductCardFace.tsx`). El plástico no cambia cuando el banco se renombra.
+
+### Security
+- **`migrarProductos` exige token de sesión de admin.** En el canal `shortcut`, `_authUserId` devuelve el `userId` que declare el llamante sin verificarlo, así que bastaba tener `WEBHOOK_SECRET` para disparar un borrado masivo. Es una debilidad preexistente que comparten `deleteUser`/`resetPin`; aquí no se hereda porque el daño sería irreversible. La acción también entra en `ADMIN_TYPES` para quedar rate-limitada.
+
+### Tooling
+- **`migrarProductosYDuplicados()`**: repara datos ya escritos (renombra el banco en la hoja **y** en el catálogo `cards_<userId>` de Script Properties, completa las tarjetas peladas usando la etiqueta que ya existe para esos cuatro dígitos, borra duplicados y promos). Idempotente y con modo simulación. Aplicada sobre 963 filas: 886 renombres, 17 tarjetas unificadas, 14 duplicados y 3 promos borradas.
+- **`scripts/test-ingest-dedup.mjs`**: 24 casos sobre SMS reales del Sheet, incluidos los controles de "no borrar compras reales del mismo monto a horas distintas" y la idempotencia de la migración.
+
 ## [1.3.0] — 2026-07-05
 
 ### Features

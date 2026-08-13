@@ -22,17 +22,23 @@ interface Props {
   showSkipButton?: boolean;
 }
 
+// El `id` elige el FORMATO del extracto que se va a parsear, no el banco que
+// se guarda. "itau" sigue existiendo porque los extractos viejos de Itaú
+// conservan su formato propio, aunque el banco ya sea Banco de Bogotá.
 const BANKS = [
   { id: 'bancolombia', label: 'Bancolombia' },
   { id: 'bogota',      label: 'Banco de Bogotá' },
-  { id: 'itau',        label: 'Itaú' },
+  { id: 'itau',        label: 'Banco de Bogotá (extracto Itaú)' },
   { id: 'otro',        label: 'Otro CSV' },
 ];
 
+// Nombre que se ESCRIBE en la transacción. Tiene que salir del catálogo de
+// `lib/banks.ts` o el producto se parte en dos (ver el comentario de ahí).
+// `bogota` e `itau` colapsan al mismo banco: Banco de Bogotá compró a Itaú.
 const BANK_DISPLAY: Record<string, string> = {
   bancolombia: 'Bancolombia',
-  bogota:      'Bogotá',
-  itau:        'Itaú',
+  bogota:      'Banco de Bogotá',
+  itau:        'Banco de Bogotá',
   otro:        'Otro',
 };
 

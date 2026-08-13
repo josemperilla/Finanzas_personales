@@ -38,8 +38,28 @@ contratos (validatePin/setupPin/redeemInvite/_checkSecret/validateToken/emergenc
 `ocr.js`, `extract-pdf.js` y `shortcut-config.js` repiten el bloque "validar `token` contra GAS
 `validateToken` antes de actuar". **Cómo:** extraer a `functions/api/_auth.js` (`assertSession(env, token)`).
 
-### P3 — Modularizar `webhook.gs` (~3.5k LOC)
-Monolito con ~90 funciones. **Solo abordar si bloquea velocidad** (baja urgencia hoy). `clasp` permite
+### P1 — `_authUserId` acepta un `userId` auto-declarado en el canal `shortcut` (security)
+Detectado al revisar el release 1.4.0. En el canal `shortcut`, `_authUserId` devuelve el `userId` que
+mande el llamante **sin verificarlo** — basta tener `WEBHOOK_SECRET` para hacerse pasar por cualquier
+usuario. Afecta a `deleteUser`, `resetPin`, `disableUser` y demás acciones admin. `migrarProductos` ya
+se blindó (exige token de sesión) porque su daño sería irreversible; las otras siguen expuestas.
+Arreglo: exigir token de sesión en todo `ADMIN_TYPES`, no solo el secreto del canal.
+
+### P1 — Rotar `WEBHOOK_SECRET` (está en el repo público)
+`ios_shortcut/TUTORIAL.md:76` trae la URL `/exec` y el `_secret` real en texto plano, y este repo es
+público. El valor viejo queda además en la historia de git. Rotar **rompe el Atajo del iPhone** hasta
+actualizarlo allá, así que hay que hacer las dos cosas juntas: nuevo secreto en Script Properties +
+Cloudflare, y el Atajo actualizado en el teléfono. Reemplazar el valor del tutorial por un placeholder.
+
+### P3 — 658 filas de la importación de extractos sin `Tarjeta/Cuenta`
+La importación masiva de extractos (2026-06-04) no registró la tarjeta, así que esas filas no
+pertenecen a ningún producto y no aparecen en los totales por tarjeta. Se podrían atribuir a
+`****8439` vs `****8645` usando el banco original, que sobrevive en los respaldos previos a la
+migración (`backup-sheet-*.json`, ya gitignoreados). No se hizo porque atribuir mal 658 filas de gasto
+es peor que dejarlas sin producto.
+
+### P3 — Modularizar `webhook.gs` (~4.3k LOC)
+Monolito con ~100 funciones (creció ~800 líneas entre Bre-B y la unificación de Banco de Bogotá). **Solo abordar si bloquea velocidad** (baja urgencia hoy). `clasp` permite
 varios `.gs` en el mismo proyecto. Corte por dominio: `auth.gs`, `parsers.gs` (`parseX`+`detectBank`+
 `detectCategory`), `sheet.gs` (`_getSheet`/`appendToSheet`/CRUD), `ai.gs`. Mantener `doGet`/`doPost`
 como dispatcher único.

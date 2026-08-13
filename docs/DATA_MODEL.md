@@ -12,7 +12,7 @@ Cabecera fija (la crea `_provisionUser`; `_migrateSheetHeaders` la repara en ins
 |---|---|---|---|
 | 1 | `Timestamp` | Date (ms) | **Clave primaria**. Búsqueda/edición/borrado con tolerancia ±2s. |
 | 2 | `Fecha` | string `YYYY-MM-DD` | Fecha bancaria (puede diferir del `Timestamp` de captura). |
-| 3 | `Banco` | string | `Bancolombia` \| `Bogotá` \| `Davivienda` \| `Itaú` \| `Nequi` \| `Daviplata` \| `AV Villas` \| … |
+| 3 | `Banco` | string | Valor de `CANONICAL_BANCO`: `Bancolombia` \| `Banco de Bogotá` \| `Davivienda` \| `Nequi` \| `Daviplata` \| `AV Villas` \| … Ver §1.1. |
 | 4 | `Tipo` | string | `Compra` \| `Retiro` \| `Transferencia` \| `Abono` \| … (normalizado por `normalizeTipo`) |
 | 5 | `Monto (COP)` | number | Entero positivo en COP. Formato COL vs US por banco (ver `jose_qa.md` §4.3). |
 | 6 | `Comercio` | string | Normalizado por `normalizeComercio` (limpieza de marca). |
@@ -24,6 +24,37 @@ Cabecera fija (la crea `_provisionUser`; `_migrateSheetHeaders` la repara en ins
 
 > **Ingreso vs gasto** se deriva, no se persiste: `isIncomeTx(tx)` = (`Categoría === 'Ingreso'`) **o**
 > (`Tipo ∈ INCOME_TIPOS = {Depósito, Abono, Consignación, Crédito, Ingreso, Nómina}`). `isGasto = !isIncomeTx`.
+
+### 1.1 El nombre del banco es un contrato, no una etiqueta
+
+Un **producto** (una tarjeta, una cuenta) se identifica por `banco|ultimos4` —
+es literalmente `productKey()` en `pwa/src/lib/personalProducts.ts`. Si el mismo
+plástico llega con dos nombres de banco distintos, la PWA lo muestra como **dos
+productos separados** y los totales por producto quedan partidos.
+
+Por eso el nombre visible tiene que ser idéntico en **cinco** lugares. Cambiar
+uno solo reintroduce el bug:
+
+| Dónde | Qué es |
+|---|---|
+| `CANONICAL_BANCO` (`apps_script/webhook.gs`) | Lo que se escribe en la columna `Banco` |
+| `cards_<userId>` (Script Properties) | Catálogo de productos que sirve `action=cards` |
+| `BANKS` (`pwa/src/lib/banks.ts`) | Selector al crear cuenta y al editar transacción |
+| `BANK_DISPLAY` (`pwa/src/components/ImportarExtracto.tsx`) | Banco que se escribe al importar un extracto |
+| `JOSE_DEFAULT_PRODUCTS` (`pwa/src/lib/personalProducts.ts`) | Productos sembrados del usuario |
+
+**Banco de Bogotá compró a Itaú (2026).** Las tarjetas `****8439` y `****8448`
+pasaron a ser productos de Banco de Bogotá, así que `CANONICAL_BANCO.bogota` y
+`.itau` valen los dos `"Banco de Bogotá"` — una entidad con varios productos.
+`Itaú` ya no es un valor válido de la columna `Banco`.
+
+La lógica que necesita saber que un mensaje llegó **con formato Itaú** (las
+guardas de `mergeBrebDuplicate`) usa `_bankKey === "itau"`, nunca el nombre
+visible. Distinguir formato de marca es lo que permite que el banco se renombre
+sin romper el parseo.
+
+`migrarProductosYDuplicados()` repara los cinco lugares de una pasada y es
+idempotente; correrla dos veces no hace nada la segunda.
 
 ## 2. Script Properties (config + estado en GAS)
 
