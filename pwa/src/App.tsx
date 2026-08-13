@@ -19,7 +19,7 @@ import { TutorialCanales } from './components/TutorialCanales';
 import { InviteRedeem } from './components/InviteRedeem';
 import { Onboarding } from './components/Onboarding';
 import { Drawer } from './components/Drawer';
-import { missingPersonalProducts } from './lib/personalProducts';
+import { missingPersonalProducts, dedupCards } from './lib/personalProducts';
 import { Icon } from './components/ui/icons';
 import { exportToCSV } from './lib/export';
 import { BalanceWidget } from './components/BalanceWidget';
@@ -169,10 +169,10 @@ export default function App() {
       const missing = userId ? missingPersonalProducts(userId, data) : [];
       if (missing.length > 0) {
         await Promise.all(missing.map(card => saveCard(card)));
-        setCards([...data, ...missing]);
+        setCards(dedupCards([...data, ...missing]));
         return;
       }
-      setCards(data);
+      setCards(dedupCards(data));
     } catch { /* silently ignore card fetch errors */ }
   }, [userId]);
 

@@ -1,5 +1,6 @@
 import { WEBHOOK_URL, WEBHOOK_SECRET, normalizeCategory } from './config';
 import { STORAGE_KEYS } from './storageKeys';
+import { productKey } from './personalProducts';
 
 let _activeUserId: string | null = null;
 let _token: string | null = null;
@@ -564,7 +565,10 @@ export function getUnknownCards(
   transactions: Transaction[],
   cards: Card[]
 ): Array<{ banco: string; ultimos4: string; tarjetaCuenta: string }> {
-  const registered = new Set(cards.map(c => `${c.banco}|${c.ultimos4}`));
+  // Misma clave canónica que `productKey` (banco normalizado | ultimos4): una
+  // tx con banco "Itaú" debe calzar con una tarjeta registrada como
+  // "Banco de Bogotá" y no reportarse como desconocida.
+  const registered = new Set(cards.map(c => productKey(c)));
   const seen = new Set<string>();
   const unknown: Array<{ banco: string; ultimos4: string; tarjetaCuenta: string }> = [];
   for (const tx of transactions) {
@@ -572,7 +576,7 @@ export function getUnknownCards(
     if (!raw) continue;
     const last4 = extractLast4(raw);
     if (!last4) continue;
-    const key = `${tx.Banco}|${last4}`;
+    const key = productKey({ banco: tx.Banco, ultimos4: last4 });
     if (!registered.has(key) && !seen.has(key)) {
       seen.add(key);
       unknown.push({ banco: tx.Banco, ultimos4: last4, tarjetaCuenta: raw });
