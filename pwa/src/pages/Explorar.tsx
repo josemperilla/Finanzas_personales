@@ -39,7 +39,8 @@ interface MonthStats {
 // Construye los chips de banco dinámicamente: unión de los bancos presentes en
 // las transacciones + los de los productos/tarjetas registradas, normalizados a
 // su nombre canónico (ver `normalizeBankName`) y ordenados por gasto. Las
-// transacciones sin banco solo se ven bajo "Todos".
+// transacciones sin banco (o con banco "Otro") solo se ven bajo "Todos": "Otro"
+// se excluye del listado para no mostrar un chip sin información de banco real.
 function buildBankList(txs: Transaction[], cards: Card[]): string[] {
   const spend: Record<string, number> = {};
   for (const tx of txs) {
@@ -52,7 +53,9 @@ function buildBankList(txs: Transaction[], cards: Card[]): string[] {
     const bank = normalizeBankName(c.banco);
     if (bank) set.add(bank);
   }
-  const sorted = [...set].sort((a, b) => (spend[b] || 0) - (spend[a] || 0) || a.localeCompare(b));
+  const sorted = [...set]
+    .filter(b => b !== 'Otro')
+    .sort((a, b) => (spend[b] || 0) - (spend[a] || 0) || a.localeCompare(b));
   return ['Todos', ...sorted];
 }
 
@@ -153,6 +156,12 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
       : transactions.filter(tx => normalizeBankName(tx.Banco) === activeBank),
     [transactions, activeBank],
   );
+
+  // Los widgets que provienen del backend (Health Score, inflación, suscripciones
+  // de 12 meses, "Por tarjeta", heatmap) son globales: se calculan sobre TODOS
+  // los bancos y el cliente no los puede desglosar por banco. Al filtrar por un
+  // banco se ocultan para no mostrar totales ajenos al filtro activo.
+  const showGlobal = activeBank === 'Todos';
 
   const [selectedIdx, setSelectedIdx] = useState<number>(-1);
   const [compareIdx, setCompareIdx] = useState<number>(-1);
@@ -299,7 +308,8 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
           </motion.div>
         )}
 
-        {/* Health Score — primero para dar contexto */}
+        {/* Health Score — global (todos los bancos): oculto al filtrar por banco */}
+        {showGlobal && (
         <motion.div variants={riseItem} transition={quickEase} style={{ marginBottom: 14 }}>
           <motion.button
             whileTap={{ scale: 0.98 }}
@@ -353,6 +363,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
             )}
           </AnimatePresence>
         </motion.div>
+        )}
 
         {/* Weekly cash flow */}
         {monthTxCurrent.length > 0 && (
@@ -363,7 +374,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
 
         {/* Inflation Signal Banner */}
         <AnimatePresence>
-          {analytics?.inflationSignal?.detected && !analyticsDismissedInflation && (
+          {showGlobal && analytics?.inflationSignal?.detected && !analyticsDismissedInflation && (
             <motion.div
               initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={quickEase}
@@ -553,7 +564,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
             <SubscripcionesWidget transactions={bankFilteredTxs} />
 
             {/* Live subscriptions from backend */}
-            {analytics && analytics.subscriptions.length > 0 && (
+            {showGlobal && analytics && analytics.subscriptions.length > 0 && (
               <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
                   Suscripciones detectadas
@@ -640,7 +651,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
             )}
 
             {/* By-Card breakdown from backend */}
-            {analytics && analytics.byCard.length > 0 && (
+            {showGlobal && analytics && analytics.byCard.length > 0 && (
               <motion.div variants={riseItem} transition={quickEase} style={{ background: 'var(--card)', borderRadius: 'var(--r-2xl)', padding: '18px 16px 8px', boxShadow: 'var(--shadow-card)', marginBottom: 14 }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 14 }}>
                   Por tarjeta (12 meses)
@@ -759,7 +770,7 @@ export function Explorar({ transactions, loading, userId, onViewHistorial, onOpe
         )}
 
         {/* Hourly Heatmap from backend */}
-        {analytics && Object.keys(analytics.hourlyHeatmap).length > 0 && (() => {
+        {showGlobal && analytics && Object.keys(analytics.hourlyHeatmap).length > 0 && (() => {
           const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
           const SLOTS = [
             { label: 'Madrugada', hours: [0,1,2,3,4,5] },
