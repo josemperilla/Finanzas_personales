@@ -7,7 +7,7 @@ import { getCardBenefits } from '../lib/cardCatalog';
 import { CATEGORIES, HAS_WEBHOOK_URL } from '../lib/config';
 import { createPortal } from 'react-dom';
 import { ProductCardFace } from '../components/ProductCardFace';
-import { missingPersonalProducts } from '../lib/personalProducts';
+import { missingPersonalProducts, dedupCards } from '../lib/personalProducts';
 import { BANKS } from '../lib/banks';
 import { formatCOP as fmtCOP, APP_LOCALE } from '../lib/utils';
 
@@ -1193,10 +1193,10 @@ export function Cuentas({ userId, transactions, initialCard, initialSection, onB
       const missing = missingPersonalProducts(userId, data);
       if (missing.length > 0) {
         await Promise.all(missing.map(card => saveCard(card)));
-        setCards([...data, ...missing]);
+        setCards(dedupCards([...data, ...missing]));
         return;
       }
-      setCards(data);
+      setCards(dedupCards(data));
     } catch (err) {
       setError((err as Error).message || 'Error al cargar');
     } finally {

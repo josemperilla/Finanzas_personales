@@ -1,4 +1,5 @@
-import { Card } from './api';
+import type { Card } from './api';
+import { normalizeBankName } from './banks';
 
 export const JOSE_DEFAULT_PRODUCTS: Card[] = [
   {
@@ -39,8 +40,26 @@ export const JOSE_DEFAULT_PRODUCTS: Card[] = [
   },
 ];
 
+// Clave canónica de un producto: banco normalizado (con aliases, ver
+// `normalizeBankName`) + últimos 4. Es la identidad de un plástico: dos
+// entradas con la misma clave son el mismo producto. Antes solo quitaba
+// tildes/minúsculas, así que "Itaú|8439" y "Banco de Bogotá|8439" se tomaban
+// como distintos y el plástico se duplicaba en la PWA.
 export function productKey(card: Pick<Card, 'banco' | 'ultimos4'>): string {
-  return `${card.banco.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}|${card.ultimos4}`;
+  return `${normalizeBankName(card.banco) ?? ''}|${card.ultimos4}`;
+}
+
+// Red de seguridad: colapsa tarjetas duplicadas por `productKey`, prefiriendo
+// la entrada con alias (más metadata). Evita que un duplicado en
+// cards_<userId> (p. ej. por drift histórico) se pinte dos veces.
+export function dedupCards(cards: Card[]): Card[] {
+  const byKey = new Map<string, Card>();
+  for (const c of cards) {
+    const key = productKey(c);
+    const prev = byKey.get(key);
+    if (!prev || (!prev.alias && c.alias)) byKey.set(key, c);
+  }
+  return [...byKey.values()];
 }
 
 export function missingPersonalProducts(userId: string, cards: Card[]): Card[] {
