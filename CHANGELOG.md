@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.5.0] — 2026-08-13
+
+### Features
+- **Un comercio que ninguna regla reconoce se busca en internet y se categoriza solo.** Hasta ahora, todo lo que `detectCategory` no identificaba por keyword caía en "Otro" y se quedaba ahí para siempre; el histórico había acumulado 96 comercios distintos así. Ahora `_categorizeViaWebSearch` le pregunta a Claude **con búsqueda web** a qué categoría pertenece, y el resultado queda en un diccionario global (`WEBCAT_*` en Script Properties): **cada comercio se busca una sola vez en la vida**, no una vez por transacción. Verificado contra 16 comercios reales del histórico antes de desplegar: 9 de 12 comercios resueltos y 4 de 4 no-comercios (`CUOTA MANEJO`, `SEGURO DE VIDA DEUDOR`, …) correctamente rechazados, sin una sola categoría inventada. En producción resolvió nombres que el banco entrega truncados (`CIGARRERIA ALF` → Mercado, `DOLLARCITY SANTA BARBA` → Compras) y desambiguó `RAILWAY` como la plataforma de software, no como el tren.
+- **La búsqueda no corre en la ingesta.** El iOS Shortcut espera la respuesta del webhook, y 5-15 s de búsqueda le agregarían latencia y un modo de falla nuevo al camino crítico. `detectCategoryIngesta` encola y el trigger `procesarColaCategorias` drena cada 15 minutos (12 por corrida, bajo `LockService`), así que la categoría de un comercio nuevo aparece a los pocos minutos. El relleno **solo toca filas sin categorizar**: una categoría puesta a mano nunca se pisa.
+- **Caché negativa con vencimiento.** Un comercio que no se pudo identificar se marca como tal y no se vuelve a buscar durante 45 días — el negocio pudo abrir web o entrar a un directorio después del primer intento. Un comercio ya resuelto no caduca nunca.
+
+### Fixes
+- **Más de la mitad del histórico sin categorizar era invisible para el feature.** `encolarOtrosExistentes()` y `_rellenarCategorias()` se anclaban a la cadena literal `"Otro"`, pero esa no es la única forma en que una fila queda sin clasificar: el import retroactivo de extractos (`Fuente: MANUAL`) dejó **la celda vacía** en 73 filas, y una tanda vieja quedó en **`"Otros"`** (plural, fuera de `ALLOWED_CATEGORIES`). Contra la hoja real eran 45 comercios en `Otro` frente a 51 repartidos entre vacío y `Otros` — entre ellos `TIENDAS D1`, `ARTURO CALLE`, `CINE COLOMBIA`, `BODYTECH` y `EDS TERPEL`, justo los que una búsqueda resuelve de una. `_webcatSinCategoria()` centraliza ahora el criterio en los tres sitios que decidían por su cuenta.
+- **El UI mostraba "Otro" y "Otros" como dos categorías distintas.** `CATEGORY_ALIASES` no cubría el plural, así que el filtro del historial ofrecía dos entradas que a la vista son idénticas (las dos caen al mismo color de fallback). Se añadieron `Otros`→`Otro` y `Suscripción`→`Suscripciones`.
+
+### Changed
+- **El modelo de categorización es Opus 5 por defecto**, configurable con la Script Property `CLAUDE_CATEGORIZE_MODEL`. Medido sobre los mismos 16 comercios, Sonnet 5 resuelve uno más y cuesta ~40% menos, pero adivina donde Opus se abstiene. Se eligió Opus porque un "Otro" visible es mejor que una categoría equivocada que ensucia el presupuesto sin que nadie se entere. Costo real: ~$0.096 por comercio nuevo, o sea centavos al mes una vez saldado el histórico.
+- **`web_search_20260209` exige Opus 4.6+/Sonnet 4.6+**, así que este es el primer camino de IA del backend que **no** corre sobre Haiku. Tampoco puede reusar `_callClaudeAI`: con herramientas de servidor la respuesta trae bloques `server_tool_use`/`web_search_tool_result` intercalados y el texto final es el **último** bloque `text`, no `content[0]`. `_categorizeViaWebSearch` maneja además `stop_reason` `pause_turn` (reanuda) y `refusal`.
+
+### Tooling
+- **`scripts/test-webcat.mjs`**: 54 tests sin red sobre la normalización del nombre del comercio, la vigencia de la caché negativa, el techo de la cola y el parseo de la respuesta del modelo. Un test recorre `ALLOWED_CATEGORIES` completa y falla si alguna categoría válida llegara a contar como "sin categorizar".
+- **`pwa/src/lib/config.test.ts`**: cubre `normalizeCategory`/`getCategoryColor`, incluida la garantía de que todo alias resuelve a una categoría que existe.
+- **`estadoCategoriasWeb()`**: diagnóstico de qué resolvió el diccionario, qué quedó como desconocido y qué sigue en cola.
+
 ## [1.4.0] — 2026-08-12
 
 ### Fixes

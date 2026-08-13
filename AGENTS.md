@@ -37,6 +37,7 @@ La PWA **nunca** toca el webhook directo en prod: pasa por `/api/proxy`, que esc
 |---|---|---|
 | Un **nuevo banco** (parser SMS/notif) | `apps_script/webhook.gs` (`parseX` + `detectBank` + dispatcher) + `testParsers()` | Desplegar GAS con `clasp push` |
 | Una **nueva categoría** | `webhook.gs:ALLOWED_CATEGORIES` **Y** `pwa/src/lib/config.ts:CATEGORIES` (color+icono) | `node scripts/check-category-drift.mjs` |
+| Tocar **cómo se categoriza un comercio** | `webhook.gs`: `detectCategory` (keywords) o el bloque `WEBCAT_*` (búsqueda web, §5.2 de `docs/DATA_MODEL.md`) | "Sin categorizar" son **tres** valores (vacío, `Otro`, `Otros`) — usa `_webcatSinCategoria`, nunca `=== 'Otro'`. Corre `node scripts/test-webcat.mjs` |
 | Un **nuevo tipo de acción** (API) | `webhook.gs:doPost` (rama `if (type === "...")`) **Y** fn cliente en `pwa/src/lib/api.ts` | El `type` es **case-sensitive** (no lowercase) |
 | Un **nuevo conector de factura** | `apps_script/connectors_facturas.gs:FACTURA_CONNECTORS` **Y** `pwa/src/lib/providers.ts:tieneConector` | Mantener en sync |
 | Un **nuevo portal detectable por la extensión** | `extension/providers.js:PROVIDER_DOMAINS` (3ª fuente de `providerId`) **Y** `pwa/src/lib/providers.ts:PROVIDERS` (catálogo canónico) | `node scripts/check-provider-drift.mjs` |

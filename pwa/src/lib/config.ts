@@ -43,13 +43,21 @@ export function getCategoryColor(name: string): string {
   return CATEGORIES.find(c => c.name === name)?.color ?? '#6366f1';
 }
 
-// Mapa de nombres obsoletos → nuevos (para transacciones antes de la migración GAS)
+// Mapa de nombres obsoletos → nuevos (para transacciones antes de la migración GAS).
+// Solo afecta el render: la hoja conserva el valor original.
+//
+// 'Otros' y 'Suscripción' son variantes de una categoría que ya existe, escritas por
+// tandas viejas del import de extractos. Sin el alias el UI las trata como categorías
+// propias: el filtro del historial muestra "Otro" y "Otros" por separado y las dos caen
+// al color de fallback, que es el mismo de "Otro" — dos entradas idénticas a la vista.
 const CATEGORY_ALIASES: Record<string, string> = {
-  'Comida':      'Restaurantes',
-  'Alojamiento': 'Hogar',
-  'Ropa':        'Compras',
-  'Belleza':     'Compras',
-  'Trámites':    'Otro',
+  'Comida':       'Restaurantes',
+  'Alojamiento':  'Hogar',
+  'Ropa':         'Compras',
+  'Belleza':      'Compras',
+  'Trámites':     'Otro',
+  'Otros':        'Otro',
+  'Suscripción':  'Suscripciones',
 };
 
 export function normalizeCategory(cat: string): string {
