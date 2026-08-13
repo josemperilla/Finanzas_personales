@@ -41,6 +41,7 @@ La PWA **nunca** toca el webhook directo en prod: pasa por `/api/proxy`, que esc
 | Un **nuevo conector de factura** | `apps_script/connectors_facturas.gs:FACTURA_CONNECTORS` **Y** `pwa/src/lib/providers.ts:tieneConector` | Mantener en sync |
 | Un **nuevo portal detectable por la extensión** | `extension/providers.js:PROVIDER_DOMAINS` (3ª fuente de `providerId`) **Y** `pwa/src/lib/providers.ts:PROVIDERS` (catálogo canónico) | `node scripts/check-provider-drift.mjs` |
 | Un **feature de IA** | ¿Edge→Anthropic? → nuevo archivo en `functions/api/` con patrón `validateToken` (ver `ocr.js`). ¿Datos del usuario? → GAS `_callClaudeAI` | El modelo va en env, nunca en el bundle |
+| Un **feature de IA con herramientas** (búsqueda web, etc.) | GAS, pero **no** `_callClaudeAI`: con herramientas la respuesta trae bloques `server_tool_use`/`*_tool_result` y el texto es el **último** bloque `text`, no `content[0]`. Ver `_categorizeViaWebSearch` | Manejar `stop_reason` `pause_turn` (reanudar) y `refusal`. `web_search_20260209` exige Opus 4.6+/Sonnet 4.6+: **no** corre en el Haiku por defecto |
 | Una **nueva pantalla** | `pwa/src/pages/X.tsx` (export nombrado) + lazy import en `App.tsx` | Consumir `lib/api.ts`; nunca hardcodear demo |
 | Un **componente UI** reutilizable | `pwa/src/components/ui/primitives.tsx` o `ui/icons.tsx` | Tokens CSS (`var(--*)`), no hex/inline |
 | **Lógica pura** (cálculos, analytics) | `pwa/src/lib/*.ts` (funciones puras) | Acompañar con test `*.test.ts` |

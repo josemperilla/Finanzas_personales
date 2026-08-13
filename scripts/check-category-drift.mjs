@@ -43,13 +43,23 @@ const backendCats = new Set(
 // --- detectCategory(): solo para consistencia interna ---
 // Toda categoría que detectCategory() pueda devolver DEBE estar en ALLOWED_CATEGORIES,
 // si no, esa transacción se rechazaría al intentar persistirla.
+// Acotar al CUERPO de detectCategory, no al resto del archivo: cortando solo
+// desde `function detectCategory(` se escaneaban también todas las funciones
+// siguientes, y cualquier `cat:` o `return '...'` ajeno entraba como si fuera
+// una categoría que detectCategory puede devolver. Lo destapó la búsqueda web,
+// que agregó código con literales más abajo en el archivo.
 const fnStart = gsSrc.indexOf('function detectCategory(');
-const fnSlice = fnStart >= 0 ? gsSrc.slice(fnStart) : '';
+const fnEnd = fnStart >= 0 ? gsSrc.indexOf('\n}\n', fnStart) : -1;
+if (fnStart < 0 || fnEnd < 0) {
+  console.error('✗ no se pudo delimitar el cuerpo de detectCategory() en webhook.gs');
+  process.exit(1);
+}
+const fnSlice = gsSrc.slice(fnStart, fnEnd);
 const detectCats = new Set(
   [...fnSlice.matchAll(/cat:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]),
 );
-const fallbackMatch = fnSlice.match(/return\s+['"]([^'"]+)['"]\s*;/);
-if (fallbackMatch) detectCats.add(fallbackMatch[1]);
+// Todos los `return "literal"` del cuerpo, no solo el primero.
+for (const m of fnSlice.matchAll(/return\s+['"]([^'"]+)['"]\s*;/g)) detectCats.add(m[1]);
 
 // --- Drift ---
 const onlyInUi = [...uiCats].filter((c) => !backendCats.has(c));

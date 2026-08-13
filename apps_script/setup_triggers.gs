@@ -67,6 +67,32 @@ function setupWeeklyFacturasTrigger() {
 }
 
 /**
+ * Drena la cola de comercios sin categoría cada 15 minutos.
+ *
+ * La búsqueda web NO corre en la ingesta: el iOS Shortcut espera la respuesta
+ * del webhook y una búsqueda de 5-15 s le agregaría latencia y un modo de falla
+ * nuevo al camino crítico. La ingesta encola y este trigger resuelve aparte,
+ * así que la categoría de un comercio nuevo aparece a los pocos minutos.
+ *
+ * 15 minutos es el intervalo más corto que ofrece Apps Script sin quemar cuota:
+ * la cola casi siempre está vacía y `procesarColaCategorias()` sale de una.
+ */
+function setupCategoriasWebTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'procesarColaCategorias') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger('procesarColaCategorias')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+
+  Logger.log('✓ Trigger de categorización web configurado: cada 15 minutos');
+}
+
+/**
  * Lista todos los triggers activos del proyecto (útil para verificar).
  */
 function listTriggers() {

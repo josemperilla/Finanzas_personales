@@ -612,7 +612,7 @@ function doPost(e) {
         monto:        parseFloat(payload.monto) || 0,
         comercio:     payload.comercio || "",
         tarjeta:      payload.tarjeta  || "",
-        categoria:    payload.categoria || detectCategory(payload.comercio || "", userId),
+        categoria:    payload.categoria || detectCategoryIngesta(payload.comercio || "", userId),
         nota:         payload.nota     || "",
         sms_original: "MANUAL"
       };
@@ -963,7 +963,7 @@ function doPost(e) {
       }
 
       parsedNotif.timestamp    = new Date();
-      parsedNotif.categoria    = detectCategory(parsedNotif.comercio, userId);
+      parsedNotif.categoria    = detectCategoryIngesta(parsedNotif.comercio, userId);
       parsedNotif.sms_original = "PUSH | " + title + " | " + body;
       var ntxt = title + ' ' + body;
       parsedNotif.fuente       = /apple\s*pay/i.test(ntxt) ? 'apple_pay'
@@ -1340,7 +1340,7 @@ function doPost(e) {
     }
 
     parsed.timestamp    = new Date();
-    parsed.categoria    = parsed.income ? 'Ingreso' : detectCategory(parsed.comercio, userId);
+    parsed.categoria    = parsed.income ? 'Ingreso' : detectCategoryIngesta(parsed.comercio, userId);
     delete parsed.income;
     parsed.sms_original = sms;
     parsed.fuente       = /apple\s*pay/i.test(sms) ? 'apple_pay'
@@ -2411,6 +2411,15 @@ function detectCategory(merchant, userId) {
       if (m.indexOf(rules[i].keywords[j]) !== -1) return rules[i].cat;
     }
   }
+
+  // Diccionario web (`procesarColaCategorias`): comercios que ninguna keyword
+  // reconoce pero que una búsqueda en internet ya identificó. Va de último,
+  // así que las reglas del usuario y los aprendizajes siempre le ganan.
+  // Es lectura de un memo en memoria — no hace red, así que recategorizeAll()
+  // sigue siendo seguro de correr sobre miles de filas.
+  var web = _webcatGet(merchant);
+  if (web) return web;
+
   return "Otro";
 }
 
@@ -2901,7 +2910,7 @@ function processGmailTransactions() {
         reverseTransaction(parsed, userId);
       } else {
         parsed.timestamp    = new Date();
-        parsed.categoria    = detectCategory(parsed.comercio, userId);
+        parsed.categoria    = detectCategoryIngesta(parsed.comercio, userId);
         parsed.sms_original = "EMAIL | " + subject + " | " + body.slice(0, 300);
         parsed.fuente       = "email";
         appendToSheet(parsed, userId);
@@ -4126,6 +4135,359 @@ function _callClaudeAI(systemPrompt, userMessage, maxTokens, model) {
     throw new Error('Claude API error ' + code + ': ' + apiErr);
   }
   return (result.content && result.content[0] && result.content[0].text) || '';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Categorización de comercios nuevos por búsqueda en internet
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `detectCategory` resuelve por reglas del usuario, aprendizajes y una lista de
+// keywords. Un comercio que no matchea nada cae en "Otro" y se queda ahí para
+// siempre. Muchos de esos se identifican con una búsqueda trivial: basta saber
+// a qué industria pertenece el nombre.
+//
+// Tres decisiones de diseño que no son obvias:
+//
+// 1. **La búsqueda NO corre en la ingesta.** El iOS Shortcut espera la respuesta
+//    del webhook; meterle una búsqueda web de 5-15 s al camino crítico volvería
+//    lenta la captura y le agregaría un modo de falla nuevo. En vez de eso la
+//    ingesta encola el comercio y devuelve "Otro"; un trigger resuelve la cola
+//    aparte y rellena las filas. La categoría aparece unos minutos después.
+//
+// 2. **El diccionario es global, no por usuario.** Que RAPPI sea Domicilios no
+//    depende de quién compró. Las correcciones manuales del usuario siguen
+//    viviendo en `CATEGORY_LEARN_<userId>` y tienen prioridad sobre esto.
+//
+// 3. **Cada comercio se busca UNA sola vez en la vida.** El resultado —incluido
+//    el "no se pudo determinar"— queda cacheado. Sin eso el costo sería por
+//    transacción en vez de por comercio nuevo.
+
+var WEBCAT_PREFIX      = "WEBCAT_";
+var WEBCAT_QUEUE_KEY   = "WEBCAT_QUEUE";
+var WEBCAT_DESCONOCIDO = "?";      // marca de caché negativa
+var WEBCAT_REINTENTO_D = 45;       // días antes de reintentar un desconocido
+var WEBCAT_MAX_POR_RUN = 12;       // tope por corrida del trigger (límite de 6 min de GAS)
+var WEBCAT_MAX_COLA    = 200;      // techo de la cola, por si algo la inunda
+
+// Memo por ejecución. `detectCategory` se llama en bucles sobre miles de filas
+// (recategorizeAll), así que el diccionario se lee una vez y se reusa.
+var _webcatMemo = null;
+
+function _webcatCargar() {
+  if (_webcatMemo) return _webcatMemo;
+  var todas = PropertiesService.getScriptProperties().getProperties();
+  _webcatMemo = {};
+  for (var k in todas) {
+    if (k.indexOf(WEBCAT_PREFIX) !== 0 || k === WEBCAT_QUEUE_KEY) continue;
+    try { _webcatMemo[k] = JSON.parse(todas[k]); } catch (e) { /* entrada corrupta: ignorar */ }
+  }
+  return _webcatMemo;
+}
+
+// Clave estable a partir del nombre del comercio. Normaliza para que
+// "RAPPI COLOMBIA*DL" y "RAPPI COLOMBIA" compartan entrada.
+function _webcatClave(comercio) {
+  var norm = _webcatNormalizar(comercio);
+  if (!norm) return null;
+  var md5 = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, norm, Utilities.Charset.UTF_8);
+  var hex = "";
+  for (var i = 0; i < md5.length; i++) {
+    var b = (md5[i] < 0 ? md5[i] + 256 : md5[i]).toString(16);
+    hex += (b.length === 1 ? "0" : "") + b;
+  }
+  return WEBCAT_PREFIX + hex.slice(0, 16);
+}
+
+// Quita el ruido que los adquirentes le pegan al nombre: sufijos de canal
+// (*DL, *CO), números de sucursal y códigos de ciudad al final. Lo que queda
+// es lo que uno buscaría en Google.
+function _webcatNormalizar(comercio) {
+  var s = String(comercio == null ? "" : comercio).toUpperCase().trim();
+  if (!s) return "";
+  s = s.replace(/\*[A-Z]{1,3}\b/g, " ");          // RAPPI COLOMBIA*DL → RAPPI COLOMBIA
+  s = s.replace(/\s+\d{3,}\s*$/, "");              // sucursal al final
+  s = s.replace(/\s+(BOGOTA|MEDELLIN|CALI|BARRANQUILLA|CO|COL)\s*$/i, "");
+  s = s.replace(/[^A-ZÁÉÍÓÚÑ0-9 ]+/g, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Categoría del diccionario web, o "" si no hay. Nunca hace red. */
+function _webcatGet(comercio) {
+  var clave = _webcatClave(comercio);
+  if (!clave) return "";
+  var e = _webcatCargar()[clave];
+  if (!e) return "";
+  if (e.c === WEBCAT_DESCONOCIDO) return "";
+  return ALLOWED_CATEGORIES.indexOf(e.c) !== -1 ? e.c : "";
+}
+
+/** ¿Ya se intentó este comercio y sigue vigente el intento? */
+function _webcatIntentado(comercio) {
+  var clave = _webcatClave(comercio);
+  if (!clave) return true;
+  var e = _webcatCargar()[clave];
+  if (!e) return false;
+  if (e.c !== WEBCAT_DESCONOCIDO) return true;
+  // Un desconocido se reintenta pasado un tiempo: el comercio pudo abrir web
+  // o aparecer en directorios después del primer intento.
+  var dias = (Date.now() - (e.t || 0)) / 86400000;
+  return dias < WEBCAT_REINTENTO_D;
+}
+
+function _webcatPut(comercio, categoria, fuente) {
+  var clave = _webcatClave(comercio);
+  if (!clave) return;
+  var entrada = {
+    m: _webcatNormalizar(comercio),
+    c: categoria || WEBCAT_DESCONOCIDO,
+    t: Date.now(),
+    f: fuente || "web"
+  };
+  PropertiesService.getScriptProperties().setProperty(clave, JSON.stringify(entrada));
+  _webcatCargar()[clave] = entrada;
+}
+
+/**
+ * Encola un comercio sin categorizar. Se llama desde la ingesta, así que tiene
+ * que ser barato y no puede lanzar: un fallo acá no debe tumbar la captura de
+ * la transacción.
+ */
+function _encolarComercioDesconocido(comercio) {
+  try {
+    if (!comercio || _webcatIntentado(comercio)) return;
+    var sp = PropertiesService.getScriptProperties();
+    var cola = JSON.parse(sp.getProperty(WEBCAT_QUEUE_KEY) || "[]");
+    var norm = _webcatNormalizar(comercio);
+    if (!norm || cola.indexOf(norm) !== -1) return;
+    if (cola.length >= WEBCAT_MAX_COLA) return;
+    cola.push(norm);
+    sp.setProperty(WEBCAT_QUEUE_KEY, JSON.stringify(cola));
+  } catch (e) {
+    Logger.log("encolarComercioDesconocido: " + e);
+  }
+}
+
+/**
+ * `detectCategory` + encolado. Es la que usa la ingesta; `detectCategory` a
+ * secas queda para los bucles de recategorización, que no deben encolar nada.
+ */
+function detectCategoryIngesta(comercio, userId) {
+  var cat = detectCategory(comercio, userId);
+  if (cat === "Otro" && comercio) _encolarComercioDesconocido(comercio);
+  return cat;
+}
+
+/**
+ * Le pregunta a Claude —con búsqueda web— a qué categoría pertenece un comercio.
+ * Devuelve una de `ALLOWED_CATEGORIES` o "" si no se pudo determinar.
+ *
+ * Con herramientas de servidor la respuesta ya NO es `content[0].text`: llegan
+ * bloques `server_tool_use` y `web_search_tool_result` intercalados, y el texto
+ * final es el último bloque de tipo `text`. Por eso esto no puede reusar
+ * `_callClaudeAI`.
+ */
+function _categorizeViaWebSearch(comercio) {
+  var sp = PropertiesService.getScriptProperties();
+  var key = sp.getProperty('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+
+  // `web_search_20260209` (con filtrado dinámico) exige Opus 4.6+ / Sonnet 4.6+:
+  // NO corre sobre el Haiku que usa el resto del backend.
+  //
+  // Medido sobre 16 comercios reales del histórico (2026-08-12):
+  //   opus-5    9/12 comercios resueltos, 4/4 no-comercios rechazados, ~$0.096 c/u
+  //   sonnet-5 10/12 comercios resueltos, 4/4 no-comercios rechazados, ~$0.058 c/u
+  // Opus queda de default aunque resuelva uno menos: se abstiene donde Sonnet
+  // adivina, y una categoría equivocada ensucia el presupuesto sin que nadie se
+  // entere, mientras que un "Otro" es visible. Cambiable por Script Property.
+  var model = sp.getProperty('CLAUDE_CATEGORIZE_MODEL') || 'claude-opus-5';
+
+  var systemPrompt =
+    'Clasificas comercios colombianos en una categoría de gasto personal.\n' +
+    'Busca en internet el nombre del comercio para saber a qué industria pertenece.\n' +
+    'Categorías válidas (usa EXACTAMENTE una de estas cadenas):\n' +
+    ALLOWED_CATEGORIES.join(', ') + '\n\n' +
+    'Reglas:\n' +
+    '- El nombre viene de un recibo bancario, así que puede estar abreviado o ' +
+    'llevar códigos del adquirente. Busca el negocio real detrás del nombre.\n' +
+    '- Prioriza fuentes colombianas: el mismo nombre puede ser otra cosa en otro país.\n' +
+    '- Si la búsqueda no permite identificarlo con confianza razonable, responde ' +
+    'DESCONOCIDO. Es preferible dejarlo sin categoría a inventar una: una ' +
+    'categoría equivocada ensucia el presupuesto y el usuario no se entera.\n' +
+    '- No uses "Otro" como respuesta: para eso está DESCONOCIDO.\n' +
+    '- "Bre-B" es solo para transferencias por llave, nunca para un comercio.\n\n' +
+    'Termina SIEMPRE con una última línea con este formato exacto:\n' +
+    'CATEGORIA: <una de las categorías válidas, o DESCONOCIDO>';
+
+  var mensajes = [{
+    role: 'user',
+    content: 'Comercio del recibo bancario: "' + comercio + '"\n' +
+             '¿A qué categoría de gasto pertenece?'
+  }];
+
+  var texto = '';
+  // Una búsqueda larga puede cortar el turno con `pause_turn`; se reanuda
+  // devolviendo la respuesta parcial como turno del asistente.
+  for (var intento = 0; intento < 3; intento++) {
+    var resp = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      payload: JSON.stringify({
+        model: model,
+        max_tokens: 3000,
+        output_config: { effort: 'low' },
+        system: systemPrompt,
+        // 3 búsquedas alcanzan para todos los casos que se resolvieron en la
+        // medición; los que no se resuelven queman el tope sin llegar a nada,
+        // así que subirlo solo encarece los fallos.
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }],
+        messages: mensajes
+      }),
+      muteHttpExceptions: true
+    });
+
+    var code = resp.getResponseCode();
+    var body = resp.getContentText();
+    var result;
+    try {
+      result = JSON.parse(body);
+    } catch (parseErr) {
+      throw new Error('Anthropic devolvió respuesta no-JSON (HTTP ' + code + '): ' + body.slice(0, 120));
+    }
+    if (code !== 200) {
+      var apiErr = (result.error && result.error.message) || JSON.stringify(result).slice(0, 150);
+      throw new Error('Claude API error ' + code + ': ' + apiErr);
+    }
+
+    // Los clasificadores de seguridad pueden declinar; no es un error HTTP.
+    if (result.stop_reason === 'refusal') return '';
+
+    var bloques = result.content || [];
+    for (var i = 0; i < bloques.length; i++) {
+      if (bloques[i].type === 'text' && bloques[i].text) texto = bloques[i].text;
+    }
+
+    if (result.stop_reason !== 'pause_turn') break;
+    mensajes.push({ role: 'assistant', content: bloques });
+  }
+
+  var m = /CATEGORIA:\s*([A-Za-zÁÉÍÓÚÑáéíóúñ\- ]+)/.exec(texto || '');
+  if (!m) return '';
+  var cat = m[1].trim();
+  if (/^DESCONOCIDO$/i.test(cat)) return '';
+  // La lista es la fuente de verdad: cualquier cosa fuera de ella se descarta.
+  return ALLOWED_CATEGORIES.indexOf(cat) !== -1 && cat !== 'Otro' ? cat : '';
+}
+
+/**
+ * Worker del trigger: drena la cola de comercios sin categoría, los busca en
+ * internet y rellena las filas que quedaron en "Otro".
+ *
+ * Idempotente y acotado: procesa hasta `WEBCAT_MAX_POR_RUN` por corrida para no
+ * chocar con el límite de 6 minutos de Apps Script, y usa un lock para que dos
+ * corridas simultáneas no busquen el mismo comercio dos veces.
+ */
+function procesarColaCategorias() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) {
+    Logger.log('procesarColaCategorias: ya hay una corrida en curso');
+    return { ok: true, omitido: 'lock' };
+  }
+
+  try {
+    var sp = PropertiesService.getScriptProperties();
+    var cola = JSON.parse(sp.getProperty(WEBCAT_QUEUE_KEY) || '[]');
+    if (!cola.length) return { ok: true, procesados: 0, resueltos: 0, filas: 0 };
+
+    var lote      = cola.slice(0, WEBCAT_MAX_POR_RUN);
+    var resto     = cola.slice(WEBCAT_MAX_POR_RUN);
+    var resueltos = {};
+    var nResueltos = 0;
+
+    for (var i = 0; i < lote.length; i++) {
+      var comercio = lote[i];
+      if (_webcatIntentado(comercio)) continue;
+      try {
+        var cat = _categorizeViaWebSearch(comercio);
+        _webcatPut(comercio, cat, 'web');
+        if (cat) { resueltos[_webcatNormalizar(comercio)] = cat; nResueltos++; }
+        Logger.log('webcat: ' + comercio + ' → ' + (cat || 'DESCONOCIDO'));
+      } catch (e) {
+        // Fallo transitorio (rate limit, red): NO se cachea y vuelve a la cola,
+        // igual que la huella de ingesta se suelta ante un fallo transitorio.
+        Logger.log('webcat error en "' + comercio + '": ' + e);
+        resto.push(comercio);
+      }
+    }
+
+    sp.setProperty(WEBCAT_QUEUE_KEY, JSON.stringify(resto));
+
+    var filas = nResueltos ? _rellenarCategorias(resueltos) : 0;
+    return { ok: true, procesados: lote.length, resueltos: nResueltos, filas: filas, pendientes: resto.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Reescribe la categoría de las filas que están en "Otro" y cuyo comercio ya
+ * quedó resuelto. Solo toca "Otro": una categoría puesta a mano por el usuario
+ * o acertada por las reglas no se pisa nunca.
+ */
+function _rellenarCategorias(resueltos) {
+  var users = _getAllowedUsers();
+  var tocadas = 0;
+
+  for (var u = 0; u < users.length; u++) {
+    var ref = _getSheet(users[u]);
+    var sheet = ref && ref.sheet;
+    if (!sheet) continue;
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) continue;
+    var hdrs = data[0];
+    var catCol      = hdrs.indexOf('Categoría');
+    var comercioCol = hdrs.indexOf('Comercio');
+    if (catCol < 0 || comercioCol < 0) continue;
+
+    // Una sola escritura por hoja: leer todo, decidir en memoria, escribir la
+    // columna completa. Escribir celda por celda sobre cientos de filas es lo
+    // que hace que estas migraciones se pasen del límite de tiempo.
+    var columna = [];
+    var cambio = false;
+    for (var i = 1; i < data.length; i++) {
+      var actual = String(data[i][catCol] || '').trim();
+      var nueva = actual;
+      if (actual === 'Otro') {
+        var clave = _webcatNormalizar(data[i][comercioCol]);
+        if (clave && resueltos[clave]) { nueva = resueltos[clave]; tocadas++; cambio = true; }
+      }
+      columna.push([nueva]);
+    }
+    if (cambio) sheet.getRange(2, catCol + 1, columna.length, 1).setValues(columna);
+  }
+  return tocadas;
+}
+
+/** Diagnóstico: qué tiene el diccionario y qué quedó pendiente. */
+function estadoCategoriasWeb() {
+  var dic = _webcatCargar();
+  var resueltos = [], desconocidos = [];
+  for (var k in dic) {
+    var e = dic[k];
+    (e.c === WEBCAT_DESCONOCIDO ? desconocidos : resueltos).push(e.m + ' → ' + e.c);
+  }
+  var cola = JSON.parse(PropertiesService.getScriptProperties().getProperty(WEBCAT_QUEUE_KEY) || '[]');
+  return {
+    ok: true,
+    resueltos: resueltos.sort(),
+    desconocidos: desconocidos.sort(),
+    enCola: cola
+  };
 }
 
 function _spendingCoach(userId, months) {
