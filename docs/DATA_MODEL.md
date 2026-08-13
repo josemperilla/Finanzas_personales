@@ -173,13 +173,29 @@ modo de falla nuevo al camino crítico—: `detectCategoryIngesta` encola y el t
 aparte, así que la categoría aparece a los pocos minutos.
 
 El relleno solo toca filas que cumplan `_webcatSinCategoria`, así que nunca pisa una categoría
-puesta a mano. Tres funciones se corren **a mano desde el editor de Apps Script** (`clasp run`
-no sirve: el proyecto no está desplegado como API executable):
+puesta a mano.
+
+**No todo se busca.** `encolarOtrosExistentes()` resuelve en tres niveles, de más barato a más
+caro, y solo llega al último si los dos anteriores no contestan:
+
+1. **La propia hoja** (`_categoriaUnanime`) — si el mismo comercio ya está clasificado en otras
+   filas y todas coinciden, esa gana. Gratis, y evita partir un comercio en dos categorías del
+   presupuesto. Si las filas existentes **no** coinciden, no se adivina: pasa al siguiente nivel.
+2. **El diccionario `WEBCAT_*`** — ya se pagó por esa respuesta.
+3. **Búsqueda web** — solo para lo que nadie sabe todavía.
+
+El worker se corta **por reloj** (`WEBCAT_MAX_MS`, 4 min), no por conteo: una búsqueda con Opus
+puede encadenar hasta tres consultas web, así que un lote de tamaño fijo no tiene duración
+predecible. Si la ejecución muriera pasada de tiempo, el trabajo pagado se perdería sin llegar a
+escribirse. Un comercio que ya está en el diccionario **entra al relleno igual**, sin re-buscarse.
+
+Tres funciones se corren **a mano desde el editor de Apps Script** (`clasp run` no sirve: el
+proyecto no está desplegado como API executable):
 
 | función | para qué |
 |---|---|
 | `setupCategoriasWebTrigger()` | crea el trigger de 15 min. Una sola vez. |
-| `encolarOtrosExistentes()` | siembra la cola con el histórico sin categorizar. Idempotente. |
+| `encolarOtrosExistentes()` | reconcilia el histórico sin categorizar. Idempotente. |
 | `estadoCategoriasWeb()` | diagnóstico: resueltos, desconocidos y cola pendiente. |
 
 ## 6. Contrato de proveedores / conectores de facturas

@@ -66,9 +66,11 @@ vm.runInContext(
     grabVar("WEBCAT_REINTENTO_D"),
     grabVar("WEBCAT_MAX_POR_RUN"),
     grabVar("WEBCAT_MAX_COLA"),
+    grabVar("WEBCAT_MAX_MS"),
     grabVar("WEBCAT_SIN_CATEGORIA"),
     grabVar("_webcatMemo"),
     grabFn("_webcatSinCategoria"),
+    grabFn("_categoriaUnanime"),
     grabFn("_webcatCargar"),
     grabFn("_webcatClave"),
     grabFn("_webcatNormalizar"),
@@ -79,6 +81,23 @@ vm.runInContext(
   ].join("\n"),
   ctx,
 );
+
+// `procesarColaCategorias` se carga aparte: necesita dobles para lo que toca el
+// mundo (el lock, la API, la hoja). Todo lo demás es el código real de webhook.gs.
+ctx.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
+const espia = { buscados: [], rellenos: [] };
+ctx._categorizeViaWebSearch = (comercio) => {
+  espia.buscados.push(comercio);
+  const r = espia.respuestas[comercio];
+  if (r instanceof Error) throw r;
+  return r === undefined ? "" : r;
+};
+ctx._rellenarCategorias = (resueltos) => {
+  espia.rellenos.push({ ...resueltos });
+  return Object.keys(resueltos).length;
+};
+espia.respuestas = {};
+vm.runInContext(grabFn("procesarColaCategorias"), ctx);
 
 let pass = 0, fail = 0;
 function ok(cond, label) {
@@ -230,6 +249,107 @@ console.log("\n── Cola de pendientes ──");
   ok(distintos.size === ctx.WEBCAT_MAX_COLA + 25, "el fixture genera nombres realmente distintos");
   eq(JSON.parse(props[ctx.WEBCAT_QUEUE_KEY]).length, ctx.WEBCAT_MAX_COLA,
      "la cola tiene techo (nada la puede inundar)");
+}
+
+console.log("\n── La hoja como fuente gratis: _categoriaUnanime ──");
+{
+  const u = ctx._categoriaUnanime;
+  eq(u({ Restaurantes: 3 }), "Restaurantes", "una sola categoría, unánime");
+  eq(u({ Transporte: 7 }), "Transporte", "el caso TEMBICI: 7 filas ya dicen Transporte");
+  eq(u({ Entretenimiento: 1, Restaurantes: 2 }), "",
+     "dos categorías distintas: no se adivina, va a la búsqueda");
+  eq(u({ Hogar: 1, Ingreso: 1, "Bre-B": 1 }), "", "tres categorías tampoco");
+  eq(u({}), "", "sin filas previas no hay respuesta");
+  eq(u(null), "", "mapa nulo no revienta");
+  eq(u(undefined), "", "mapa indefinido tampoco");
+
+  // Una etiqueta fuera del allowlist no se propaga: el UI no tiene color para
+  // ella y `updateCategoryInSheet` la rechazaría al persistir.
+  eq(u({ Seguros: 4 }), "", "una etiqueta fuera de ALLOWED_CATEGORIES no se propaga");
+  eq(u({ Transferencia: 2 }), "", "…ni siquiera siendo unánime");
+
+  // La unanimidad se exige sobre TODAS las categorías vistas, no solo las
+  // válidas: una señal mezclada es una señal mezclada.
+  eq(u({ Restaurantes: 5, Seguros: 1 }), "",
+     "válida + inválida sigue siendo señal mezclada");
+
+  eq(u({ Otro: 9 }), "", '"Otro" es el bucket vacío, no una respuesta');
+
+  let todas = true;
+  for (const c of ctx.ALLOWED_CATEGORIES) {
+    if (c === "Otro") continue;
+    if (u({ [c]: 1 }) !== c) { todas = false; console.log("      falló: " + c); }
+  }
+  ok(todas, "cualquier categoría válida se propaga cuando es unánime");
+}
+
+console.log("\n── El worker no pierde trabajo pagado ──");
+{
+  const correr = () => { espia.buscados = []; espia.rellenos = []; return ctx.procesarColaCategorias(); };
+  const cola = (arr) => { props[ctx.WEBCAT_QUEUE_KEY] = JSON.stringify(arr); };
+
+  reset();
+  eq(correr().filas, 0, "cola vacía sale de una");
+  ok(espia.buscados.length === 0, "…sin gastar una sola búsqueda");
+
+  // Camino feliz.
+  reset();
+  espia.respuestas = { KONNYE: "Restaurantes", TEMBICI: "Transporte" };
+  cola(["KONNYE", "TEMBICI"]);
+  let r = correr();
+  eq(r.resueltos, 2, "resuelve los dos comercios de la cola");
+  eq(r.filas, 2, "y los pasa los dos al relleno");
+  eq(JSON.parse(props[ctx.WEBCAT_QUEUE_KEY]).length, 0, "la cola queda vacía");
+
+  // El bug que motivó el cambio: una corrida muere después de cachear pero antes
+  // de escribir la hoja. La corrida siguiente encuentra el comercio ya intentado.
+  // Antes salía por `continue` sin entrar al relleno y se caía de la cola con sus
+  // filas todavía sin categorizar — para siempre.
+  reset();
+  ctx._webcatPut("TIENDAS D1", "Mercado", "web");   // quedó cacheado por la corrida muerta
+  cola(["TIENDAS D1"]);
+  r = correr();
+  eq(espia.buscados.length, 0, "un comercio ya cacheado no se vuelve a pagar");
+  eq(r.filas, 1, "pero SÍ entra al relleno");
+  ok(espia.rellenos.length === 1 && espia.rellenos[0]["TIENDAS D1"] === "Mercado",
+     "…con la categoría que ya estaba en el diccionario");
+  eq(JSON.parse(props[ctx.WEBCAT_QUEUE_KEY]).length, 0, "y recién ahí sale de la cola");
+
+  // Un desconocido cacheado no tiene nada que rellenar, pero tampoco debe
+  // disparar una escritura de hoja vacía.
+  reset();
+  ctx._webcatPut("SIN SUERTE", "", "web");
+  cola(["SIN SUERTE"]);
+  r = correr();
+  eq(r.filas, 0, "un desconocido cacheado no rellena nada");
+  ok(espia.rellenos.length === 0, "…y no dispara una escritura vacía de la hoja");
+
+  // Fallo transitorio: vuelve a la cola y no se cachea.
+  reset();
+  espia.respuestas = { "RED CAIDA": new Error("503") };
+  cola(["RED CAIDA"]);
+  r = correr();
+  eq(r.pendientes, 1, "un fallo transitorio devuelve el comercio a la cola");
+  ok(!ctx._webcatIntentado("RED CAIDA"), "…y no lo marca como intentado");
+
+  // Corte por reloj: lo que no alcanzó vuelve al FRENTE de la cola, sin perderse
+  // ni cambiar de orden.
+  reset();
+  espia.respuestas = { A: "Mercado", B: "Mercado", C: "Mercado" };
+  cola(["A", "B", "C"]);
+  // El reloj hay que moverlo DENTRO del contexto vm: el sandbox tiene su propio
+  // `Date`, así que parchear el del host no lo ve el código bajo prueba.
+  vm.runInContext(
+    "var __realNow = Date.now, __t = 0; Date.now = function(){ __t += 150000; return __t; };",
+    ctx,
+  );                                 // cada consulta del reloj avanza 2,5 min
+  r = correr();
+  vm.runInContext("Date.now = __realNow;", ctx);
+  ok(r.devueltosPorReloj > 0, "el bucle se corta solo cuando se acaba el tiempo");
+  const pend = JSON.parse(props[ctx.WEBCAT_QUEUE_KEY]);
+  eq(pend.length + espia.buscados.length, 3, "no se pierde ni se duplica ningún comercio");
+  ok(pend.length === 0 || pend[0] === "A" || pend[0] === "B" || pend[0] === "C",
+     "lo devuelto vuelve al frente de la cola");
 }
 
 console.log("\n── Parseo de la respuesta del modelo ──");

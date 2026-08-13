@@ -4166,7 +4166,8 @@ var WEBCAT_PREFIX      = "WEBCAT_";
 var WEBCAT_QUEUE_KEY   = "WEBCAT_QUEUE";
 var WEBCAT_DESCONOCIDO = "?";      // marca de caché negativa
 var WEBCAT_REINTENTO_D = 45;       // días antes de reintentar un desconocido
-var WEBCAT_MAX_POR_RUN = 12;       // tope por corrida del trigger (límite de 6 min de GAS)
+var WEBCAT_MAX_POR_RUN = 12;       // tope de comercios que mira una corrida
+var WEBCAT_MAX_MS      = 240000;   // 4 min: corta el bucle antes del límite de 6 de GAS
 var WEBCAT_MAX_COLA    = 200;      // techo de la cola, por si algo la inunda
 
 // Los tres valores que significan "nadie clasificó esto todavía". No basta con
@@ -4185,6 +4186,28 @@ var WEBCAT_SIN_CATEGORIA = ["", "Otro", "Otros"];
 function _webcatSinCategoria(valor) {
   var v = String(valor == null ? "" : valor).trim();
   return WEBCAT_SIN_CATEGORIA.indexOf(v) !== -1;
+}
+
+/**
+ * La categoría que la propia hoja ya le da a un comercio, si es unánime.
+ *
+ * Muchas veces la respuesta no hay que buscarla: el mismo comercio ya aparece
+ * clasificado en otras filas. Preferirla no es solo ahorrarse la búsqueda —es
+ * evitar partir un comercio en dos. TEMBICI tenía 7 filas sin categorizar y otras
+ * ya en Transporte; una búsqueda podría contestar "Deporte" con toda la razón
+ * (es bicicleta compartida) y dejar al mismo comercio repartido entre dos
+ * categorías del presupuesto, que es peor que cualquiera de las dos.
+ *
+ * `conteos` es un mapa categoría → nº de filas. Exige unanimidad sobre TODAS las
+ * categorías vistas, no solo las del allowlist: un comercio que aparece como
+ * "Restaurantes" y "Seguros" es una señal mezclada y se deja para la búsqueda.
+ */
+function _categoriaUnanime(conteos) {
+  if (!conteos) return "";
+  var cats = [];
+  for (var c in conteos) cats.push(c);
+  if (cats.length !== 1) return "";
+  return (ALLOWED_CATEGORIES.indexOf(cats[0]) !== -1 && cats[0] !== "Otro") ? cats[0] : "";
 }
 
 // Memo por ejecución. `detectCategory` se llama en bucles sobre miles de filas
@@ -4403,11 +4426,17 @@ function _categorizeViaWebSearch(comercio) {
 
 /**
  * Worker del trigger: drena la cola de comercios sin categoría, los busca en
- * internet y rellena las filas que quedaron en "Otro".
+ * internet y rellena las filas sin categorizar.
  *
- * Idempotente y acotado: procesa hasta `WEBCAT_MAX_POR_RUN` por corrida para no
- * chocar con el límite de 6 minutos de Apps Script, y usa un lock para que dos
- * corridas simultáneas no busquen el mismo comercio dos veces.
+ * Acotado por RELOJ, no por conteo. Una búsqueda con Opus puede encadenar hasta
+ * tres consultas web, así que un lote de tamaño fijo no tiene una duración
+ * predecible: basta con que unos cuantos comercios salgan lentos para pasarse
+ * del límite de 6 minutos de Apps Script. Cuando eso pasa la ejecución muere sin
+ * llegar al `setProperty` de la cola ni al relleno, así que el trabajo pagado se
+ * pierde y la corrida siguiente lo repite — un bucle que no avanza. Ahora el
+ * bucle se corta solo en `WEBCAT_MAX_MS` y devuelve a la cola lo que no alcanzó.
+ *
+ * Usa un lock para que dos corridas simultáneas no busquen el mismo comercio.
  */
 function procesarColaCategorias() {
   var lock = LockService.getScriptLock();
@@ -4419,20 +4448,39 @@ function procesarColaCategorias() {
   try {
     var sp = PropertiesService.getScriptProperties();
     var cola = JSON.parse(sp.getProperty(WEBCAT_QUEUE_KEY) || '[]');
-    if (!cola.length) return { ok: true, procesados: 0, resueltos: 0, filas: 0 };
+    if (!cola.length) return { ok: true, buscados: 0, resueltos: 0, filas: 0, pendientes: 0 };
 
     var lote      = cola.slice(0, WEBCAT_MAX_POR_RUN);
     var resto     = cola.slice(WEBCAT_MAX_POR_RUN);
     var resueltos = {};
-    var nResueltos = 0;
+    var nBuscados = 0, nNuevos = 0, sinTiempo = 0;
+    var t0 = Date.now();
 
     for (var i = 0; i < lote.length; i++) {
       var comercio = lote[i];
-      if (_webcatIntentado(comercio)) continue;
+
+      // Ya intentado en una corrida anterior: no se vuelve a pagar la búsqueda,
+      // pero SÍ entra al relleno. Sin esto, un comercio que quedó cacheado en una
+      // corrida que murió antes de escribir la hoja se caía de la cola en la
+      // corrida siguiente con sus filas todavía sin categorizar — para siempre.
+      if (_webcatIntentado(comercio)) {
+        var yaTenia = _webcatGet(comercio);
+        if (yaTenia) resueltos[_webcatNormalizar(comercio)] = yaTenia;
+        continue;
+      }
+
+      // Cortar por reloj antes de arrancar una búsqueda que no cabe.
+      if (Date.now() - t0 > WEBCAT_MAX_MS) {
+        resto = lote.slice(i).concat(resto);
+        sinTiempo = lote.length - i;
+        break;
+      }
+
       try {
         var cat = _categorizeViaWebSearch(comercio);
         _webcatPut(comercio, cat, 'web');
-        if (cat) { resueltos[_webcatNormalizar(comercio)] = cat; nResueltos++; }
+        nBuscados++;
+        if (cat) { resueltos[_webcatNormalizar(comercio)] = cat; nNuevos++; }
         Logger.log('webcat: ' + comercio + ' → ' + (cat || 'DESCONOCIDO'));
       } catch (e) {
         // Fallo transitorio (rate limit, red): NO se cachea y vuelve a la cola,
@@ -4444,8 +4492,17 @@ function procesarColaCategorias() {
 
     sp.setProperty(WEBCAT_QUEUE_KEY, JSON.stringify(resto));
 
-    var filas = nResueltos ? _rellenarCategorias(resueltos) : 0;
-    return { ok: true, procesados: lote.length, resueltos: nResueltos, filas: filas, pendientes: resto.length };
+    // El relleno corre si hay CUALQUIER respuesta disponible, nueva o cacheada.
+    var filas = 0;
+    for (var k in resueltos) { filas = _rellenarCategorias(resueltos); break; }
+
+    Logger.log('procesarColaCategorias: ' + nBuscados + ' buscados, ' + nNuevos +
+               ' resueltos, ' + filas + ' filas, ' + resto.length + ' pendientes' +
+               (sinTiempo ? ' (' + sinTiempo + ' devueltos por reloj)' : ''));
+    return {
+      ok: true, buscados: nBuscados, resueltos: nNuevos,
+      filas: filas, pendientes: resto.length, devueltosPorReloj: sinTiempo
+    };
   } finally {
     lock.releaseLock();
   }
@@ -4505,7 +4562,7 @@ function _rellenarCategorias(resueltos) {
 function encolarOtrosExistentes() {
   var users = _getAllowedUsers();
   var vistos = {};
-  var candidatos = 0;
+  var candidatos = 0, porHoja = 0, porDiccionario = 0;
 
   for (var u = 0; u < users.length; u++) {
     var ref = _getSheet(users[u]);
@@ -4519,22 +4576,55 @@ function encolarOtrosExistentes() {
     var comercioCol = hdrs.indexOf('Comercio');
     if (catCol < 0 || comercioCol < 0) continue;
 
+    // Pasada 1: qué categoría le da ya la hoja a cada comercio.
+    var conteos = {};
     for (var i = 1; i < data.length; i++) {
-      if (!_webcatSinCategoria(data[i][catCol])) continue;
-      var comercio = String(data[i][comercioCol] || '').trim();
-      if (!comercio) continue;
-      var norm = _webcatNormalizar(comercio);
-      if (!norm || vistos[norm]) continue;
-      vistos[norm] = true;
-      candidatos++;
-      _encolarComercioDesconocido(comercio);
+      var cActual = String(data[i][catCol] || '').trim();
+      if (_webcatSinCategoria(cActual)) continue;
+      var nA = _webcatNormalizar(data[i][comercioCol]);
+      if (!nA) continue;
+      if (!conteos[nA]) conteos[nA] = {};
+      conteos[nA][cActual] = (conteos[nA][cActual] || 0) + 1;
     }
+
+    // Pasada 2: rellenar lo que ya se puede contestar gratis, encolar el resto.
+    // Una sola escritura por hoja, igual que en `_rellenarCategorias`.
+    var columna = [];
+    var cambio = false;
+    for (var j = 1; j < data.length; j++) {
+      var actual = String(data[j][catCol] || '').trim();
+      var nueva = actual;
+
+      if (_webcatSinCategoria(actual)) {
+        var comercio = String(data[j][comercioCol] || '').trim();
+        var norm = comercio ? _webcatNormalizar(comercio) : '';
+        if (norm) {
+          // La hoja manda sobre el diccionario: refleja las reglas y las
+          // correcciones a mano del usuario sobre ese comercio exacto.
+          var local = _categoriaUnanime(conteos[norm]);
+          var dic   = local ? '' : _webcatGet(comercio);
+          if (local)    { nueva = local; porHoja++;         cambio = true; }
+          else if (dic) { nueva = dic;   porDiccionario++;  cambio = true; }
+          else if (!vistos[norm]) {
+            vistos[norm] = true;
+            candidatos++;
+            _encolarComercioDesconocido(comercio);
+          }
+        }
+      }
+      columna.push([nueva]);
+    }
+    if (cambio) sheet.getRange(2, catCol + 1, columna.length, 1).setValues(columna);
   }
 
   var cola = JSON.parse(PropertiesService.getScriptProperties().getProperty(WEBCAT_QUEUE_KEY) || '[]');
-  Logger.log('encolarOtrosExistentes: ' + candidatos + ' comercios distintos sin categorizar, ' +
-             cola.length + ' en cola');
-  return { ok: true, candidatos: candidatos, enCola: cola.length };
+  Logger.log('encolarOtrosExistentes: ' + porHoja + ' filas resueltas por la propia hoja, ' +
+             porDiccionario + ' por el diccionario, ' + candidatos +
+             ' comercios encolados para buscar, ' + cola.length + ' en cola');
+  return {
+    ok: true, porHoja: porHoja, porDiccionario: porDiccionario,
+    candidatos: candidatos, enCola: cola.length
+  };
 }
 
 /** Diagnóstico: qué tiene el diccionario y qué quedó pendiente. */
