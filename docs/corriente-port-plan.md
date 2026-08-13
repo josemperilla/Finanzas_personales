@@ -70,7 +70,7 @@ Para CADA pantalla:
 2. **¿Cómo te llamas?** — input nombre + grilla de 6 avatars (íconos Lucide: user, sparkles, leaf, coffee, heart, plane).
 3. **Tu meta mensual** — "¿Cuánto quieres gastar al mes?" + chips COP ($1.2M/$1.8M/$2.5M). Reusa `setMeta` de `lib/meta`.
 4. **¿Cómo capturas tus gastos?** — multiselect de canales (SMS/voz/foto extracto/manual) con íconos Lucide.
-5. **Crea tu PIN** — 4–6 dígitos con dots + numpad. (Hoy el PIN se hace en `SetupPin` antes del onboarding; podés moverlo acá o dejar el flujo — decisión de implementación, pero el STEP visual debe existir.)
+5. **Crea tu PIN** — 4–6 dígitos con dots + numpad. (Hoy el PIN se hace en `SetupPin` antes del onboarding; puedes moverlo acá o dejar el flujo — decisión de implementación, pero el STEP visual debe existir.)
 6. **¿Tienes código de invitación?** — input opcional (multi-usuario), skip. Reusa `InviteRedeem`.
 7. **Listo** — celebración calma + CTA "Registrar tu primer movimiento".
 **Done cuando:** los 7 pasos se ven como el prototipo (calma, flow de fondo, tipografía display), progresan con Atrás/Saltar/Continuar, y persisten nombre/avatar/meta/PIN. Build verde.

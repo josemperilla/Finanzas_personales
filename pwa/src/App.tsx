@@ -5,7 +5,7 @@ import { BottomNav, Tab } from './components/BottomNav';
 import FlowBackground from './components/FlowBackground';
 import { PinLock } from './components/PinLock';
 import { ProfileSelector } from './components/ProfileSelector';
-import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, saveCard, Card, getUnknownCards } from './lib/api';
+import { fetchTransactions, setActiveUser, Transaction, hasPin, validatePin, isGasto, fetchCards, saveCard, Card } from './lib/api';
 import { HAS_WEBHOOK_URL } from './lib/config';
 import { detectUnusualCategories } from './lib/analytics';
 import { pageVariants, quickEase, softSpring } from './lib/motion';
@@ -238,10 +238,13 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, loadCards]);
 
   useEffect(() => { if (unlocked) load(); }, [load, unlocked, userId]);
 
+  // `userId` va en las dependencias a propósito: sin él, el closure se congela
+  // con el perfil que estuviera activo al montar y, al cambiar de perfil, este
+  // refresco en segundo plano aplicaría los aprendizajes del usuario anterior.
   const silentLoad = useCallback(async () => {
     if (Date.now() - lastFetchRef.current < 30_000) return;
     try {
@@ -249,7 +252,7 @@ export default function App() {
       setTransactions(userId ? applyLearnings(data, userId) : data);
       lastFetchRef.current = Date.now();
     } catch { /* silently ignore */ }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const onVisible = () => {

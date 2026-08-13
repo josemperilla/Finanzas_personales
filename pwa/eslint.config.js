@@ -26,8 +26,14 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
-      // Baseline permisivo — subir a 'error' tras limpiar:
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // `_` es el marcador de "sin usar a propósito". Aplica igual a argumentos,
+      // variables (`const { ok: _ok, ...data }`) y errores atrapados (`catch (_)`).
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      }],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },

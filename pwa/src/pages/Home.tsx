@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { MonthRecapModal } from '../components/MonthRecapModal';
-import { Transaction, isGasto, isIncomeTx, INCOME_CATEGORY, Card, getUnknownCards, fetchFixedCalendar, FixedPaymentStatus } from '../lib/api';
-import { getProfile, getUserNickname, getUserAvatar, getDisplayName, getUserTimezone } from '../lib/profiles';
+import { Transaction, isGasto, isIncomeTx, Card, getUnknownCards, fetchFixedCalendar, FixedPaymentStatus } from '../lib/api';
+import { getProfile, getUserNickname, getUserAvatar, getUserTimezone } from '../lib/profiles';
 import { formatCOP, formatDateShort, todayInTZ, APP_LOCALE } from '../lib/utils';
 import { getCategoryColor, CATEGORIES } from '../lib/config';
 import { CategorySheet } from '../components/CategorySheet';
@@ -12,7 +12,8 @@ import { FriendlyEmptyState } from '../components/ui/FriendlyEmptyState';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { getMerchantDomain } from '../lib/merchantLogos';
 import { MerchantLogo } from '../components/ui/MerchantLogo';
-import { Icon, categoryIcon } from '../components/ui/icons';
+import { Icon } from '../components/ui/icons';
+import { categoryIcon } from '../lib/categoryIcon';
 import { useCountUp } from '../lib/useCountUp';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { RachaDisplay } from '../components/RachaDisplay';
@@ -122,7 +123,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
   const selMonth = selDate.getMonth();
   const selYear = selDate.getFullYear();
 
-  const currentMonthStr = now.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
   const selMonthStr = selDate.toLocaleDateString(APP_LOCALE, { month: 'long', year: 'numeric' });
 
   const prevMonthIdx = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
@@ -155,19 +155,6 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
   const meta = useMemo(() => getMeta(userId), [userId]);
 
-  const incomeMonth = useMemo(
-    () => monthTx.filter(isIncomeTx).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
-    [monthTx],
-  );
-  const incomePrev = useMemo(
-    () => prevTx.filter(isIncomeTx).reduce((sum, tx) => sum + Number(tx['Monto (COP)'] || 0), 0),
-    [prevTx],
-  );
-  const balanceMonth = incomeMonth - totalMonth;
-  const balancePrev = incomePrev - totalPrev;
-  const balanceDiff = balancePrev !== 0 ? ((balanceMonth - balancePrev) / Math.abs(balancePrev)) * 100 : 0;
-  const animatedBalance = useCountUp(loading ? 0 : balanceMonth);
-
   const retosProgress = useMemo(
     () => getRetos(userId).map(r => computeProgress(r, transactions)),
     [userId, transactions],
@@ -183,7 +170,13 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
     [userId],
   );
 
-  const racha = useMemo(() => getGamification(userId).racha, [userId, gamificationKey]);
+  const racha = useMemo(() => {
+    // `gamificationKey` no se lee acá: es la clave de invalidación que App.tsx
+    // incrementa tras `updateRacha`. Sin ella el memo nunca releería localStorage,
+    // que es una fuente que React no puede observar.
+    void gamificationKey;
+    return getGamification(userId).racha;
+  }, [userId, gamificationKey]);
 
   const desafioActual = useMemo(() => getDesafioActual(), []);
   const desafioProgress = useMemo(
@@ -658,7 +651,7 @@ export function Home({ transactions, loading, error, missingConfig, highlightLat
 
       <AnimatePresence>
         {showRecap && (
-          <MonthRecapModal transactions={transactions} userId={userId} onClose={() => setShowRecap(false)} />
+          <MonthRecapModal transactions={transactions} onClose={() => setShowRecap(false)} />
         )}
       </AnimatePresence>
     </div>

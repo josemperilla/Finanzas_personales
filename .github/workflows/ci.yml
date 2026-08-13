@@ -25,9 +25,13 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run test
+      # Rompe ante archivos o dependencias sin usar. Los exports sueltos solo
+      # se listan (ver knip.json): `lib/api.ts` expone clientes de endpoints que
+      # el backend ya sirve pero que todavía no tienen UI.
+      - run: npm run deadcode
 
   drift-check:
-    name: Category drift (UI vs webhook.gs)
+    name: Drift (UI vs webhook.gs vs extensión)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,3 +44,33 @@ jobs:
       # en webhook.gs — así que este check ahora bloquea el merge si hay drift nuevo.
       - name: Check category drift
         run: node scripts/check-category-drift.mjs
+
+      # Todo providerId que la extensión detecte tiene que existir en el catálogo
+      # canónico (pwa/src/lib/providers.ts). Lo contrario es informativo.
+      - name: Check provider drift
+        run: node scripts/check-provider-drift.mjs
+
+  backend:
+    name: Tests del backend (Apps Script)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `webhook.gs` no se puede importar: estos scripts cargan sus funciones
+      # puras con el módulo `vm` de Node y las ejercitan sin tocar Google.
+      # Antes solo corrían a mano, así que una regresión en la ingesta (la
+      # idempotencia por huella, la fusión de Bre-B) pasaba el PR sin ruido.
+      - name: Idempotencia de la ingesta de SMS
+        run: node scripts/test-ingest-dedup.mjs
+
+      - name: Fusión de notificaciones duplicadas de Bre-B
+        run: node scripts/test-itau-breb-merge.mjs
+
+      # Sin WEBHOOK_EXEC_URL/WEBHOOK_SECRET el script sale con código 2 (omitido).
+      # `--self-test` valida la lógica del harness contra casos sintéticos, que es
+      # lo que se puede correr sin un deployment real ni secretos en CI.
+      - name: Seguridad del webhook (harness)
+        run: node scripts/test-webhook-security.mjs --self-test

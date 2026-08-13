@@ -14,14 +14,13 @@ interface DetectedTx {
 }
 
 interface Props {
-  userId: string;
   onClose: () => void;
   onImported?: () => void;
 }
 
 type Phase = 'pick' | 'preview' | 'analyzing' | 'review' | 'saving' | 'done' | 'error';
 
-export function ImportarExtractoPorFoto({ userId, onClose, onImported }: Props) {
+export function ImportarExtractoPorFoto({ onClose, onImported }: Props) {
   const [phase, setPhase]               = useState<Phase>('pick');
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [mediaType, setMediaType]       = useState('image/jpeg');

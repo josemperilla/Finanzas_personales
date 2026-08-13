@@ -12,7 +12,7 @@ interface Props {
 }
 
 function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-');
+  const [, m, d] = dateStr.split('-');
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return `${d} ${months[Number(m) - 1]}`;
 }

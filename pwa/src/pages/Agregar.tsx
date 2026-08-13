@@ -5,7 +5,8 @@ import { CATEGORIES, HAS_WEBHOOK_URL, BUDGET_WARNING_RATIO } from '../lib/config
 import { getBudgets } from '../lib/budgets';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { SuccessCheck } from '../components/ui/SuccessCheck';
-import { Icon, categoryIcon } from '../components/ui/icons';
+import { Icon } from '../components/ui/icons';
+import { categoryIcon } from '../lib/categoryIcon';
 import { quickEase, softSpring, popVariants } from '../lib/motion';
 import { getUserTimezone } from '../lib/profiles';
 import { todayInTZ, APP_LOCALE } from '../lib/utils';

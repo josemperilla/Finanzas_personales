@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { quickEase, riseItem, softSpring, staggerContainer } from '../lib/motion';
 import { getSuenos, addSueno, deleteSueno, generarRetosParaSueno } from '../lib/suenos';
-import { addReto, getRetos, computeProgress, periodDates } from '../lib/retos';
+import { addReto, periodDates } from '../lib/retos';
 import { addXP, awardBadge } from '../lib/gamification';
 import type { Sueno, RetoSugerido } from '../lib/suenos';
 import type { Transaction } from '../lib/api';
@@ -43,14 +43,6 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
   const reload = useCallback(() => setSuenos(getSuenos(userId)), [userId]);
   useEffect(() => { reload(); }, [reload]);
 
-  const retosActivos = getRetos(userId)
-    .map(r => computeProgress(r, transactions))
-    .filter(p => !p.completed && !p.failed);
-
-  const retosCompletados = getRetos(userId)
-    .map(r => computeProgress(r, transactions))
-    .filter(p => p.completed);
-
   const handleCrearSueno = useCallback(() => {
     const monto = parseInt(form.monto.replace(/\D/g, ''), 10);
     if (!form.nombre.trim()) { setFormError('Escribe el nombre del sueño'); return; }
@@ -77,7 +69,7 @@ export function Misiones({ transactions, userId, onNewBadge, onXpGanado }: Props
     setForm({ nombre: '', emoji: '✈️', monto: '', fechaObjetivo: defaultFecha() });
     setFormError('');
     reload();
-  }, [form, userId, reload, onNewBadge]);
+  }, [form, userId, reload, onNewBadge, onXpGanado]);
 
   const handleAceptarReto = useCallback((reto: RetoSugerido) => {
     const { fechaInicio, fechaFin } = periodDates('mes');

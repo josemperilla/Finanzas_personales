@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
 import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { formatCOP, APP_LOCALE } from '../lib/utils';
@@ -9,7 +9,6 @@ import { softSpring } from '../lib/motion';
 
 interface Props {
   transactions: Transaction[];
-  userId: string;
   onClose: () => void;
 }
 
@@ -104,7 +103,7 @@ function Confetti() {
   );
 }
 
-export function MonthRecapModal({ transactions, userId, onClose }: Props) {
+export function MonthRecapModal({ transactions, onClose }: Props) {
   const recap = useRef(buildRecap(transactions)).current;
   const panelRef = useRef<HTMLDivElement>(null);
   const hasData = recap.total > 0;

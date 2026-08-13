@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Transaction } from '../lib/api';
-import { CATEGORIES, getCategoryColor } from '../lib/config';
+import { getCategoryColor } from '../lib/config';
 import { getRetos, computeProgress } from '../lib/retos';
 import { RetoWidget } from './RetoWidget';
 import { formatCOP as fmt, APP_LOCALE } from '../lib/utils';

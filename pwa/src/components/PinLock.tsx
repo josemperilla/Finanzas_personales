@@ -140,7 +140,7 @@ export function PinLock({ userId, onUnlock, onSwitchProfile }: Props) {
         setTimeout(() => { setStatus('idle'); setDigits([]); digitsRef.current = []; }, 1000);
       });
     }
-  }, [status, lockSecondsLeft, onUnlock]);
+  }, [status, lockSecondsLeft, onUnlock, userId, bioSupported, bioRegistered]);
 
   const handleDelete = useCallback(() => {
     if (status !== 'idle' || lockSecondsLeft > 0) return;

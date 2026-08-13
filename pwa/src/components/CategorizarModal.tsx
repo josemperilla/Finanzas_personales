@@ -6,7 +6,6 @@ import { useOverlayA11y } from '../lib/useOverlayA11y';
 import { CATEGORIES } from '../lib/config';
 import { formatCOP } from '../lib/utils';
 import { cleanMerchant } from '../lib/merchantCleaner';
-import { getCategoryColor } from '../lib/config';
 import { softSpring, quickEase } from '../lib/motion';
 import { MerchantLogo } from './ui/MerchantLogo';
 import { getMerchantDomain } from '../lib/merchantLogos';

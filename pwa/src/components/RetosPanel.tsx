@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Reto, RetoTipo, RetoSugerido, getRetos, addReto, deleteReto, computeProgress, periodDates, getRetoSemanalSugerido, aceptarRetoSemanal } from '../lib/retos';
 import { Transaction } from '../lib/api';
-import { CATEGORIES, getCategoryColor } from '../lib/config';
+import { CATEGORIES } from '../lib/config';
 import { cleanMerchant } from '../lib/merchantCleaner';
 import { RetoCard } from './RetoCard';
 import { softSpring, quickEase } from '../lib/motion';

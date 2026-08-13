@@ -21,6 +21,12 @@ Extractos_lectura/
 # Test framework cache (se regenera automáticamente)
 .hypothesis/
 
+# Respaldos del Sheet (historial financiero real del usuario). Los genera
+# cualquiera que corra una migración antes de tocar la base. Este repo es
+# PÚBLICO: un `git add -A` distraído publicaría cada transacción.
+backup-sheet-*.json
+*-backup-*.json
+
 # wrangler files
 .wrangler
 .dev.vars*

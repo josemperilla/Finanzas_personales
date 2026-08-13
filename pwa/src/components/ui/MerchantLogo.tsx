@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Icon, categoryIcon, type IconName } from './icons';
+import { Icon, type IconName } from './icons';
+import { categoryIcon } from '../../lib/categoryIcon';
 
 interface Props {
   domain: string | null;

@@ -487,7 +487,7 @@ function FixedPaymentForm({ initial, onSave, onClose }: { initial?: FixedPayment
   );
 }
 
-function FixedCalendarSection({ userId }: { userId: string }) {
+function FixedCalendarSection() {
   const [data, setData] = useState<FixedCalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1329,7 +1329,7 @@ export function Cuentas({ userId, transactions, initialCard, initialSection, onB
 
       {/* Fixed Payment Calendar */}
       <div ref={fixedRef} style={{ scrollMarginTop: 16 }}>
-        <FixedCalendarSection userId={userId} />
+        <FixedCalendarSection />
       </div>
 
       {/* Net Worth */}

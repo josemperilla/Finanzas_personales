@@ -390,7 +390,7 @@ async function main() {
     if (!execUrl || !webhookSecret) {
       console.error(
         'Faltan WEBHOOK_EXEC_URL y/o WEBHOOK_SECRET. Ver el encabezado de este archivo para\n' +
-        'la lista completa de variables, o corré `node scripts/test-webhook-security.mjs --self-test`\n' +
+        'la lista completa de variables, o corre `node scripts/test-webhook-security.mjs --self-test`\n' +
         'para validar la lógica del harness sin un deployment real.'
       );
       process.exit(2);

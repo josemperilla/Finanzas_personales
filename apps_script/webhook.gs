@@ -4305,7 +4305,7 @@ function sendFridayNudgeTrigger() {
       if (fridaySpend.length >= 3) {
         var avg = Math.round(fridaySpend.reduce(function(s,t){ return s+(Number(t['Monto (COP)'])||0); },0)/fridaySpend.length);
         MailApp.sendEmail({ to: email, subject: '🍕 ¡Llega el viernes!',
-          htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>'+_formatCOP(avg)+'</strong> en restaurantes y domicilios. ¿Lo tenés en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
+          htmlBody: '<div style="font-family:sans-serif"><p>Son las 5pm del viernes. Los últimos 3 fines de semana gastaste en promedio <strong>'+_formatCOP(avg)+'</strong> en restaurantes y domicilios. ¿Lo tienes en tu presupuesto?</p><p style="color:#94a3b8;font-size:11px">Finanzas Personales</p></div>'
         });
         sp.setProperty(nudgeKey, JSON.stringify({ date: today, type: 'friday-restaurant' }));
       }
