@@ -4473,6 +4473,50 @@ function _rellenarCategorias(resueltos) {
   return tocadas;
 }
 
+/**
+ * Siembra la cola con los comercios que YA están en "Otro" en las hojas.
+ *
+ * La cola solo se llena desde la ingesta, así que sin esto el feature arrancaría
+ * mirando hacia adelante y dejaría intacto el histórico — que es justo donde
+ * están los comercios acumulados. Correr una vez desde el editor de Apps Script
+ * después de desplegar; es idempotente (lo ya intentado no se re-encola), así
+ * que volver a correrla no hace daño.
+ */
+function encolarOtrosExistentes() {
+  var users = _getAllowedUsers();
+  var vistos = {};
+  var candidatos = 0;
+
+  for (var u = 0; u < users.length; u++) {
+    var ref = _getSheet(users[u]);
+    var sheet = ref && ref.sheet;
+    if (!sheet) continue;
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) continue;
+    var hdrs = data[0];
+    var catCol      = hdrs.indexOf('Categoría');
+    var comercioCol = hdrs.indexOf('Comercio');
+    if (catCol < 0 || comercioCol < 0) continue;
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][catCol] || '').trim() !== 'Otro') continue;
+      var comercio = String(data[i][comercioCol] || '').trim();
+      if (!comercio) continue;
+      var norm = _webcatNormalizar(comercio);
+      if (!norm || vistos[norm]) continue;
+      vistos[norm] = true;
+      candidatos++;
+      _encolarComercioDesconocido(comercio);
+    }
+  }
+
+  var cola = JSON.parse(PropertiesService.getScriptProperties().getProperty(WEBCAT_QUEUE_KEY) || '[]');
+  Logger.log('encolarOtrosExistentes: ' + candidatos + ' comercios distintos en "Otro", ' +
+             cola.length + ' en cola');
+  return { ok: true, candidatos: candidatos, enCola: cola.length };
+}
+
 /** Diagnóstico: qué tiene el diccionario y qué quedó pendiente. */
 function estadoCategoriasWeb() {
   var dic = _webcatCargar();
