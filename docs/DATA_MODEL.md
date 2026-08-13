@@ -80,6 +80,9 @@ Set/get vía `PropertiesService.getScriptProperties()`. Sensibles a mayúsculas.
 | `CLAUDE_SMS_MODEL` | Modelo para `parseSmsFallback` (parser IA de SMS no reconocidos). Default Haiku. |
 | `CLAUDE_COACH_MODEL` | Modelo para `_spendingCoach` (insights + retos). Default Haiku. |
 | `CLAUDE_HEALTH_REPORT_MODEL` | Modelo para `_generateHealthReport` (reporte mensual; Default Sonnet — decisión de producto, ver TODOS.md). |
+| `CLAUDE_CATEGORIZE_MODEL` | Modelo para `_categorizeViaWebSearch`. Default `claude-opus-5`. **No puede ser Haiku:** `web_search_20260209` exige Opus 4.6+/Sonnet 4.6+. |
+| `WEBCAT_<hash16>` | Entrada del diccionario de comercios resueltos por búsqueda web. Clave = MD5 del nombre normalizado. Valor JSON `{m: normalizado, c: categoría o "?", t: timestamp, f: fuente}`. `"?"` es la **caché negativa** (se reintenta a los 45 días); una categoría resuelta no caduca nunca. |
+| `WEBCAT_QUEUE` | JSON array de comercios normalizados pendientes de buscar. Tope 200. Lo llena la ingesta (`detectCategoryIngesta`) y lo drena el trigger `procesarColaCategorias` (cada 15 min, 12 por corrida). |
 | `APP_USER_DISABLED_<id>` | `"true"` → usuario bloqueado. |
 | `APP_PROFILE_NAME_<id>` / `APP_PROFILE_AVATAR_<id>` | Perfil cross-device (sincronizado). |
 | `APP_ALERT_EMAIL_<id>` / `APP_ALERT_THRESHOLD_<id>` | Alertas de gasto por email. |
@@ -139,10 +142,45 @@ Suscripciones · Viajes · Software · Bre-B · Entretenimiento · Otro
   categorías que se asignan por otros caminos (campo `Tipo`, prompt de Haiku, edición manual,
   `RULES_<id>` del usuario). Por eso el check de drift ancla en `ALLOWED_CATEGORIES`.
 - **Al añadir/quitar una categoría:** edita `ALLOWED_CATEGORIES` **Y** `CATEGORIES`, y corre
-  `node scripts/check-category-drift.mjs`. Hoy hay drift conocido: "Bre-B" está en el UI pero el
-  picker la ofrece mientras `detectCategory` no la asigna (CI corre en `continue-on-error`).
+  `node scripts/check-category-drift.mjs`. Hoy **no hay drift**, y el check **bloquea el merge**
+  en CI (job `drift-check`, sin `continue-on-error`).
 
-`normalizeCategory()` mapea nombres obsoletos a los nuevos (`Comida`→`Restaurantes`, `Ropa`→`Compras`, …).
+`normalizeCategory()` (`pwa/src/lib/config.ts` — vive en la PWA, no en GAS) mapea nombres
+obsoletos a los nuevos (`Comida`→`Restaurantes`, `Ropa`→`Compras`, `Otros`→`Otro`, …). Es solo
+para **render**: no reescribe la hoja.
+
+### 5.1 "Sin categorizar" son tres valores, no uno
+
+`Otro` no es la única forma en que una fila queda sin clasificar, y asumir que sí lo era dejó
+fuera a más de la mitad del histórico cuando se construyó la categorización por búsqueda web:
+
+| valor en la celda | de dónde sale |
+|---|---|
+| `Otro` | fallback de `detectCategory` |
+| **vacío** | import retroactivo de extractos (`Fuente: MANUAL`), que nunca escribió categoría |
+| **`Otros`** | tanda vieja con el plural; está **fuera** de `ALLOWED_CATEGORIES` |
+
+`webhook.gs:_webcatSinCategoria()` es el predicado único. Cualquier otro valor —incluso uno
+fuera del allowlist, como `Seguros` o `Transferencia`— es la decisión de alguien y **no se
+toca**: pisarlo pierde información en vez de ganarla.
+
+### 5.2 Categorización de comercios nuevos por búsqueda web
+
+Cuando ninguna regla reconoce un comercio, se busca en internet **una vez en la vida** y el
+resultado queda en el diccionario `WEBCAT_*` (§2). La búsqueda **no corre en la ingesta** —el
+iOS Shortcut espera la respuesta del webhook y 5-15 s de búsqueda le agregarían latencia y un
+modo de falla nuevo al camino crítico—: `detectCategoryIngesta` encola y el trigger resuelve
+aparte, así que la categoría aparece a los pocos minutos.
+
+El relleno solo toca filas que cumplan `_webcatSinCategoria`, así que nunca pisa una categoría
+puesta a mano. Tres funciones se corren **a mano desde el editor de Apps Script** (`clasp run`
+no sirve: el proyecto no está desplegado como API executable):
+
+| función | para qué |
+|---|---|
+| `setupCategoriasWebTrigger()` | crea el trigger de 15 min. Una sola vez. |
+| `encolarOtrosExistentes()` | siembra la cola con el histórico sin categorizar. Idempotente. |
+| `estadoCategoriasWeb()` | diagnóstico: resueltos, desconocidos y cola pendiente. |
 
 ## 6. Contrato de proveedores / conectores de facturas
 
