@@ -46,7 +46,7 @@ Comandos que corre `/health` para el tablero de calidad. Todos corren también e
 - test: `cd pwa && npm run test`
 - deadcode: `cd pwa && npm run deadcode` (knip)
 - drift: `node scripts/check-category-drift.mjs && node scripts/check-provider-drift.mjs`
-- backend: `node scripts/test-ingest-dedup.mjs && node scripts/test-itau-breb-merge.mjs && node scripts/test-webhook-security.mjs --self-test`
+- backend: `node scripts/test-ingest-dedup.mjs && node scripts/test-itau-breb-merge.mjs && node scripts/test-webcat.mjs && node scripts/test-webhook-security.mjs --self-test`
 - shell: no configurado (shellcheck no instalado)
 
 Dos detalles que no son obvios:

@@ -76,6 +76,12 @@ jobs:
       - name: Fusión de notificaciones duplicadas de Bre-B
         run: node scripts/test-itau-breb-merge.mjs
 
+      # Normalización del nombre del comercio, caché (positiva y negativa) y
+      # parseo de la respuesta del modelo. La llamada a Anthropic no se prueba
+      # acá — no hay clave en CI y no queremos gastar en cada PR.
+      - name: Categorización de comercios por búsqueda web
+        run: node scripts/test-webcat.mjs
+
       # Sin WEBHOOK_EXEC_URL/WEBHOOK_SECRET el script sale con código 2 (omitido).
       # `--self-test` valida la lógica del harness contra casos sintéticos, que es
       # lo que se puede correr sin un deployment real ni secretos en CI.
