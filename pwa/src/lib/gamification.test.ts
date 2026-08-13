@@ -194,4 +194,29 @@ describe('registrarVisita / getVisitasSemana / getWeekId', () => {
     const d = new Date(id + 'T12:00:00');
     expect(d.getDay()).toBe(1);
   });
+
+  // Regresión: la versión vieja hacía la aritmética en local y serializaba con
+  // toISOString(). En Bogotá (UTC-5), de las 19:00 en adelante eso corría la
+  // clave un día y partía la semana en dos. CI corre en UTC, donde local y UTC
+  // coinciden, así que solo fallaba en la máquina del usuario y de noche.
+  // Estos casos inyectan la hora, así que fallan en cualquier zona horaria.
+  it('getWeekId no se corre de día por la tarde-noche (bug de UTC)', () => {
+    // Miércoles 12-ago-2026. El lunes de esa semana es el 10.
+    for (const hora of [0, 9, 18, 19, 21, 23]) {
+      const id = getWeekId(new Date(2026, 7, 12, hora, 30, 0));
+      expect(id, `a las ${hora}:30 debería seguir siendo el lunes 10`).toBe('2026-08-10');
+    }
+  });
+
+  it('getWeekId trata el domingo como fin de la semana que empezó el lunes', () => {
+    // Domingo 16-ago-2026 → lunes 10, no el 17.
+    expect(getWeekId(new Date(2026, 7, 16, 23, 0, 0))).toBe('2026-08-10');
+  });
+
+  it('getWeekId cruza bien el cambio de mes y de año', () => {
+    // Miércoles 1-jul-2026 → lunes 29-jun.
+    expect(getWeekId(new Date(2026, 6, 1, 20, 0, 0))).toBe('2026-06-29');
+    // Viernes 1-ene-2027 → lunes 28-dic-2026.
+    expect(getWeekId(new Date(2027, 0, 1, 20, 0, 0))).toBe('2026-12-28');
+  });
 });

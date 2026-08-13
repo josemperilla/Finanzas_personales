@@ -9,6 +9,13 @@ jobs:
   pwa:
     name: Lint + Build + Test (PWA)
     runs-on: ubuntu-latest
+    # Los runners corren en UTC, donde la hora local y UTC coinciden y cualquier
+    # bug de conversión de zona se vuelve invisible. `getWeekId` devolvía martes
+    # en vez de lunes a partir de las 19:00 en Bogotá y CI nunca lo vio. La app
+    # es de zona `America/Bogota` (ver AGENTS.md §Idioma y unidades), así que CI
+    # corre ahí.
+    env:
+      TZ: America/Bogota
     defaults:
       run:
         working-directory: pwa
