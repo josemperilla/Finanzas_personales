@@ -66,7 +66,9 @@ vm.runInContext(
     grabVar("WEBCAT_REINTENTO_D"),
     grabVar("WEBCAT_MAX_POR_RUN"),
     grabVar("WEBCAT_MAX_COLA"),
+    grabVar("WEBCAT_SIN_CATEGORIA"),
     grabVar("_webcatMemo"),
+    grabFn("_webcatSinCategoria"),
     grabFn("_webcatCargar"),
     grabFn("_webcatClave"),
     grabFn("_webcatNormalizar"),
@@ -108,6 +110,35 @@ console.log("\n── Normalización del nombre del comercio ──");
   ok(ctx._webcatClave("RAPPI") !== ctx._webcatClave("UBER"),
      "comercios distintos no colisionan");
   eq(ctx._webcatClave(""), null, "sin nombre no hay clave");
+}
+
+console.log("\n── Qué cuenta como \"sin categorizar\" ──");
+{
+  const sin = ctx._webcatSinCategoria;
+
+  // Los tres que sí. Anclarse solo a "Otro" dejaba fuera a más de la mitad del
+  // histórico: el import retroactivo de extractos escribe la celda vacía y una
+  // tanda vieja quedó en "Otros" (plural).
+  ok(sin("Otro"), '"Otro" está sin categorizar');
+  ok(sin(""), "la celda vacía está sin categorizar");
+  ok(sin("Otros"), '"Otros" (plural, legado del import) está sin categorizar');
+  ok(sin(null), "null no revienta y cuenta como sin categorizar");
+  ok(sin(undefined), "undefined tampoco revienta");
+  ok(sin("   "), "solo espacios cuenta como vacío");
+  ok(sin(" Otro "), "los espacios alrededor no esconden un \"Otro\"");
+
+  // Los que NO: pisar esto sería perder información que alguien puso.
+  ok(!sin("Restaurantes"), "una categoría válida no se toca");
+  ok(!sin("Seguros"), '"Seguros" no está en el allowlist, pero es la decisión de alguien: no se toca');
+  ok(!sin("Transferencia"), '"Transferencia" (legado) tampoco se toca');
+  ok(!sin("Suscripción "), '"Suscripción " con espacio al final tampoco: trimmed sigue siendo una etiqueta');
+  ok(!sin("Bre-B"), "Bre-B no se toca");
+
+  // Ninguna categoría del allowlist —salvo "Otro"— puede contar como vacía, o
+  // el relleno pisaría trabajo ya hecho.
+  const pisables = ctx.ALLOWED_CATEGORIES.filter((c) => c !== "Otro" && sin(c));
+  ok(pisables.length === 0,
+     `ninguna categoría válida se considera vacía${pisables.length ? " (pisables: " + pisables.join(", ") + ")" : ""}`);
 }
 
 console.log("\n── Diccionario: lectura y escritura ──");

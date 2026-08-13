@@ -4169,6 +4169,24 @@ var WEBCAT_REINTENTO_D = 45;       // días antes de reintentar un desconocido
 var WEBCAT_MAX_POR_RUN = 12;       // tope por corrida del trigger (límite de 6 min de GAS)
 var WEBCAT_MAX_COLA    = 200;      // techo de la cola, por si algo la inunda
 
+// Los tres valores que significan "nadie clasificó esto todavía". No basta con
+// "Otro": el import retroactivo de extractos (Fuente MANUAL) dejó filas con la
+// celda de categoría VACÍA, y una tanda vieja quedó en "Otros" —plural, fuera
+// de ALLOWED_CATEGORIES, así que el picker del UI ni siquiera la ofrece—.
+// Medido sobre la hoja real: 45 comercios en "Otro" contra 51 repartidos entre
+// vacío y "Otros", o sea que anclarse a la cadena "Otro" dejaba fuera a más de
+// la mitad del histórico sin categorizar.
+//
+// Cualquier otro valor es una decisión de alguien y no se toca, aunque esté
+// fuera del allowlist ("Seguros", "Transferencia"): pisarlo sería perder
+// información, no ganarla.
+var WEBCAT_SIN_CATEGORIA = ["", "Otro", "Otros"];
+
+function _webcatSinCategoria(valor) {
+  var v = String(valor == null ? "" : valor).trim();
+  return WEBCAT_SIN_CATEGORIA.indexOf(v) !== -1;
+}
+
 // Memo por ejecución. `detectCategory` se llama en bucles sobre miles de filas
 // (recategorizeAll), así que el diccionario se lee una vez y se reusa.
 var _webcatMemo = null;
@@ -4273,7 +4291,7 @@ function _encolarComercioDesconocido(comercio) {
  */
 function detectCategoryIngesta(comercio, userId) {
   var cat = detectCategory(comercio, userId);
-  if (cat === "Otro" && comercio) _encolarComercioDesconocido(comercio);
+  if (comercio && _webcatSinCategoria(cat)) _encolarComercioDesconocido(comercio);
   return cat;
 }
 
@@ -4434,9 +4452,10 @@ function procesarColaCategorias() {
 }
 
 /**
- * Reescribe la categoría de las filas que están en "Otro" y cuyo comercio ya
- * quedó resuelto. Solo toca "Otro": una categoría puesta a mano por el usuario
- * o acertada por las reglas no se pisa nunca.
+ * Reescribe la categoría de las filas sin categorizar cuyo comercio ya quedó
+ * resuelto. "Sin categorizar" es lo que define `_webcatSinCategoria`: vacío,
+ * "Otro" u "Otros". Una categoría puesta a mano por el usuario o acertada por
+ * las reglas no se pisa nunca.
  */
 function _rellenarCategorias(resueltos) {
   var users = _getAllowedUsers();
@@ -4462,7 +4481,7 @@ function _rellenarCategorias(resueltos) {
     for (var i = 1; i < data.length; i++) {
       var actual = String(data[i][catCol] || '').trim();
       var nueva = actual;
-      if (actual === 'Otro') {
+      if (_webcatSinCategoria(actual)) {
         var clave = _webcatNormalizar(data[i][comercioCol]);
         if (clave && resueltos[clave]) { nueva = resueltos[clave]; tocadas++; cambio = true; }
       }
@@ -4474,7 +4493,8 @@ function _rellenarCategorias(resueltos) {
 }
 
 /**
- * Siembra la cola con los comercios que YA están en "Otro" en las hojas.
+ * Siembra la cola con los comercios que las hojas ya tienen sin categorizar
+ * (vacío, "Otro" u "Otros" — ver `_webcatSinCategoria`).
  *
  * La cola solo se llena desde la ingesta, así que sin esto el feature arrancaría
  * mirando hacia adelante y dejaría intacto el histórico — que es justo donde
@@ -4500,7 +4520,7 @@ function encolarOtrosExistentes() {
     if (catCol < 0 || comercioCol < 0) continue;
 
     for (var i = 1; i < data.length; i++) {
-      if (String(data[i][catCol] || '').trim() !== 'Otro') continue;
+      if (!_webcatSinCategoria(data[i][catCol])) continue;
       var comercio = String(data[i][comercioCol] || '').trim();
       if (!comercio) continue;
       var norm = _webcatNormalizar(comercio);
@@ -4512,7 +4532,7 @@ function encolarOtrosExistentes() {
   }
 
   var cola = JSON.parse(PropertiesService.getScriptProperties().getProperty(WEBCAT_QUEUE_KEY) || '[]');
-  Logger.log('encolarOtrosExistentes: ' + candidatos + ' comercios distintos en "Otro", ' +
+  Logger.log('encolarOtrosExistentes: ' + candidatos + ' comercios distintos sin categorizar, ' +
              cola.length + ' en cola');
   return { ok: true, candidatos: candidatos, enCola: cola.length };
 }
