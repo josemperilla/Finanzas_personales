@@ -14,8 +14,6 @@ export function LevelHeroCard({ userId }: Props) {
   const nivelSig = NIVELES.find(n => n.nivel === state.nivel + 1);
   const animatedXP = useCountUp(state.xp);
   const xpMax = nivelSig ? nivelSig.xpMin : state.xp;
-  const xpMin = nivelActual.xpMin;
-  const xpCurrent = state.xp;
 
   const dashFill = Math.round(pct * 100);
   const dashEmpty = 100 - dashFill;

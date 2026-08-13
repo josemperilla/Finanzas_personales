@@ -98,24 +98,5 @@ export function Icon({ name, size = 18, style, filled }: { name: IconName; size?
   );
 }
 
-/** Mapeo categoría → ícono (14 categorías de la app). */
-const CATEGORY_ICON: Record<string, IconName> = {
-  Restaurantes: 'utensils',
-  Domicilios: 'truck',
-  Mercado: 'cart',
-  Transporte: 'car',
-  Hogar: 'home',
-  Salud: 'heart',
-  Deporte: 'dumbbell',
-  Compras: 'bag',
-  Suscripciones: 'repeat',
-  Viajes: 'plane',
-  Software: 'code',
-  'Bre-B': 'smartphone',
-  Entretenimiento: 'film',
-  Otro: 'more',
-};
-
-export function categoryIcon(category: string): IconName {
-  return CATEGORY_ICON[category] ?? 'receipt';
-}
+// `categoryIcon` vive en `lib/categoryIcon.ts`: este módulo solo exporta
+// componentes para no romper el Fast Refresh de Vite.

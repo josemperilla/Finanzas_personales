@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { setupPin } from '../lib/api';
 import { quickEase, softSpring } from '../lib/motion';
-import { getProfile } from '../lib/profiles';
 
 interface Props {
   userId: string;
@@ -21,7 +20,6 @@ const rows = [
 type Step = 'enter' | 'confirm';
 
 export function SetupPin({ userId, inviteCode, onComplete, onSwitchProfile }: Props) {
-  const profile = getProfile(userId);
   const [step, setStep]       = useState<Step>('enter');
   const [first, setFirst]     = useState('');
   const [digits, setDigits]   = useState('');

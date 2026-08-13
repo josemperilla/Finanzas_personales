@@ -4,7 +4,6 @@ import { LevelHeroCard } from '../components/LevelHeroCard';
 import { RachaCalendarCard } from '../components/RachaCalendarCard';
 import { CirculosBienestar } from '../components/CirculosBienestar';
 import { BadgeGallery } from '../components/BadgeGallery';
-import { getGamification } from '../lib/gamification';
 import { getRetos, computeProgress } from '../lib/retos';
 import { getUserNickname, getProfile } from '../lib/profiles';
 import type { Transaction } from '../lib/api';
@@ -16,7 +15,6 @@ interface Props {
 }
 
 export function Progreso({ userId, transactions }: Props) {
-  const state = getGamification(userId);
   const retosProgress: RetoProgress[] = getRetos(userId).map(r => computeProgress(r, transactions));
   const displayName = getUserNickname(userId) || getProfile(userId)?.name || userId;
 

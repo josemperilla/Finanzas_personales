@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["src/test/**"],
+  "ignoreDependencies": ["@capacitor/core", "@capacitor/ios", "@capacitor/cli"],
+  "includeEntryExports": false,
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "binaries": "error",
+    "exports": "warn",
+    "types": "warn",
+    "duplicates": "warn",
+    "enumMembers": "off"
+  }
+}

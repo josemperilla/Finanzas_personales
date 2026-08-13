@@ -166,12 +166,30 @@ export function getVisitasSemana(userId: string): number {
   return Number(localStorage.getItem(weekKey) || '0');
 }
 
-export function getWeekId(): string {
-  const d = new Date();
-  const dayOfWeek = d.getDay();
-  const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
-  return monday.toISOString().split('T')[0];
+/**
+ * Lunes de la semana de `now`, como `YYYY-MM-DD` en hora **local**.
+ *
+ * Es la clave con la que se agrupan las visitas semanales y el reto de la
+ * semana, así que tiene que ser estable durante todo el día calendario del
+ * usuario.
+ *
+ * La versión anterior hacía la aritmética en local y luego serializaba con
+ * `toISOString()`, que convierte a UTC: en Bogotá (UTC-5), a partir de las
+ * 19:00 el lunes correcto se serializaba como el martes siguiente. Una visita
+ * de la noche caía en una clave distinta a las del mismo día por la mañana y
+ * la racha semanal se partía en dos. CI corre en UTC, donde local y UTC
+ * coinciden, así que el bug era invisible ahí.
+ *
+ * Ahora la fecha se arma con los componentes locales y nunca pasa por UTC.
+ * `new Date(año, mes, día)` normaliza los desbordes de mes y año.
+ */
+export function getWeekId(now: Date = new Date()): string {
+  const dayOfWeek = now.getDay();
+  const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const monday = new Date(now.getFullYear(), now.getMonth(), diff);
+  const mes = String(monday.getMonth() + 1).padStart(2, '0');
+  const dia = String(monday.getDate()).padStart(2, '0');
+  return `${monday.getFullYear()}-${mes}-${dia}`;
 }
 
 // Revisar y otorgar badges basados en estado actual de transacciones y sueños.

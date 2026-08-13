@@ -85,14 +85,7 @@ function TargetChips({ reto }: { reto: RetoProgress['reto'] }) {
 export const RetoCard = memo(function RetoCard({ progress, onDelete }: Props) {
   const { reto, current, pct, failed, completed, diasRestantes } = progress;
 
-  const barColor = failed
-    ? '#ef4444'
-    : pct > 0.8
-      ? '#f59e0b'
-      : 'var(--blue-700)';
-
-  const statusBg   = completed ? '#f0fdf4' : failed ? '#fef2f2' : 'var(--surface)';
-  const statusText = completed ? '#16a34a' : failed  ? '#ef4444'  : 'var(--muted)';
+  const statusText = completed ? '#16a34a' : failed ? '#ef4444' : 'var(--muted)';
 
   const goalLabel = reto.tipo === 'frequency_limit'
     ? `${Math.round(current)} / ${reto.objetivo} tx`

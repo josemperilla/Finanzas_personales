@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { getGamification, getVisitasSemana } from '../lib/gamification';
+import { getVisitasSemana } from '../lib/gamification';
 import { getMeta } from '../lib/meta';
 import type { Transaction } from '../lib/api';
 import { isGasto } from '../lib/api';

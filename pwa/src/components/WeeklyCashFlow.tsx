@@ -32,6 +32,12 @@ export function WeeklyCashFlow({ transactions }: Props) {
   const lastWeekMonday = new Date(thisWeekMonday);
   lastWeekMonday.setDate(lastWeekMonday.getDate() - 7);
 
+  // Los Date se reconstruyen en cada render, así que el memo depende de los
+  // milisegundos (estables entre renders del mismo día), no de la identidad
+  // del objeto. Extraídos a variables para que la regla pueda verificarlos.
+  const thisWeekMondayMs = thisWeekMonday.getTime();
+  const lastWeekMondayMs = lastWeekMonday.getTime();
+
   const { dailyAmounts, weekTotal, prevWeekTotal } = useMemo(() => {
     const daily = Array(7).fill(0);
     let weekTotal = 0;
@@ -45,14 +51,14 @@ export function WeeklyCashFlow({ transactions }: Props) {
       const amount = Number(tx['Monto (COP)'] || 0);
       if (amount <= 0) continue;
 
-      const diffMs = d.getTime() - thisWeekMonday.getTime();
+      const diffMs = d.getTime() - thisWeekMondayMs;
       const diffDays = Math.round(diffMs / 86_400_000);
 
       if (diffDays >= 0 && diffDays <= 6) {
         daily[diffDays] += amount;
         weekTotal += amount;
       } else {
-        const prevDiff = Math.round((d.getTime() - lastWeekMonday.getTime()) / 86_400_000);
+        const prevDiff = Math.round((d.getTime() - lastWeekMondayMs) / 86_400_000);
         if (prevDiff >= 0 && prevDiff <= 6) {
           prevWeekTotal += amount;
         }
@@ -60,7 +66,7 @@ export function WeeklyCashFlow({ transactions }: Props) {
     }
 
     return { dailyAmounts: daily, weekTotal, prevWeekTotal };
-  }, [transactions, thisWeekMonday.getTime(), lastWeekMonday.getTime()]);
+  }, [transactions, thisWeekMondayMs, lastWeekMondayMs]);
 
   const maxAmount = Math.max(...dailyAmounts, 1);
   const maxDowIdx = dailyAmounts.indexOf(Math.max(...dailyAmounts));

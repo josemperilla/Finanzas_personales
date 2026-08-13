@@ -131,7 +131,6 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
       fetchCategoryBudgets().then(setServerBudgets).catch(() => {}).finally(() => setBudgetsLoading(false));
       fetchRules().then(setServerRules).catch(() => {});
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // Scroll a Presupuestos cuando se abre desde el acceso rápido del Home
@@ -1079,7 +1078,6 @@ export function Settings({ userId, transactions, initialSection, onClose, onProf
         {showFotoImport && (
           <ImportarExtractoPorFoto
             key="foto-import"
-            userId={userId}
             onClose={() => setShowFotoImport(false)}
             onImported={() => setShowFotoImport(false)}
           />
