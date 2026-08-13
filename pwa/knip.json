@@ -1,9 +1,8 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/main.tsx", "vite.config.ts"],
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": ["src/test/**"],
-  "ignoreDependencies": ["tailwindcss", "autoprefixer", "postcss"],
+  "ignoreDependencies": ["@capacitor/core", "@capacitor/ios", "@capacitor/cli"],
   "includeEntryExports": false,
   "rules": {
     "files": "error",

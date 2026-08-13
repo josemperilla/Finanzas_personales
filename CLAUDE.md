@@ -56,6 +56,8 @@ Dos detalles que no son obvios:
   todavía no tienen UI (`saveMood`, `fetchMoodHistory`, `fetchSpendingCoach`), y
   `primitives.tsx` / `motion.ts` son superficies de design system documentadas en
   `DESIGN.md`. Borrarlos por estar "sin usar" rompería contratos vivos.
+  Las tres deps de Capacitor van en `ignoreDependencies`: las consume el proyecto
+  nativo de `pwa/ios/`, que está gitignoreado, así que en CI parecerían huérfanas.
 - **`test-webhook-security.mjs`** sin `--self-test` pega contra un deployment real y exige
   `WEBHOOK_EXEC_URL` + `WEBHOOK_SECRET`; sin esas variables sale con código 2 (omitido, no
   fallido). En CI corre con `--self-test`.
