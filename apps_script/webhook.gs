@@ -473,6 +473,33 @@ function doPost(e) {
     // resuelve antes de cualquier validacion de userId.
     if (type === "redeemInvite") return _handleRedeemInvite(payload);
 
+    // Config remota de Script Properties sin abrir el editor (usado para
+    // migrar el proveedor del categorizador). Allowlist estricto: solo estas
+    // keys, y el _secret ya da acceso total al webhook, así que esto no amplía
+    // el modelo de amenazas. Devuelve el estado leído para confirmar la
+    // escritura de ida y vuelta.
+    if (type === "setScriptProperty") {
+      var PROP_ALLOWLIST = ["CATEGORIZE_PROVIDER", "OPENAI_API_KEY", "OPENAI_CATEGORIZE_MODEL"];
+      var spCfg = PropertiesService.getScriptProperties();
+      var set = {};
+      for (var ci = 0; ci < PROP_ALLOWLIST.length; ci++) {
+        var ck = PROP_ALLOWLIST[ci];
+        if (payload[ck] !== undefined) {
+          spCfg.setProperty(ck, String(payload[ck]));
+          set[ck] = true;
+        }
+      }
+      return jsonResponse({
+        ok: true,
+        set: set,
+        estado: {
+          provider: spCfg.getProperty('CATEGORIZE_PROVIDER'),
+          openaiKeySet: !!spCfg.getProperty('OPENAI_API_KEY'),
+          modelo: spCfg.getProperty('OPENAI_CATEGORIZE_MODEL') || 'gpt-5.6-luna (default)'
+        }
+      });
+    }
+
     // -- Acciones de arranque: DEFINEN la autenticacion, usan userId auto-declarado --
 
     // Verificar si el usuario ya tiene PIN configurado (para detectar primer login)
@@ -2274,8 +2301,12 @@ function parseFechaItau(fechaStr, horaStr) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+// Los separadores de miles son "." o "," (grupos de 3 dígitos). Si el monto trae centavos
+// ("$128,200.00", desde 2026-08 en los SMS de Banco de Bogotá ex-Itaú), se descartan antes de
+// quitar separadores: sin esto "128,200.00" quedaba como 12820000 (100 veces el valor).
 function parseMonto(str) {
-  return parseFloat(str.replace(/\./g, "").replace(/,/g, ""));
+  var s = String(str).trim().replace(/[.,]\d{1,2}$/, "");
+  return parseFloat(s.replace(/\./g, "").replace(/,/g, ""));
 }
 
 function normalizeTipo(raw) {
@@ -4183,6 +4214,34 @@ var WEBCAT_MAX_COLA    = 200;      // techo de la cola, por si algo la inunda
 // información, no ganarla.
 var WEBCAT_SIN_CATEGORIA = ["", "Otro", "Otros"];
 
+// Último motivo por el que falló una búsqueda. Sin esto, un fallo que no cede
+// —saldo agotado, clave revocada— deja la cola rotando en silencio: el trigger
+// corre cada 15 minutos, falla, y no hay forma de enterarse sin abrir los logs
+// de Apps Script. Es exactamente cómo se descubrió que la cuenta de Anthropic
+// se había quedado sin créditos: midiendo la hoja desde afuera, no por el sistema.
+var WEBCAT_ERROR_KEY = "WEBCAT_ULTIMO_ERROR";
+
+/**
+ * ¿Reintentar dentro de 15 minutos tiene alguna posibilidad de salir distinto?
+ *
+ * 4xx = no: saldo agotado (400), clave revocada (401), permiso retirado (403),
+ * endpoint que no existe (404). 429 y 5xx sí ceden solos, y por eso NO entran.
+ */
+function _esErrorPermanente(code) {
+  return code === 400 || code === 401 || code === 403 || code === 404;
+}
+
+function _webcatRegistrarError(e, comercio) {
+  try {
+    PropertiesService.getScriptProperties().setProperty(WEBCAT_ERROR_KEY, JSON.stringify({
+      msg: String((e && e.message) || e).slice(0, 300),
+      permanente: !!(e && e.permanente),
+      comercio: String(comercio || ""),
+      t: Date.now()
+    }));
+  } catch (err) { /* el registro del error nunca puede tumbar la corrida */ }
+}
+
 function _webcatSinCategoria(valor) {
   var v = String(valor == null ? "" : valor).trim();
   return WEBCAT_SIN_CATEGORIA.indexOf(v) !== -1;
@@ -4219,7 +4278,11 @@ function _webcatCargar() {
   var todas = PropertiesService.getScriptProperties().getProperties();
   _webcatMemo = {};
   for (var k in todas) {
-    if (k.indexOf(WEBCAT_PREFIX) !== 0 || k === WEBCAT_QUEUE_KEY) continue;
+    // El prefijo WEBCAT_ lo comparten la cola y el registro de errores, que NO
+    // son entradas del diccionario: sin excluirlas entrarían como comercios
+    // fantasma en `estadoCategoriasWeb()`.
+    if (k.indexOf(WEBCAT_PREFIX) !== 0) continue;
+    if (k === WEBCAT_QUEUE_KEY || k === WEBCAT_ERROR_KEY) continue;
     try { _webcatMemo[k] = JSON.parse(todas[k]); } catch (e) { /* entrada corrupta: ignorar */ }
   }
   return _webcatMemo;
@@ -4329,6 +4392,15 @@ function detectCategoryIngesta(comercio, userId) {
  */
 function _categorizeViaWebSearch(comercio) {
   var sp = PropertiesService.getScriptProperties();
+  // Dos proveedores; Anthropic es el default (compatibilidad). El cambio se
+  // hace por Script Property `CATEGORIZE_PROVIDER` = "openai" | "anthropic".
+  if (sp.getProperty('CATEGORIZE_PROVIDER') === 'openai') {
+    return _categorizeWebOpenAI(sp, comercio);
+  }
+  return _categorizeWebAnthropic(sp, comercio);
+}
+
+function _categorizeWebAnthropic(sp, comercio) {
   var key = sp.getProperty('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
@@ -4341,24 +4413,14 @@ function _categorizeViaWebSearch(comercio) {
   // Opus queda de default aunque resuelva uno menos: se abstiene donde Sonnet
   // adivina, y una categoría equivocada ensucia el presupuesto sin que nadie se
   // entere, mientras que un "Otro" es visible. Cambiable por Script Property.
+  //
+  // Desde 2026-08-13 la ruta preferida es OpenAI (CATEGORIZE_PROVIDER=openai):
+  // scripts/benchmark-categorize.mjs midió gpt-5.6-luna en 11/12 comercios y
+  // 4/4 no-comercios a ~$0.0105 c/u (−87% vs opus-5). Esta ruta queda como
+  // fallback cuando CATEGORIZE_PROVIDER no está seteada.
   var model = sp.getProperty('CLAUDE_CATEGORIZE_MODEL') || 'claude-opus-5';
 
-  var systemPrompt =
-    'Clasificas comercios colombianos en una categoría de gasto personal.\n' +
-    'Busca en internet el nombre del comercio para saber a qué industria pertenece.\n' +
-    'Categorías válidas (usa EXACTAMENTE una de estas cadenas):\n' +
-    ALLOWED_CATEGORIES.join(', ') + '\n\n' +
-    'Reglas:\n' +
-    '- El nombre viene de un recibo bancario, así que puede estar abreviado o ' +
-    'llevar códigos del adquirente. Busca el negocio real detrás del nombre.\n' +
-    '- Prioriza fuentes colombianas: el mismo nombre puede ser otra cosa en otro país.\n' +
-    '- Si la búsqueda no permite identificarlo con confianza razonable, responde ' +
-    'DESCONOCIDO. Es preferible dejarlo sin categoría a inventar una: una ' +
-    'categoría equivocada ensucia el presupuesto y el usuario no se entera.\n' +
-    '- No uses "Otro" como respuesta: para eso está DESCONOCIDO.\n' +
-    '- "Bre-B" es solo para transferencias por llave, nunca para un comercio.\n\n' +
-    'Termina SIEMPRE con una última línea con este formato exacto:\n' +
-    'CATEGORIA: <una de las categorías válidas, o DESCONOCIDO>';
+  var systemPrompt = _webcatSystemPrompt();
 
   var mensajes = [{
     role: 'user',
@@ -4401,7 +4463,12 @@ function _categorizeViaWebSearch(comercio) {
     }
     if (code !== 200) {
       var apiErr = (result.error && result.error.message) || JSON.stringify(result).slice(0, 150);
-      throw new Error('Claude API error ' + code + ': ' + apiErr);
+      var err = new Error('Claude API error ' + code + ': ' + apiErr);
+      // Distinguir "no sirve reintentar" de "vuelve a intentar más tarde". Sin
+      // esta distinción la cola rota para siempre sin avanzar y sin decir por
+      // qué — que es exactamente lo que pasó cuando se acabó el saldo.
+      err.permanente = _esErrorPermanente(code);
+      throw err;
     }
 
     // Los clasificadores de seguridad pueden declinar; no es un error HTTP.
@@ -4416,6 +4483,118 @@ function _categorizeViaWebSearch(comercio) {
     mensajes.push({ role: 'assistant', content: bloques });
   }
 
+  var m = /CATEGORIA:\s*([A-Za-zÁÉÍÓÚÑáéíóúñ\- ]+)/.exec(texto || '');
+  if (!m) return '';
+  var cat = m[1].trim();
+  if (/^DESCONOCIDO$/i.test(cat)) return '';
+  // La lista es la fuente de verdad: cualquier cosa fuera de ella se descarta.
+  return ALLOWED_CATEGORIES.indexOf(cat) !== -1 && cat !== 'Otro' ? cat : '';
+}
+
+/**
+ * Prompt compartido por los dos proveedores: ambos terminan la respuesta con
+ * la línea "CATEGORIA: <categoría válida o DESCONOCIDO>".
+ */
+function _webcatSystemPrompt() {
+  return (
+    'Clasificas comercios colombianos en una categoría de gasto personal.\n' +
+    'Busca en internet el nombre del comercio para saber a qué industria pertenece.\n' +
+    'Categorías válidas (usa EXACTAMENTE una de estas cadenas):\n' +
+    ALLOWED_CATEGORIES.join(', ') + '\n\n' +
+    'Reglas:\n' +
+    '- El nombre viene de un recibo bancario, así que puede estar abreviado o ' +
+    'llevar códigos del adquirente. Busca el negocio real detrás del nombre.\n' +
+    '- Prioriza fuentes colombianas: el mismo nombre puede ser otra cosa en otro país.\n' +
+    '- Si la búsqueda no permite identificarlo con confianza razonable, responde ' +
+    'DESCONOCIDO. Es preferible dejarlo sin categoría a inventar una: una ' +
+    'categoría equivocada ensucia el presupuesto y el usuario no se entera.\n' +
+    '- No uses "Otro" como respuesta: para eso está DESCONOCIDO.\n' +
+    '- "Bre-B" es solo para transferencias por llave, nunca para un comercio.\n\n' +
+    'Termina SIEMPRE con una última línea con este formato exacto:\n' +
+    'CATEGORIA: <una de las categorías válidas, o DESCONOCIDO>'
+  );
+}
+
+/**
+ * Ruta OpenAI (Responses API + tool `web_search`). Clave en la Script Property
+ * `OPENAI_API_KEY`; modelo en `OPENAI_CATEGORIZE_MODEL` (default gpt-5.6-luna).
+ * La ruta se activa con `CATEGORIZE_PROVIDER=openai`.
+ *
+ * Medido 2026-08-13 sobre 16 casos reales (scripts/benchmark-categorize.mjs):
+ *   gpt-5.6-luna  11/12 comercios, 4/4 no-comercios rechazados, ~$0.0105 c/u
+ *   gpt-5.6-terra 10/12 comercios, 4/4 no-comercios rechazados, ~$0.0268 c/u
+ * Luna queda de default: la búsqueda web ($10/1k) es ~90% del costo; sus
+ * tokens ($0.20/$1.20 por MTok) son casi gratis. Riesgo conocido: varianza de
+ * sampling — en 1 de 3 corridas adivinó KONNYE (restaurante) como Mercado.
+ */
+function _categorizeWebOpenAI(sp, comercio) {
+  var key = sp.getProperty('OPENAI_API_KEY');
+  if (!key) throw new Error('OPENAI_API_KEY no configurada');
+
+  var model = sp.getProperty('OPENAI_CATEGORIZE_MODEL') || 'gpt-5.6-luna';
+
+  var resp = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key
+    },
+    payload: JSON.stringify({
+      model: model,
+      instructions: _webcatSystemPrompt(),
+      input: 'Comercio del recibo bancario: "' + comercio + '"\n' +
+             '¿A qué categoría de gasto pertenece?',
+      max_output_tokens: 3000,
+      // El esfuerzo bajo mantiene la latencia y el costo de razonamiento a raya;
+      // la tarea es una sola clasificación, no una investigación.
+      reasoning: { effort: 'low' },
+      tools: [{
+        type: 'web_search',
+        search_context_size: 'low',
+        // Refuerza la regla del prompt de priorizar fuentes colombianas.
+        user_location: { type: 'approximate', country: 'CO' }
+      }]
+    }),
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  var body = resp.getContentText();
+  var result;
+  try {
+    result = JSON.parse(body);
+  } catch (parseErr) {
+    throw new Error('OpenAI devolvió respuesta no-JSON (HTTP ' + code + '): ' + body.slice(0, 120));
+  }
+  if (code !== 200) {
+    var apiErr = (result.error && result.error.message) || JSON.stringify(result).slice(0, 150);
+    var err = new Error('OpenAI API error ' + code + ': ' + apiErr);
+    // Mismos códigos que Anthropic: 400/401/403/404 no ceden (cortar corrida),
+    // 429/5xx son transitorios (devolver a la cola).
+    err.permanente = _esErrorPermanente(code);
+    throw err;
+  }
+
+  // El texto final es el último bloque `output_text` de los items `message`
+  // (igual que en Anthropic el texto es el último bloque `text`).
+  var texto = '';
+  if (result.output_text) {
+    texto = result.output_text;
+  } else {
+    var items = result.output || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type !== 'message' || !items[i].content) continue;
+      for (var j = 0; j < items[i].content.length; j++) {
+        if (items[i].content[j].type === 'output_text' && items[i].content[j].text) {
+          texto = items[i].content[j].text;
+        }
+      }
+    }
+  }
+  return _webcatParseCategoria(texto);
+}
+
+function _webcatParseCategoria(texto) {
   var m = /CATEGORIA:\s*([A-Za-zÁÉÍÓÚÑáéíóúñ\- ]+)/.exec(texto || '');
   if (!m) return '';
   var cat = m[1].trim();
@@ -4453,7 +4632,7 @@ function procesarColaCategorias() {
     var lote      = cola.slice(0, WEBCAT_MAX_POR_RUN);
     var resto     = cola.slice(WEBCAT_MAX_POR_RUN);
     var resueltos = {};
-    var nBuscados = 0, nNuevos = 0, sinTiempo = 0;
+    var nBuscados = 0, nNuevos = 0, sinTiempo = 0, abortadoPor = '', huboError = false;
     var t0 = Date.now();
 
     for (var i = 0; i < lote.length; i++) {
@@ -4486,6 +4665,18 @@ function procesarColaCategorias() {
         // Fallo transitorio (rate limit, red): NO se cachea y vuelve a la cola,
         // igual que la huella de ingesta se suelta ante un fallo transitorio.
         Logger.log('webcat error en "' + comercio + '": ' + e);
+        _webcatRegistrarError(e, comercio);
+        huboError = true;
+
+        if (e && e.permanente) {
+          // Reintentar los 11 restantes es quemar la corrida para nada: van a
+          // fallar igual. Se devuelve el lote entero al frente de la cola y se
+          // corta, dejando el motivo escrito para que `estadoCategoriasWeb()`
+          // lo muestre en vez de que la cola rote en silencio.
+          resto = lote.slice(i).concat(resto);
+          abortadoPor = String(e.message || e);
+          break;
+        }
         resto.push(comercio);
       }
     }
@@ -4496,12 +4687,20 @@ function procesarColaCategorias() {
     var filas = 0;
     for (var k in resueltos) { filas = _rellenarCategorias(resueltos); break; }
 
+    // Una corrida que buscó y no falló en NADA deja el registro limpio: así el
+    // diagnóstico muestra el estado de hoy, no el susto de la semana pasada. Si
+    // hubo aunque sea un fallo suelto se conserva, porque algo intermitente
+    // también vale la pena verlo.
+    if (nBuscados && !huboError) sp.deleteProperty(WEBCAT_ERROR_KEY);
+
     Logger.log('procesarColaCategorias: ' + nBuscados + ' buscados, ' + nNuevos +
                ' resueltos, ' + filas + ' filas, ' + resto.length + ' pendientes' +
-               (sinTiempo ? ' (' + sinTiempo + ' devueltos por reloj)' : ''));
+               (sinTiempo ? ' (' + sinTiempo + ' devueltos por reloj)' : '') +
+               (abortadoPor ? ' — ABORTADA: ' + abortadoPor : ''));
     return {
       ok: true, buscados: nBuscados, resueltos: nNuevos,
-      filas: filas, pendientes: resto.length, devueltosPorReloj: sinTiempo
+      filas: filas, pendientes: resto.length, devueltosPorReloj: sinTiempo,
+      abortadoPor: abortadoPor
     };
   } finally {
     lock.releaseLock();
@@ -4635,12 +4834,32 @@ function estadoCategoriasWeb() {
     var e = dic[k];
     (e.c === WEBCAT_DESCONOCIDO ? desconocidos : resueltos).push(e.m + ' → ' + e.c);
   }
-  var cola = JSON.parse(PropertiesService.getScriptProperties().getProperty(WEBCAT_QUEUE_KEY) || '[]');
+  var sp = PropertiesService.getScriptProperties();
+  var cola = JSON.parse(sp.getProperty(WEBCAT_QUEUE_KEY) || '[]');
+
+  // Lo primero que hay que poder contestar es "¿por qué la cola no baja?".
+  var ultimoError = null;
+  try {
+    var raw = sp.getProperty(WEBCAT_ERROR_KEY);
+    if (raw) {
+      var e = JSON.parse(raw);
+      ultimoError = {
+        mensaje: e.msg,
+        permanente: e.permanente,
+        comercio: e.comercio,
+        hace: Math.round((Date.now() - (e.t || 0)) / 60000) + ' min'
+      };
+    }
+  } catch (err) { /* registro corrupto: no vale la pena tumbar el diagnóstico */ }
+
   return {
     ok: true,
     resueltos: resueltos.sort(),
     desconocidos: desconocidos.sort(),
-    enCola: cola
+    enCola: cola,
+    // Si esto no es null y `permanente` es true, la cola no va a avanzar hasta
+    // que alguien arregle la causa (típicamente: saldo de Anthropic).
+    ultimoError: ultimoError
   };
 }
 
@@ -4864,4 +5083,31 @@ function checkLifestyleInflationTrigger() {
       }
     } catch(e) { Logger.log('checkLifestyleInflation error para ' + uid + ': ' + e.message); }
   });
+}
+
+// ── Configuración remota del categorizador (vía Execution API / clasp run) ──
+// Permite migrar el proveedor sin abrir el editor: `clasp run _setupCategorizador
+// --params '["openai","sk-..."]'`. El proveedor se guarda siempre; la key solo
+// si llega (no pisa la existente si se omite).
+function _setupCategorizador(provider, apiKey) {
+  var sp = PropertiesService.getScriptProperties();
+  sp.setProperty('CATEGORIZE_PROVIDER', provider || 'openai');
+  if (apiKey) sp.setProperty('OPENAI_API_KEY', apiKey);
+  return {
+    provider: sp.getProperty('CATEGORIZE_PROVIDER'),
+    openaiKeySet: !!sp.getProperty('OPENAI_API_KEY'),
+    modelo: sp.getProperty('OPENAI_CATEGORIZE_MODEL') || 'gpt-5.6-luna (default)'
+  };
+}
+
+// Diagnóstico: corre una clasificación real contra OpenAI sin tocar la cola ni
+// la hoja. Cuesta ~$0.01. `clasp run _testCategorizadorOpenAI --params '["KONNYE"]'`
+function _testCategorizadorOpenAI(comercio) {
+  var sp = PropertiesService.getScriptProperties();
+  var nombre = String(comercio || 'KONNYE');
+  return {
+    comercio: nombre,
+    categoria: _categorizeWebOpenAI(sp, nombre),
+    keySet: !!sp.getProperty('OPENAI_API_KEY')
+  };
 }

@@ -73,16 +73,20 @@ Set/get vía `PropertiesService.getScriptProperties()`. Sensibles a mayúsculas.
 | `ADMIN_USER` | Override del admin id (default `"jose"`). |
 | `WEBHOOK_SECRET` | Secreto del canal shortcut (iOS Shortcut). |
 | `WEB_SECRET` | Secreto del canal web (proxy Cloudflare). |
-| `ANTHROPIC_API_KEY` | Clave de Anthropic para `_callClaudeAI`. |
+| `ANTHROPIC_API_KEY` | Clave de Anthropic para `_callClaudeAI` y fallback del categorizador. |
+| `OPENAI_API_KEY` | Clave de OpenAI. Requerida solo si `CATEGORIZE_PROVIDER=openai`. |
+| `CATEGORIZE_PROVIDER` | Proveedor del categorizador web: `openai` (default recomendado desde 2026-08-13) o `anthropic` (fallback del código si no está seteada). |
+| `OPENAI_CATEGORIZE_MODEL` | Modelo para `_categorizeWebOpenAI`. Default `gpt-5.6-luna`. Alternativa medida: `gpt-5.6-terra` (~2.5x más caro sin ganar calidad). |
 | `CLAUDE_DEFAULT_MODEL` | Modelo por defecto de `_callClaudeAI` (fallback `claude-haiku-4-5-20251001`). |
 | `CLAUDE_VOICE_MODEL` | Modelo para `parseVoice` (transcripción de voz). Default Haiku. |
 | `CLAUDE_CHAT_MODEL` | Modelo para `handleChat` (asistente financiero; usa prompt caching). Default Haiku. |
 | `CLAUDE_SMS_MODEL` | Modelo para `parseSmsFallback` (parser IA de SMS no reconocidos). Default Haiku. |
 | `CLAUDE_COACH_MODEL` | Modelo para `_spendingCoach` (insights + retos). Default Haiku. |
 | `CLAUDE_HEALTH_REPORT_MODEL` | Modelo para `_generateHealthReport` (reporte mensual; Default Sonnet — decisión de producto, ver TODOS.md). |
-| `CLAUDE_CATEGORIZE_MODEL` | Modelo para `_categorizeViaWebSearch`. Default `claude-opus-5`. **No puede ser Haiku:** `web_search_20260209` exige Opus 4.6+/Sonnet 4.6+. |
+| `CLAUDE_CATEGORIZE_MODEL` | Modelo para `_categorizeWebAnthropic` (ruta `anthropic`). Default `claude-opus-5`. **No puede ser Haiku:** `web_search_20260209` exige Opus 4.6+/Sonnet 4.6+. |
 | `WEBCAT_<hash16>` | Entrada del diccionario de comercios resueltos por búsqueda web. Clave = MD5 del nombre normalizado. Valor JSON `{m: normalizado, c: categoría o "?", t: timestamp, f: fuente}`. `"?"` es la **caché negativa** (se reintenta a los 45 días); una categoría resuelta no caduca nunca. |
 | `WEBCAT_QUEUE` | JSON array de comercios normalizados pendientes de buscar. Tope 200. Lo llena la ingesta (`detectCategoryIngesta`) y lo drena el trigger `procesarColaCategorias` (cada 15 min, 12 por corrida). |
+| `WEBCAT_ULTIMO_ERROR` | JSON `{msg, permanente, comercio, t}` del último fallo de búsqueda. Lo expone `estadoCategoriasWeb()`. **`permanente: true` = la cola no va a avanzar sola** (saldo de Anthropic agotado, clave revocada). Una corrida sin fallos lo borra. |
 | `APP_USER_DISABLED_<id>` | `"true"` → usuario bloqueado. |
 | `APP_PROFILE_NAME_<id>` / `APP_PROFILE_AVATAR_<id>` | Perfil cross-device (sincronizado). |
 | `APP_ALERT_EMAIL_<id>` / `APP_ALERT_THRESHOLD_<id>` | Alertas de gasto por email. |
@@ -196,7 +200,15 @@ proyecto no está desplegado como API executable):
 |---|---|
 | `setupCategoriasWebTrigger()` | crea el trigger de 15 min. Una sola vez. |
 | `encolarOtrosExistentes()` | reconcilia el histórico sin categorizar. Idempotente. |
-| `estadoCategoriasWeb()` | diagnóstico: resueltos, desconocidos y cola pendiente. |
+| `estadoCategoriasWeb()` | diagnóstico: resueltos, desconocidos, cola pendiente y **`ultimoError`**. |
+
+**Si la cola no baja, mira `ultimoError` primero.** Un fallo que no cede —el caso real fue el
+saldo de Anthropic agotado, que devuelve HTTP 400— hacía que los 12 comercios del lote fallaran
+uno por uno y volvieran a la cola: rotaba indefinidamente, sin avanzar y sin decir por qué. Ahora
+`_esErrorPermanente()` separa 400/401/403/404 (no sirve reintentar: corta la corrida y deja el
+motivo escrito) de 429/5xx (ceden solos: se sigue con el resto del lote). Ese fallo tumba **todo**
+el AI del backend, no solo la categorización: `_callClaudeAI` comparte la misma
+`ANTHROPIC_API_KEY`, así que también caen el parser IA de SMS, la voz, el chat y el coach.
 
 ## 6. Contrato de proveedores / conectores de facturas
 

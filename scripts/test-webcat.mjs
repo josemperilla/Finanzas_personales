@@ -42,6 +42,7 @@ const ctx = {
     getScriptProperties: () => ({
       getProperty: (k) => (k in props ? props[k] : null),
       setProperty: (k, v) => { props[k] = String(v); },
+      deleteProperty: (k) => { delete props[k]; },
       getProperties: () => ({ ...props }),
     }),
   },
@@ -68,8 +69,11 @@ vm.runInContext(
     grabVar("WEBCAT_MAX_COLA"),
     grabVar("WEBCAT_MAX_MS"),
     grabVar("WEBCAT_SIN_CATEGORIA"),
+    grabVar("WEBCAT_ERROR_KEY"),
     grabVar("_webcatMemo"),
     grabFn("_webcatSinCategoria"),
+    grabFn("_esErrorPermanente"),
+    grabFn("_webcatRegistrarError"),
     grabFn("_categoriaUnanime"),
     grabFn("_webcatCargar"),
     grabFn("_webcatClave"),
@@ -350,6 +354,86 @@ console.log("\n── El worker no pierde trabajo pagado ──");
   eq(pend.length + espia.buscados.length, 3, "no se pierde ni se duplica ningún comercio");
   ok(pend.length === 0 || pend[0] === "A" || pend[0] === "B" || pend[0] === "C",
      "lo devuelto vuelve al frente de la cola");
+}
+
+console.log("\n── Qué error vale la pena reintentar ──");
+{
+  const p = ctx._esErrorPermanente;
+  // 400 es el que motivó todo esto: "Your credit balance is too low".
+  ok(p(400), "400 (saldo agotado / petición inválida) es permanente");
+  ok(p(401), "401 (clave inválida) es permanente");
+  ok(p(403), "403 (permiso retirado) es permanente");
+  ok(p(404), "404 (endpoint inexistente) es permanente");
+
+  // Estos ceden solos: cortar la corrida por ellos sería tirar el trigger.
+  ok(!p(429), "429 (rate limit) NO es permanente, cede solo");
+  ok(!p(500), "500 NO es permanente");
+  ok(!p(502), "502 NO es permanente");
+  ok(!p(503), "503 (sobrecarga) NO es permanente");
+  ok(!p(529), "529 (overloaded de Anthropic) NO es permanente");
+  ok(!p(200), "200 obviamente no es un error");
+}
+
+console.log("\n── Un fallo que no cede tiene que verse ──");
+{
+  const correr = () => { espia.buscados = []; espia.rellenos = []; return ctx.procesarColaCategorias(); };
+  const cola = (arr) => { props[ctx.WEBCAT_QUEUE_KEY] = JSON.stringify(arr); };
+  const permanente = (msg) => { const e = new Error(msg); e.permanente = true; return e; };
+
+  // El caso real: saldo agotado. La API devuelve 400 y va a devolver 400 dentro
+  // de 15 minutos también. Antes, los 12 del lote fallaban uno por uno y volvían
+  // a la cola: rotaba para siempre, sin avanzar y sin decir por qué.
+  reset();
+  espia.respuestas = {
+    A: permanente("Claude API error 400: Your credit balance is too low"),
+    B: "Mercado", C: "Mercado",
+  };
+  cola(["A", "B", "C"]);
+  let r = correr();
+  eq(espia.buscados.length, 1, "un error permanente corta la corrida en el primer comercio");
+  eq(r.pendientes, 3, "…sin perder ninguno: los tres siguen en la cola");
+  ok(String(r.abortadoPor).indexOf("credit balance") !== -1,
+     "…y la corrida reporta por qué se abortó");
+  ok(JSON.parse(props[ctx.WEBCAT_ERROR_KEY]).permanente === true,
+     "el motivo queda registrado como permanente");
+  ok(!ctx._webcatIntentado("A"), "el comercio que falló no queda marcado como intentado");
+
+  // Un 429/500 sí cede: se sigue con los demás del lote.
+  reset();
+  espia.respuestas = { A: new Error("Claude API error 429: rate limit"), B: "Mercado", C: "Mercado" };
+  cola(["A", "B", "C"]);
+  r = correr();
+  eq(espia.buscados.length, 3, "un error transitorio no corta la corrida");
+  eq(r.resueltos, 2, "…y los demás del lote sí se resuelven");
+  ok(JSON.parse(props[ctx.WEBCAT_ERROR_KEY]).permanente === false,
+     "queda registrado, pero marcado como transitorio");
+
+  // Una corrida sana borra el registro: el diagnóstico muestra el hoy, no el
+  // susto de la semana pasada.
+  reset();
+  props[ctx.WEBCAT_ERROR_KEY] = JSON.stringify({ msg: "viejo", permanente: true, t: 1 });
+  espia.respuestas = { A: "Mercado" };
+  cola(["A"]);
+  correr();
+  ok(!(ctx.WEBCAT_ERROR_KEY in props), "una corrida sana limpia el registro de error");
+
+  // Pero una corrida que no buscó nada NO lo limpia: no probó nada, no sabe nada.
+  reset();
+  props[ctx.WEBCAT_ERROR_KEY] = JSON.stringify({ msg: "saldo", permanente: true, t: 1 });
+  cola([]);
+  correr();
+  ok(ctx.WEBCAT_ERROR_KEY in props,
+     "una corrida sin búsquedas no borra el registro (no probó nada)");
+
+  // El registro comparte el prefijo WEBCAT_ con las entradas del diccionario.
+  // Si `_webcatCargar` no lo excluyera, saldría como un comercio fantasma.
+  reset();
+  ctx._webcatRegistrarError(permanente("saldo agotado"), "TERIYAKI");
+  ctx._webcatPut("KONNYE", "Restaurantes", "web");
+  ctx._webcatMemo = null;
+  const dic = ctx._webcatCargar();
+  eq(Object.keys(dic).length, 1, "el registro de error no entra al diccionario");
+  eq(ctx._webcatGet("KONNYE"), "Restaurantes", "…y el comercio real sigue resolviendo");
 }
 
 console.log("\n── Parseo de la respuesta del modelo ──");

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.2] — 2026-08-13
+
+### Fixes
+- **Un fallo que no cede dejaba la cola rotando en silencio.** Descubierto midiendo la hoja desde afuera, no por el sistema: el drenaje quedó plano en 93 filas durante 20 minutos. La causa resultó no ser el código — **la cuenta de Anthropic se quedó sin créditos**, y la API devuelve HTTP 400 `Your credit balance is too low`. El worker trataba *cualquier* excepción como transitoria, así que los 12 comercios del lote fallaban uno por uno y volvían a la cola: rotaba cada 15 minutos, indefinidamente, sin avanzar y sin ninguna señal. Ahora `_esErrorPermanente()` separa 400/401/403/404 (no sirve reintentar: corta la corrida sin perder nada de la cola y deja el motivo escrito) de 429/5xx (ceden solos: se sigue con el resto del lote).
+- **`estadoCategoriasWeb()` ahora contesta "¿por qué la cola no baja?"**, que era justo lo que no se podía saber sin abrir los logs de Apps Script. Devuelve `ultimoError` con el mensaje, si es permanente, qué comercio lo disparó y hace cuánto. Una corrida sin fallos lo borra, así que refleja el estado de hoy y no un susto viejo.
+- **El registro de errores comparte el prefijo `WEBCAT_` con las entradas del diccionario**, así que sin excluirlo `_webcatCargar()` lo habría cargado como un comercio fantasma. Cubierto con un test.
+
+### Tooling
+- **`scripts/test-webcat.mjs` 82 → 104 tests.** La clasificación de errores se extrajo a `_esErrorPermanente()` justamente para poder probarla: la primera versión vivía embebida en `_categorizeViaWebSearch` y el mutation-test pasó en verde porque los tests del worker usan un doble de esa función — la regla HTTP no estaba cubierta por nadie. Ahora las dos mutaciones obvias ("nada es permanente", "todo 4xx+ es permanente") rompen la suite.
+
 ## [1.5.1] — 2026-08-13
 
 ### Fixes
