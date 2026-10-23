@@ -2274,8 +2274,12 @@ function parseFechaItau(fechaStr, horaStr) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+// Los separadores de miles son "." o "," (grupos de 3 dígitos). Si el monto trae centavos
+// ("$128,200.00", desde 2026-08 en los SMS de Banco de Bogotá ex-Itaú), se descartan antes de
+// quitar separadores: sin esto "128,200.00" quedaba como 12820000 (100 veces el valor).
 function parseMonto(str) {
-  return parseFloat(str.replace(/\./g, "").replace(/,/g, ""));
+  var s = String(str).trim().replace(/[.,]\d{1,2}$/, "");
+  return parseFloat(s.replace(/\./g, "").replace(/,/g, ""));
 }
 
 function normalizeTipo(raw) {
